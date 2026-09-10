@@ -45,7 +45,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - One line: crawl date and page count.
 - A table: Page | Issue | Current | Recommended | Severity (five rows at most).
 - First action: page, field, paste-ready value, one sentence on why it is first.
-- Closing line per rule 9.
+- Closing line per rule 9, plus one clause saying that no crawl was triggered (or that one was, and why).
 
 ## If something is missing
 
@@ -60,4 +60,4 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - Five issues at most, each with a current and a recommended value.
 - One first action naming a page.
 - The crawl's issue count is never shown. No raw page list.
-- The closing line names what was capped.
+- The closing line names what was capped and says that no crawl was triggered.
