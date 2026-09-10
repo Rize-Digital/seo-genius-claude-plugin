@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "seo-genius": {
+      "type": "http",
+      "url": "https://api.seogenius.ai/api/mcp/v1"
+    }
+  }
+}

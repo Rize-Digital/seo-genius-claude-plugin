@@ -1,0 +1,14 @@
+{
+  "name": "seo-genius-plugins",
+  "description": "SEO Genius plugins for Claude Code.",
+  "owner": { "name": "Rize Digital", "email": "info@rizedigital.io" },
+  "plugins": [
+    {
+      "name": "seo-genius",
+      "source": "./plugins/seo-genius",
+      "description": "SEO audit, keywords, rankings, competitors, and quick wins from the SEO Genius memory layer.",
+      "category": "productivity",
+      "keywords": ["seo", "keyword-research", "site-audit", "mcp"]
+    }
+  ]
+}

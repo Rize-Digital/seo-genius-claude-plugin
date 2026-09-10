@@ -1,0 +1,11 @@
+{
+  "name": "seo-genius",
+  "displayName": "SEO Genius",
+  "version": "1.0.0",
+  "description": "SEO audit, keyword research, rankings, competitor analysis, and quick wins for your website, powered by the SEO Genius memory layer. Reads your crawled site data, open issues, tracked keywords, and business context over MCP, and logs every change you make so the next session starts smarter.",
+  "author": { "name": "Rize Digital", "email": "info@rizedigital.io", "url": "https://seogenius.ai" },
+  "homepage": "https://seogenius.ai",
+  "repository": "https://github.com/Rize-Digital/seo-genius-claude-plugin",
+  "license": "MIT",
+  "keywords": ["seo", "local-seo", "site-audit", "keyword-research", "rankings", "competitor-analysis", "mcp", "memory"]
+}
