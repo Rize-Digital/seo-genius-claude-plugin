@@ -34,7 +34,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 3. `search_pages` with `q: <phrase>`, `match_count: 5`. If the user gave a URL, match it against the returned URLs first.
    - One clear match: confirm the URL in the reply and continue.
    - More than one plausible match: list the candidate URLs and ask which one. Stop until answered.
-   - No match: ask for the page URL. Stop.
+   - No match: page through `list_pages` (`limit: 100`, follow `next_cursor`) and match the URL or title; the homepage in particular often does not surface from `search_pages`. Still nothing: ask for the page URL. Stop.
 4. `list_issues` with `page_id: <matched page id>`, `status: "open"`, `limit: 50`.
 5. `get_page` once with `page_id` for the current title, meta description, H1, headings, and schema types.
 

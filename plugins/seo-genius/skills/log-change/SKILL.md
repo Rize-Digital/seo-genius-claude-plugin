@@ -30,7 +30,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 ## Procedure
 
 1. Resolve the site (rule 1). If `can_write` is false: write the change out as a short block (page, field, before, after, reason) the user can paste or send to a workspace owner, say the account is read-only, and stop.
-2. Find the page: `search_pages` with a descriptive phrase built from the user's words, `match_count: 5`. If the user gave a URL, match on it. More than one candidate: ask. None: ask for the URL.
+2. Find the page: `search_pages` with a descriptive phrase built from the user's words, `match_count: 5`. If the user gave a URL, match on it. More than one candidate: ask. None: page through `list_pages` (`limit: 100`, follow `next_cursor`) and match the URL; the homepage often does not surface from `search_pages`. Still none: ask for the URL.
 3. `get_page` with `page_id` to read the current stored value of the field. If the user did not state the "before", use the stored value and say so.
 4. `list_crawls` with `limit: 20`; take the most recent completed crawl's id as `crawl_id`.
 5. Show the entry and ask for a yes: page URL, field, before, after, reason. Do not write until the user confirms.
