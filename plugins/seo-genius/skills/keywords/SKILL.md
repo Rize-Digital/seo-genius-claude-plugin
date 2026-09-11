@@ -20,7 +20,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 1. Resolve the business first. Call `get_my_tenant`, then `list_sites`. Match what the user typed to a site by name or domain. Echo the site and `can_write` before doing anything else. When the connection is org-scoped (`get_my_tenant` returns `org_id` and `sites[]`), pass `site` (the site id or domain) on every later call. Ambiguous or no match: ask which site.
 2. Read memory before deriving. Call `get_business_context` once per session for the business name, services, locations, and competitors. Do not re-derive what is already stored.
 3. Retrieval first, quota aware. Read stored SEO Genius data before any Data-for-SEO call (`keyword_research`, `ranked_keywords`, `competitor_domains`, `serp_rank_check`). Batch keywords, up to 200, into one `keyword_research` call. Say when a call spends the user's quota. Do not call `search_recommendations`; it returns an empty set today.
-4. Local, not national. Data-for-SEO tools default to the whole United States. Pass the customer's metro as `location_name` on `ranked_keywords` (a string such as "Boise,Idaho,United States") or as `location_code` on the other three (an integer), or make the keywords themselves local ("tree removal boise"). State which was done.
+4. Local, not national, with the right tool. `ranked_keywords`, `keyword_research`, and `competitor_domains` run at country level only (Data-for-SEO Labs does not take a city or state, and a city returns nothing). Pass the customer's country (`location_name: "United States"` or `location_code: 2840` for a US business) and make the keywords themselves local ("tree removal boise"). For a local position use `serp_rank_check` with the metro `location_code`, or with the city in the keyword when no code is known. State which was done.
 5. Never invent a number. Every figure traces to a tool result. Missing data is reported as missing.
 6. Cap every list. Call `list_issues` with `limit` (50 by default, 100 at most) and read the first page only unless the user asks for more. Never quote a crawl's `issues_found` field.
 7. Search with phrases. `search_pages` is a vector search; give it a descriptive phrase ("concrete driveway installation service page"), never a single word.
@@ -33,14 +33,14 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 2. `get_business_context` for services, city, state, and metro.
 3. `list_keywords` with `limit: 100`. These are free to read and already tracked.
 4. Build the candidate list, 200 at most, in this order: the user's terms; tracked terms that match the user's topic; for each generic term, one local variant "<term> <city>"; for each service in the business context without a tracked term, "<service> <city>". Remove duplicates and brand terms.
-5. Pick the location. If the metro's Data-for-SEO `location_code` is known from context or from the user, use it. If not, keep the default and rely on the local variants. Write down which.
-6. One call: `keyword_research` with `keywords: [<candidates>]`, `location_code: <code if known>`, `language_code: "en"`. Tell the user before the call that it spends their quota.
+5. Pick the location: the customer's country code (`2840` for the United States). A city code returns nothing on this tool, so locality comes from the geo-modified variants in step 4. Write down which country code was used.
+6. One call: `keyword_research` with `keywords: [<candidates>]`, `location_code: <country code>`, `language_code: "en"`. Tell the user before the call that it spends their quota.
 7. Rank by search volume descending, break ties by lower competition. Mark intent when the tool returns it.
 8. Shortlist five: highest volume terms with competition below the median of the set, one sentence each on where they fit (existing page, new page, or FAQ).
 
 ## Output
 
-- One line: location used (code, or "geo-modified terms at the default") and that quota was spent.
+- One line: the country code used, that locality came from the geo-modified terms, and that quota was spent.
 - A table: Keyword | Monthly volume | CPC | Competition (0 to 1) | Intent.
 - Shortlist: five terms, one sentence each.
 - Closing line per rule 9.

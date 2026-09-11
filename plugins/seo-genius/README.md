@@ -39,7 +39,7 @@ You can also just ask in plain words ("what's wrong with my homepage?") and Clau
 
 - They confirm which site they are working on before doing anything.
 - They read what SEO Genius already stores before making any live call, and they say when a call spends your Data-for-SEO quota.
-- They target your metro, not the whole country.
+- Keyword volume, ranking baselines, and competitor lists come at country level, because the data source supports countries only. The skills make the keywords themselves local and use a live search check for your metro.
 - Every number comes from a tool result. Missing data is reported as missing, never guessed.
 - Lists are capped and paginated; the reply says what was capped.
 - The only write is `log-change`, and it asks for your confirmation first. Logging records that a change happened. It does not claim the change worked.

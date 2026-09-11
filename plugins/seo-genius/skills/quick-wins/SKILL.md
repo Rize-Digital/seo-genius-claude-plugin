@@ -20,7 +20,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 1. Resolve the business first. Call `get_my_tenant`, then `list_sites`. Match what the user typed to a site by name or domain. Echo the site and `can_write` before doing anything else. When the connection is org-scoped (`get_my_tenant` returns `org_id` and `sites[]`), pass `site` (the site id or domain) on every later call. Ambiguous or no match: ask which site.
 2. Read memory before deriving. Call `get_business_context` once per session for the business name, services, locations, and competitors. Do not re-derive what is already stored.
 3. Retrieval first, quota aware. Read stored SEO Genius data before any Data-for-SEO call (`keyword_research`, `ranked_keywords`, `competitor_domains`, `serp_rank_check`). Batch keywords, up to 200, into one `keyword_research` call. Say when a call spends the user's quota. Do not call `search_recommendations`; it returns an empty set today.
-4. Local, not national. Data-for-SEO tools default to the whole United States. Pass the customer's metro as `location_name` on `ranked_keywords` (a string such as "Boise,Idaho,United States") or as `location_code` on the other three (an integer), or make the keywords themselves local ("tree removal boise"). State which was done.
+4. Local, not national, with the right tool. `ranked_keywords`, `keyword_research`, and `competitor_domains` run at country level only (Data-for-SEO Labs does not take a city or state, and a city returns nothing). Pass the customer's country (`location_name: "United States"` or `location_code: 2840` for a US business) and make the keywords themselves local ("tree removal boise"). For a local position use `serp_rank_check` with the metro `location_code`, or with the city in the keyword when no code is known. State which was done.
 5. Never invent a number. Every figure traces to a tool result. Missing data is reported as missing.
 6. Cap every list. Call `list_issues` with `limit` (50 by default, 100 at most) and read the first page only unless the user asks for more. Never quote a crawl's `issues_found` field.
 7. Search with phrases. `search_pages` is a vector search; give it a descriptive phrase ("concrete driveway installation service page"), never a single word.
@@ -34,14 +34,14 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 3. `list_issues` with `status: "open"`, `severity: "critical"`, `limit: 100`, then the same with `severity: "high"`. First page each.
 4. Keep only single-field issues that carry a recommended value: title, meta description, H1, schema, image alt text. Drop anything that needs new copy, a new page, a redirect, or a code change.
 5. Rank the keepers: severity, then homepage and service pages before blog posts, then shortest edit. Take three. Call `get_page` only when the issue row does not name the page URL.
-6. `ranked_keywords` with `domain: <site domain>`, `location_name: "<City>,<Region>,<Country>"`, `language_name: "English"`, `limit: 200`. Build the location from the business context (for a US business it reads like "Boise,Idaho,United States"). Say that this call spends quota. Keep rows with position 4 to 20. Drop brand terms. Sort by search volume descending. Take five.
+6. `ranked_keywords` with `domain: <site domain>`, `location_name: "<Country>"` (the customer's country from the business context, "United States" for a US business; never a city or state, which return nothing), `language_name: "English"`, `limit: 200`. One call only. Say that this call spends quota and that the positions are country-level. Keep rows with position 4 to 20 whose keyword names one of the customer's services. Drop brand terms. Sort by search volume descending. Take five.
 7. For each keyword, name the ranking page from the row and one move: put the term and the city in the title, add an H2 that answers the query, add an FAQ, or add an internal link with the local anchor. One move per keyword.
 
 ## Output
 
 - "Do these first": three rows, Page | Field | Current | Paste-ready value | Why.
 - "Closest keyword wins": five rows at most, Keyword | Position | Volume | Ranking page | The one move.
-- One line: the `location_name` used.
+- One line: the `location_name` used and that the positions are country-level.
 - Closing line per rule 9.
 
 ## If something is missing
@@ -49,11 +49,11 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - Tools not available: run `/mcp`, choose seo-genius, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above.
 - No single-field issues with a recommended value: say so and point to `/seo-genius:audit` for the full picture.
-- `ranked_keywords` returns nothing: ship the fixes alone. Then check that the location string resolved (city, region, and country as the business context stores them). If it resolved, say the ranking data was empty for that location. If it did not, say the location could not be resolved and ask the user for their city and country; do not present the empty result as a ranking fact.
+- `ranked_keywords` returns nothing at country scope: ship the fixes alone and say the domain has no ranking terms recorded. Do not retry with a city or state; those return nothing on this tool.
 - Rate limited (429) or `upstream_unavailable`: stop, show what came back, say what was not fetched.
 
 ## Done when
 
 - Three single-field fixes with paste-ready values, none on an issue without a recommended value.
 - Five keywords at most, all at position 4 to 20, each with a ranking page and one move.
-- The `location_name` and the quota spend are stated.
+- The `location_name`, that positions are country-level, and the quota spend are stated, and `ranked_keywords` was called once.
