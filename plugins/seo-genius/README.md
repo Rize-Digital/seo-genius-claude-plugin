@@ -6,6 +6,7 @@ SEO audit, keyword research, rankings, competitor analysis, and quick wins for y
 
 - An SEO Genius account on Pro or above. Connecting an LLM uses the `mcp` scope, which the Free plan does not include.
 - Claude Code with the `/plugin` command.
+- Context cost: about 642 tokens added to every session for the six skill descriptions, plus roughly 1.1k to 1.4k tokens when a skill runs (measured with `claude plugin details` on 1.0.0).
 
 ## Install
 
