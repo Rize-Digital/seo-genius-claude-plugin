@@ -13,7 +13,7 @@ Write what the user changed, where, and why into SEO Genius, so the next session
 
 ## Requires
 
-The SEO Genius MCP server, connected and authorized, on an account where `get_my_tenant` returns `can_write: true`. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose seo-genius, and authorize in the browser.
+The SEO Genius MCP server, connected and authorized, on an account where `get_my_tenant` returns `can_write: true`. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose `plugin:seo-genius:seo-genius`, and authorize in the browser.
 
 ## Standing rules (apply to every step)
 
@@ -30,7 +30,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 ## Procedure
 
 1. Resolve the site (rule 1). If `can_write` is false: write the change out as a short block (page, field, before, after, reason) the user can paste or send to a workspace owner, say the account is read-only, and stop.
-2. Find the page: `search_pages` with a descriptive phrase built from the user's words, `match_count: 5`. If the user gave a URL, match on it. More than one candidate: ask. None: ask for the URL.
+2. Find the page: `search_pages` with a descriptive phrase built from the user's words, `match_count: 5`. If the user gave a URL, match on it. More than one candidate: ask. None: page through `list_pages` (`limit: 100`, follow `next_cursor`, at most five pages) and match the URL or title; the homepage in particular often does not surface from `search_pages`. Still nothing: ask for the URL.
 3. `get_page` with `page_id` to read the current stored value of the field. If the user did not state the "before", use the stored value and say so.
 4. `list_crawls` with `limit: 20`; take the most recent completed crawl's id as `crawl_id`.
 5. Show the entry and ask for a yes: page URL, field, before, after, reason. Do not write until the user confirms.
@@ -48,7 +48,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 
 ## If something is missing
 
-- Tools not available: run `/mcp`, choose seo-genius, authorize in the browser.
+- Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above.
 - 403 on the write itself: the account's role cannot write. Return the entry as text.
 - The write returns an error: say "this did not save" and repeat the error text. Never claim success.

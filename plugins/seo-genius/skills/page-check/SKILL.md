@@ -1,6 +1,6 @@
 ---
 name: page-check
-description: Check one page's SEO issues using SEO Genius. Use when the user names a page or a page type and asks what is wrong with it: "check my homepage SEO", "what's wrong with my pricing page", "any issues on the driveway page", "review this URL". Finds the page in the crawled site data, lists only that page's open issues with current and recommended values, and reads the page's current title, meta, headings, and schema. Requires the SEO Genius MCP server, connected and authorized.
+description: Check one page's SEO issues using SEO Genius. Use when the user names a page or a page type and asks what is wrong with it, for example "check my homepage SEO", "what's wrong with my pricing page", "any issues on the driveway page", "review this URL". Finds the page in the crawled site data, lists only that page's open issues with current and recommended values, and reads the page's current title, meta, headings, and schema. Requires the SEO Genius MCP server, connected and authorized.
 ---
 
 # SEO Genius: page check
@@ -13,7 +13,7 @@ Answer "what is wrong with this one page" from the stored crawl, with current an
 
 ## Requires
 
-The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose seo-genius, and authorize in the browser.
+The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose `plugin:seo-genius:seo-genius`, and authorize in the browser.
 
 ## Standing rules (apply to every step)
 
@@ -34,7 +34,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 3. `search_pages` with `q: <phrase>`, `match_count: 5`. If the user gave a URL, match it against the returned URLs first.
    - One clear match: confirm the URL in the reply and continue.
    - More than one plausible match: list the candidate URLs and ask which one. Stop until answered.
-   - No match: ask for the page URL. Stop.
+   - No match: page through `list_pages` (`limit: 100`, follow `next_cursor`, at most five pages) and match the URL or title; the homepage in particular often does not surface from `search_pages`. Still nothing: ask for the page URL. Stop.
 4. `list_issues` with `page_id: <matched page id>`, `status: "open"`, `limit: 50`.
 5. `get_page` once with `page_id` for the current title, meta description, H1, headings, and schema types.
 
@@ -47,7 +47,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 ## If something is missing
 
-- Tools not available: run `/mcp`, choose seo-genius, authorize in the browser.
+- Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
 - No issues on the matched page: say it looks clean on the last crawl and show the `get_page` values anyway.
 - Rate limited (429): stop, say so, suggest retrying in a minute.

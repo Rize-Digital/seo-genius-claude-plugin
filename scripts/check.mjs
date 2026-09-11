@@ -100,6 +100,9 @@ for (const name of found) {
   check(fm.name === name, `${name}: frontmatter name matches folder`);
   const d = fm.description || "";
   check(d.length > 0 && d.length <= 1024, `${name}: description present and at most 1024 chars (${d.length})`);
+  // A ": " inside an unquoted YAML scalar makes the frontmatter unparseable and the
+  // installed-plugin loader drops the skill silently (found 2026-09-11 on page-check).
+  check(!/: /.test(d) && !/^["']/.test(d), `${name}: description has no colon-space and is not quoted (YAML-safe)`);
   const block = md.match(/\n## Standing rules[^\n]*\n([\s\S]*?)(?=\n## )/);
   check(!!block, `${name}: has a Standing rules section`);
   if (block) rulesBlocks.push(block[1].trim());

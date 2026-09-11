@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 (unreleased)
+## 1.0.0 (2026-09-11)
 
 - First release.
 - Connects the SEO Genius MCP server (OAuth, no keys in the plugin).
