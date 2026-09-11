@@ -13,7 +13,7 @@ Three fixes that take minutes, then the keywords closest to moving. Everything c
 
 ## Requires
 
-The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose seo-genius, and authorize in the browser.
+The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose `plugin:seo-genius:seo-genius`, and authorize in the browser.
 
 ## Standing rules (apply to every step)
 
@@ -46,7 +46,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 ## If something is missing
 
-- Tools not available: run `/mcp`, choose seo-genius, authorize in the browser.
+- Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above.
 - No single-field issues with a recommended value: say so and point to `/seo-genius:audit` for the full picture.
 - `ranked_keywords` returns nothing at country scope: ship the fixes alone and say the domain has no ranking terms recorded. Do not retry with a city or state; those return nothing on this tool.

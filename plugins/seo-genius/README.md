@@ -21,7 +21,7 @@ Then connect once:
 /mcp
 ```
 
-Choose `seo-genius`, then Authenticate. Your browser opens the SEO Genius sign-in. Pick the workspace to connect. That is it; the connection stays authorized.
+Choose `plugin:seo-genius:seo-genius`, then Authenticate. Your browser opens the SEO Genius sign-in. Pick the workspace to connect. That is it; the connection stays authorized.
 
 ## Commands
 
@@ -63,7 +63,7 @@ Register it under a different name from the plugin's own server entry, for examp
 
 | You see | Do this |
 |---|---|
-| The commands exist but the tools are missing, or a 401 | Run `/mcp`, choose `seo-genius`, Authenticate. |
+| The commands exist but the tools are missing, or a 401 | Run `/mcp`, choose `plugin:seo-genius:seo-genius`, Authenticate. |
 | 403 "MCP scope required" or "feature_locked" | Your plan does not include LLM connections. Upgrade to Pro or above, then run `/mcp` again. |
 | "No sites in this workspace" | Add a site in the SEO Genius dashboard and run a crawl. |
 | A rate-limit message | Wait a minute and try again. |

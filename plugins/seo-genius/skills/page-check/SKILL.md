@@ -13,7 +13,7 @@ Answer "what is wrong with this one page" from the stored crawl, with current an
 
 ## Requires
 
-The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose seo-genius, and authorize in the browser.
+The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose `plugin:seo-genius:seo-genius`, and authorize in the browser.
 
 ## Standing rules (apply to every step)
 
@@ -47,7 +47,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 ## If something is missing
 
-- Tools not available: run `/mcp`, choose seo-genius, authorize in the browser.
+- Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
 - No issues on the matched page: say it looks clean on the last crawl and show the `get_page` values anyway.
 - Rate limited (429): stop, say so, suggest retrying in a minute.

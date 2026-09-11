@@ -13,7 +13,7 @@ Write what the user changed, where, and why into SEO Genius, so the next session
 
 ## Requires
 
-The SEO Genius MCP server, connected and authorized, on an account where `get_my_tenant` returns `can_write: true`. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose seo-genius, and authorize in the browser.
+The SEO Genius MCP server, connected and authorized, on an account where `get_my_tenant` returns `can_write: true`. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose `plugin:seo-genius:seo-genius`, and authorize in the browser.
 
 ## Standing rules (apply to every step)
 
@@ -48,7 +48,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 
 ## If something is missing
 
-- Tools not available: run `/mcp`, choose seo-genius, authorize in the browser.
+- Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above.
 - 403 on the write itself: the account's role cannot write. Return the entry as text.
 - The write returns an error: say "this did not save" and repeat the error text. Never claim success.
