@@ -104,7 +104,7 @@ for (const name of found) {
   check(!!block, `${name}: has a Standing rules section`);
   if (block) rulesBlocks.push(block[1].trim());
   check(/\n## Done when/.test(md), `${name}: has a Done when section`);
-  check(!/search_recommendations/.test(md), `${name}: never mentions search_recommendations`);
+  check(/Do not call `search_recommendations`; it returns an empty set today\./.test(md), `${name}: carries the search_recommendations prohibition`);
 }
 check(
   rulesBlocks.length === found.length && rulesBlocks.every((b) => b === rulesBlocks[0]),
@@ -115,6 +115,18 @@ check(
 for (const p of walkMd(ROOT)) {
   const n = (readFileSync(p, "utf8").match(/\u2014/g) || []).length;
   check(n === 0, `no em dashes in ${rel(p)} (${n})`);
+}
+
+// 6. Em dashes in the listing copy inside the JSON manifests
+const listingCopy = [];
+if (pj && typeof pj.description === "string") listingCopy.push(["plugin.json description", pj.description]);
+if (mp && typeof mp.description === "string") listingCopy.push(["marketplace.json description", mp.description]);
+for (const entry of (mp && Array.isArray(mp.plugins)) ? mp.plugins : []) {
+  if (typeof entry.description === "string") listingCopy.push([`marketplace.json entry ${entry.name} description`, entry.description]);
+}
+for (const [label, text] of listingCopy) {
+  const n = (text.match(/\u2014/g) || []).length;
+  check(n === 0, `no em dashes in ${label} (${n})`);
 }
 
 console.log(failures === 0 ? "\nALL CHECKS PASSED" : `\n${failures} CHECK(S) FAILED`);

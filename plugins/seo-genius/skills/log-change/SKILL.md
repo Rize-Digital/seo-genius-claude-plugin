@@ -19,7 +19,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 
 1. Resolve the business first. Call `get_my_tenant`, then `list_sites`. Match what the user typed to a site by name or domain. Echo the site and `can_write` before doing anything else. When the connection is org-scoped (`get_my_tenant` returns `org_id` and `sites[]`), pass `site` (the site id or domain) on every later call. Ambiguous or no match: ask which site.
 2. Read memory before deriving. Call `get_business_context` once per session for the business name, services, locations, and competitors. Do not re-derive what is already stored.
-3. Retrieval first, quota aware. Read stored SEO Genius data before any Data-for-SEO call (`keyword_research`, `ranked_keywords`, `competitor_domains`, `serp_rank_check`). Batch keywords, up to 200, into one `keyword_research` call. Say when a call spends the user's quota.
+3. Retrieval first, quota aware. Read stored SEO Genius data before any Data-for-SEO call (`keyword_research`, `ranked_keywords`, `competitor_domains`, `serp_rank_check`). Batch keywords, up to 200, into one `keyword_research` call. Say when a call spends the user's quota. Do not call `search_recommendations`; it returns an empty set today.
 4. Local, not national. Data-for-SEO tools default to the whole United States. Pass the customer's metro as `location_name` on `ranked_keywords` (a string such as "Boise,Idaho,United States") or as `location_code` on the other three (an integer), or make the keywords themselves local ("tree removal boise"). State which was done.
 5. Never invent a number. Every figure traces to a tool result. Missing data is reported as missing.
 6. Cap every list. Call `list_issues` with `limit` (50 by default, 100 at most) and read the first page only unless the user asks for more. Never quote a crawl's `issues_found` field.
@@ -32,7 +32,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 1. Resolve the site (rule 1). If `can_write` is false: write the change out as a short block (page, field, before, after, reason) the user can paste or send to a workspace owner, say the account is read-only, and stop.
 2. Find the page: `search_pages` with a descriptive phrase built from the user's words, `match_count: 5`. If the user gave a URL, match on it. More than one candidate: ask. None: ask for the URL.
 3. `get_page` with `page_id` to read the current stored value of the field. If the user did not state the "before", use the stored value and say so.
-4. `list_crawls` with `limit: 5`; take the most recent completed crawl's id as `crawl_id`.
+4. `list_crawls` with `limit: 20`; take the most recent completed crawl's id as `crawl_id`.
 5. Show the entry and ask for a yes: page URL, field, before, after, reason. Do not write until the user confirms.
 6. `log_page_change` with:
    - `page_id`: from step 2
@@ -53,6 +53,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 - 403 on the write itself: the account's role cannot write. Return the entry as text.
 - The write returns an error: say "this did not save" and repeat the error text. Never claim success.
 - No completed crawl: say a crawl is needed before a change can be logged against it.
+- Rate limited (429): stop, say so, suggest retrying in a minute.
 
 ## Done when
 

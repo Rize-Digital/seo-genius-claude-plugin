@@ -29,7 +29,7 @@ Choose `seo-genius`, then Authenticate. Your browser opens the SEO Genius sign-i
 | `/seo-genius:audit` | Top five open issues with current and recommended values, plus the one fix to do first. |
 | `/seo-genius:page-check <page>` | Everything wrong with one page, side by side with the recommended values. |
 | `/seo-genius:keywords <terms>` | Local search volume, CPC, and competition for your terms, in one batched call. |
-| `/seo-genius:quick-wins` | Three single-field fixes with paste-ready values, and the keywords closest to page one. |
+| `/seo-genius:quick-wins` | Three single-field fixes with paste-ready values, and the keywords within reach of page one. |
 | `/seo-genius:competitors <terms>` | Your local ranking baseline, your organic rivals, and a live position check for named terms. |
 | `/seo-genius:log-change <what you changed>` | Records a change you shipped, with the reason, so SEO Genius can measure it on the next crawl. |
 
@@ -56,7 +56,7 @@ For headless or CI runs where a browser sign-in is not possible, register the se
 claude mcp add --transport http seo-genius https://api.seogenius.ai/api/mcp/v1 --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
-Use one connection method or the other. Two registrations of the same server in one session can shadow each other's tools.
+Register it under a different name from the plugin's own server entry, for example `seo-genius-key`, so the two do not collide. The skills call tools by their bare names and work under either registration. Use one connection at a time: two registrations of the same server in one session can shadow each other's tools.
 
 ## Troubleshooting
 

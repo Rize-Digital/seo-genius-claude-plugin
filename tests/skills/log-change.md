@@ -1,6 +1,6 @@
 # Acceptance: /seo-genius:log-change
 
-## Smoke prompts (Task 10 only, needs James's go; writes a real ledger row)
+## Smoke prompts (run only after the maintainer approves; writes a real ledger row)
 1. `/seo-genius:log-change I changed the homepage title from "<old>" to "<new>" because the old one had no city in it`
 2. Same prompt on a read-only account (or after the user declines the confirmation).
 
