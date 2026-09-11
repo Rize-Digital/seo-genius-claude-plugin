@@ -67,7 +67,7 @@ Register it under a different name from the plugin's own server entry, for examp
 | 403 "MCP scope required" or "feature_locked" | Your plan does not include LLM connections. Upgrade to Pro or above, then run `/mcp` again. |
 | "No sites in this workspace" | Add a site in the SEO Genius dashboard and run a crawl. |
 | A rate-limit message | Wait a minute and try again. |
-| You also connected SEO Genius on claude.ai, and a call asks for permission on a tool whose name starts with `mcp__claude_ai_SEO_Genius` | Both connections reach the same server. Allow the prompt, or use one connection at a time. The plugin's own tools start with `mcp__plugin_seo-genius_seo-genius`. |
+| You also connected SEO Genius on claude.ai, and a call asks for permission on a tool whose name does not start with `mcp__plugin_seo-genius_seo-genius` | Both connections reach the same server. Allow the prompt, or use one connection at a time. The plugin's own tools always start with `mcp__plugin_seo-genius_seo-genius`; the claude.ai connector's tools carry a different prefix that varies by session. |
 | A skill says data is missing | It is. The skill will not fill the gap with a guess. |
 
 ## Updating
