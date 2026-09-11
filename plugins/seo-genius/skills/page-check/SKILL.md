@@ -1,6 +1,6 @@
 ---
 name: page-check
-description: Check one page's SEO issues using SEO Genius. Use when the user names a page or a page type and asks what is wrong with it: "check my homepage SEO", "what's wrong with my pricing page", "any issues on the driveway page", "review this URL". Finds the page in the crawled site data, lists only that page's open issues with current and recommended values, and reads the page's current title, meta, headings, and schema. Requires the SEO Genius MCP server, connected and authorized.
+description: Check one page's SEO issues using SEO Genius. Use when the user names a page or a page type and asks what is wrong with it, for example "check my homepage SEO", "what's wrong with my pricing page", "any issues on the driveway page", "review this URL". Finds the page in the crawled site data, lists only that page's open issues with current and recommended values, and reads the page's current title, meta, headings, and schema. Requires the SEO Genius MCP server, connected and authorized.
 ---
 
 # SEO Genius: page check
