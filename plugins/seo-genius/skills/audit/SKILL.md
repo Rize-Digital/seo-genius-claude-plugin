@@ -13,7 +13,7 @@ Read what SEO Genius already knows about the site and turn it into a short brief
 
 ## Requires
 
-The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose seo-genius, and authorize in the browser.
+The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose `plugin:seo-genius:seo-genius`, and authorize in the browser.
 
 ## Standing rules (apply to every step)
 
@@ -49,7 +49,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 ## If something is missing
 
-- Tools not available: run `/mcp`, choose seo-genius, authorize in the browser.
+- Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: the SEO Genius plan does not include LLM connections. Connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
 - `list_sites` is empty: no sites in this workspace yet. Add one in the SEO Genius dashboard and run a crawl.
 - No open issues at any severity: say the last crawl looks clean and offer a fresh crawl if `can_write` is true.

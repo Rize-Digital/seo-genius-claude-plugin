@@ -13,7 +13,7 @@ Real local demand numbers for the terms that matter, from one batched call, with
 
 ## Requires
 
-The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose seo-genius, and authorize in the browser.
+The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not available, stop and tell the user: run `/mcp`, choose `plugin:seo-genius:seo-genius`, and authorize in the browser.
 
 ## Standing rules (apply to every step)
 
@@ -49,7 +49,7 @@ Competition is a 0 to 1 score from the tool, not true keyword difficulty. Say so
 
 ## If something is missing
 
-- Tools not available: run `/mcp`, choose seo-genius, authorize in the browser.
+- Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above.
 - A term returns no row: list it under "no reliable volume data" instead of guessing.
 - Quota exhausted or `upstream_unavailable`: stop, show what came back, say the rest was not fetched.

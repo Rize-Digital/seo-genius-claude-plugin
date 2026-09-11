@@ -6,6 +6,7 @@ SEO audit, keyword research, rankings, competitor analysis, and quick wins for y
 
 - An SEO Genius account on Pro or above. Connecting an LLM uses the `mcp` scope, which the Free plan does not include.
 - Claude Code with the `/plugin` command.
+- Context cost: about 642 tokens added to every session for the six skill descriptions, plus roughly 1.1k to 1.4k tokens when a skill runs (measured with `claude plugin details` on 1.0.0).
 
 ## Install
 
@@ -20,7 +21,7 @@ Then connect once:
 /mcp
 ```
 
-Choose `seo-genius`, then Authenticate. Your browser opens the SEO Genius sign-in. Pick the workspace to connect. That is it; the connection stays authorized.
+Choose `plugin:seo-genius:seo-genius`, then Authenticate. Your browser opens the SEO Genius sign-in. Pick the workspace to connect. That is it; the connection stays authorized.
 
 ## Commands
 
@@ -62,10 +63,11 @@ Register it under a different name from the plugin's own server entry, for examp
 
 | You see | Do this |
 |---|---|
-| The commands exist but the tools are missing, or a 401 | Run `/mcp`, choose `seo-genius`, Authenticate. |
+| The commands exist but the tools are missing, or a 401 | Run `/mcp`, choose `plugin:seo-genius:seo-genius`, Authenticate. |
 | 403 "MCP scope required" or "feature_locked" | Your plan does not include LLM connections. Upgrade to Pro or above, then run `/mcp` again. |
 | "No sites in this workspace" | Add a site in the SEO Genius dashboard and run a crawl. |
 | A rate-limit message | Wait a minute and try again. |
+| You also connected SEO Genius on claude.ai, and a call asks for permission on a tool whose name does not start with `mcp__plugin_seo-genius_seo-genius` | Both connections reach the same server. Allow the prompt, or use one connection at a time. The plugin's own tools always start with `mcp__plugin_seo-genius_seo-genius`; the claude.ai connector's tools carry a different prefix that varies by session. |
 | A skill says data is missing | It is. The skill will not fill the gap with a guess. |
 
 ## Updating
