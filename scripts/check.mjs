@@ -10,7 +10,7 @@ const PLUGIN = join(ROOT, "plugins", "seo-genius");
 const EXPECTED_SKILLS = ["audit", "page-check", "keywords", "quick-wins", "competitors", "log-change"];
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const SEMVER = /^\d+\.\d+\.\d+$/;
-const MCP_URL = "https://api.seogenius.ai/api/mcp/v1";
+const MCP_URL = "https://api.seogenius.ai/api/mcp/v1?client=claude-code-plugin";
 
 let failures = 0;
 const ok = (msg) => console.log(`PASS  ${msg}`);
