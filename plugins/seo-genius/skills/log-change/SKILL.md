@@ -29,22 +29,25 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 
 ## Procedure
 
-1. Resolve the site (rule 1). If `can_write` is false: write the change out as a short block (page, field, before, after, reason) the user can paste or send to a workspace owner, say the account is read-only, and stop.
+1. Resolve the site (rule 1). If `can_write` is false: write the change out as a short block (page, change kind, before, after, reason) the user can paste or send to a workspace owner, say the account is read-only, and stop.
 2. Find the page: `search_pages` with a descriptive phrase built from the user's words, `match_count: 5`. If the user gave a URL, match on it. More than one candidate: ask. None: page through `list_pages` (`limit: 100`, follow `next_cursor`, at most five pages) and match the URL or title; the homepage in particular often does not surface from `search_pages`. Still nothing: ask for the URL.
 3. `get_page` with `page_id` to read the current stored value of the field. If the user did not state the "before", use the stored value and say so.
 4. `list_crawls` with `limit: 20`; take the most recent completed crawl's id as `crawl_id`.
-5. Show the entry and ask for a yes: page URL, field, before, after, reason. Do not write until the user confirms.
-6. `log_page_change` with:
+5. Pick the `change_kind`, then show the entry and ask for a yes: page URL, change kind, before, after, reason. Do not write until the user confirms. The kind is exactly one of `title`, `meta_description`, `h1`, `canonical`, `schema`, `internal_links`, `redirect`, `content_depth` (copy added or expanded), `readability` (copy rewritten, same scope). If the edit fits none of them (image alt text, for example), say SEO Genius has no change kind for it yet, return the entry as text, and do not write. Never force an edit into the nearest kind.
+6. `log_page_change` with typed fields only:
    - `page_id`: from step 2
    - `crawl_id`: from step 4
-   - `changes_made`: an object, never a string: `{ "type": "<title | meta_description | h1 | schema | alt_text | internal_links | content>", "field": "<same as type, or the specific field name>", "before": "<exact before>", "after": "<exact after>", "origin": "claude-code-plugin" }`
-   - `change_reason`: the user's reason in one or two sentences
-   - `change_impact`: what the user expects to move, only if they said it
+   - `change_kind`: from step 5
+   - `old_value`, `new_value`: the exact before and after, character for character, 4000 characters at most each. For `content_depth` and `readability`, give a short description of the before and after (word count, the section changed) instead of the full copy.
+   - `added_links`, `anchor_text`: for `internal_links`, the link URLs added and their anchor text
+   - `reason`: the user's reason in one or two sentences, 1000 characters at most
+   - `occurred_on`: `YYYY-MM-DD`, only when the change shipped on a day other than today
+   Do not send `changes_made`. It is deprecated, and `list_page_changes` never returns it, so a later session cannot read it back.
 7. If the user says the change clears a specific open issue: `list_issues` with `page_id`, `status: "open"`, `limit: 50`, show the matching issue, and on a second yes call `mark_issue_fixed` with `issue_id` and `resolution_note: "<what changed, logged via Claude Code plugin>"`.
 
 ## Output
 
-"Logged: <field> on <URL>, before -> after, reason: <reason>. Origin: your Claude Code session. Impact is measured on a later crawl; nothing is proven yet." Then, if applicable: "Marked issue <short description> as fixed." Then the closing line per rule 9.
+"Logged: <change kind> on <URL>, before -> after, reason: <reason>. Origin: your Claude Code session. Impact is measured on a later crawl; nothing is proven yet." Then, if applicable: "Marked issue <short description> as fixed." Then the closing line per rule 9.
 
 ## If something is missing
 
@@ -58,6 +61,6 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 ## Done when
 
 - The user confirmed before the write.
-- `changes_made` went in as an object with type, field, before, after, origin.
+- `log_page_change` went in with `page_id`, `crawl_id`, `change_kind`, and `reason`, plus `old_value` and `new_value` for a field edit or `added_links` for internal links. No `changes_made`.
 - The reply separates logged from measured.
 - No write happened on a read-only account.
