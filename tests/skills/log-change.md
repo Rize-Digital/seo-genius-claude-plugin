@@ -20,6 +20,6 @@ get_my_tenant -> list_sites -> search_pages (phrase) -> get_page -> list_crawls 
 ## Fail conditions
 - change_kind missing, or a value outside the server's list.
 - changes_made, change_reason, or change_impact sent at all.
-- An edit with no matching kind forced into the nearest one.
+- An edit with no matching kind forced into the nearest one, or an offer to log it that way.
 - A write without the user's confirmation.
 - Any claim that the change improved rankings.
