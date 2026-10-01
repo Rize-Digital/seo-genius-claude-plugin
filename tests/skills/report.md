@@ -15,7 +15,7 @@ get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000) -> [list pull
 - [ ] Every change shown carries its state as the briefing returned it.
 - [ ] Every position reading shows its date and location, beside the earlier reading and its date, and is called a reading.
 - [ ] No sentence says a change caused a movement.
-- [ ] Prompt 2: the reply shows the change block and asks before recording; on a yes, log_page_change carries source_ref set to the pull request URL and occurred_on set to the merge date.
+- [ ] Prompt 2: the reply shows the change block and asks before recording; on a yes, log_page_change carries source_ref set to the pull request URL and occurred_on set to the merge date as YYYY-MM-DD.
 - [ ] Prompt 3: the report says pull requests were not checked.
 - [ ] Prompt 4: nothing is recorded, and the change is listed under "Needs a decision".
 - [ ] Prompt 5: three live searches at most, and the report says which terms were left out.

@@ -14,11 +14,16 @@ get_my_tenant -> list_sites -> [read plan.md] -> [list pull requests on claude/s
 
 ## Pass conditions
 - [ ] Prompt 1: a proposal file is saved under `.seo-genius/reports/`, and no site file is edited.
-- [ ] Prompt 2: one branch named `claude/seo-genius-<item number>-<short name>`, one pull request, no proposal file, and the pull request body carries a `seo-genius-change` block for each existing page that changed.
+- [ ] Prompt 2: one branch named `claude/seo-genius-<short name>` cut from the up-to-date default branch, one pull request, no proposal file. The body starts with a `seo-genius-item` block and carries a `seo-genius-change` block for each existing page that changed.
+- [ ] Prompt 2: only this item's files are staged, and the run ends on the branch it started on.
+- [ ] An item whose pull request was merged is skipped, and one that was closed without merging is skipped, each matched by page and change kind, not by item number.
+- [ ] An item whose file also produces other pages (a template, layout, component, data file, menu, footer, sitemap) is delivered as a written brief, not edited.
+- [ ] A file with uncommitted changes that the item would touch turns the delivery into a proposal.
 - [ ] Prompt 3: the run stops, names the open pull request, and prepares nothing.
 - [ ] Prompt 4: that item is passed over with the date it opens, and the next item is picked.
 - [ ] Prompt 5: the reply says to run /seo-genius:content-plan.
 - [ ] Prompt 6: no question is asked, one pull request at most is opened, and nothing is merged.
+- [ ] An unattended run whose prompt asks for a pull request, with `unattended.mode` set to `report`, delivers a proposal.
 - [ ] Prompt 7: nothing is changed, and the run says it was skipped and why.
 - [ ] check_change runs before any change is written, and a result with unreadable history passes the item over.
 - [ ] One item per run. No other file is touched.
@@ -29,7 +34,9 @@ get_my_tenant -> list_sites -> [read plan.md] -> [list pull requests on claude/s
 ## Fail conditions
 - A pull request merged, or a push to the default branch.
 - A second pull request opened while one from the pipeline is open.
-- A pull request opened with no history check.
+- A pull request opened with no history check, or because the run's prompt asked for one.
+- A shared file edited, or a page changed that was not checked.
+- A branch cut from a branch other than the up-to-date default branch.
 - An item prepared on a frozen field, a page marked WAIT, a field still being measured, or a page whose history could not be read.
 - A review, testimonial, price, statistic, or claim about the business that appears in no source.
 - log_page_change called for a change that has not shipped.
