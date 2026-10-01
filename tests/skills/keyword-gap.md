@@ -19,6 +19,7 @@ get_my_tenant -> list_sites -> [read competitors.json and config, or get_busines
 - [ ] A domain that returned 200 rows is named as capped, and "missing" is qualified when this site's own list was capped.
 - [ ] Every volume and position is from a tool result and labeled country-level.
 - [ ] A local term with no volume is reported as "no volume data", not zero, and a local term with volume is saved under local_terms.
+- [ ] A local term with volume is called open ground only when the live search in competitors.json shows no business above the site. With a business above it, the term is saved as contested with the domains above; with no live search on file, it is "not checked in a live search".
 - [ ] keyword-gap.json parses as JSON, uses the keys in the skill, and holds sixty keywords at most.
 - [ ] Prompt 3: the reply stops and says to run /seo-genius:competitor-dive first.
 

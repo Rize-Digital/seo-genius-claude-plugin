@@ -54,7 +54,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
    - Holding: this site ranks as well as or better than every competitor. Count these; do not list them.
    When this site's own list hit the 200-row cap, a missing keyword means "not among this site's 200 highest-volume keywords". Say so; absence from a capped list is not proof.
 7. Local terms nobody ranks for. Take `terms` from the config, plus each service paired with each of `other_cities`, and keep the ones that appear in no list. If there are any: one `keyword_research` call with the whole batch (200 at most) and the country `location_code`.
-   - A term that comes back with volume is open ground: there is demand, and no competitor ranks in what was read. Keep it in `local_terms`.
+   - A term that comes back with volume has demand, and no competitor ranks for it in the lists that were read. Keep it in `local_terms`. Absence from those lists is not proof that nobody ranks. Look the term up in `terms` in `.seo-genius/competitors.json`: when the live search there shows a business above this site, the term is contested. Save it with `contested: true` and the domains above this site, and say so in the reply. Call a term open ground only when that search was run and shows no business above this site. A term with no live search on file is "not checked in a live search".
    - A local term often has no volume at country level. Report that as "no volume data", never as zero, and keep it in `local_terms_no_data`.
 8. Group into topics. One topic per service, and one per guide subject that shows up (cost, permits, materials, how to choose). For each topic: its keywords, the total search volume from the tool, which competitors rank and with which URL, this site's best position and URL, and missing or behind. A topic is missing when this site has no row for any of its keywords, and behind otherwise. A topic is strong when at least one of its keywords is strong.
 9. Order the topics: strong missing first, then missing, then behind, each by total search volume. Save the sixty highest-volume keywords across all topics, and say how many were left out.
@@ -88,7 +88,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
           ]
         }
       ],
-      "local_terms": [{ "term": "", "volume": 0 }],
+      "local_terms": [{ "term": "", "volume": 0, "contested": null, "above": [""] }],
       "local_terms_no_data": [""],
       "holding": 0,
       "keywords_left_out": 0,
@@ -103,7 +103,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - One line: site, domain, `can_write`.
 - Topics table: Topic | Missing or behind | Total volume | Top keywords | Competitors ranking | This site's best position.
 - Counts: rows read per domain, rows removed by each rule, keywords this site is holding, domains that hit the 200-row cap.
-- Local terms with volume and no competitor ranking, then local terms with no volume data.
+- Local terms with volume that are in no list, each marked open ground, contested, or not checked in a live search, then local terms with no volume data.
 - Where the files were saved, or that they were not.
 - Closing line per rule 9, with the number of live calls spent and the note that every position and volume is country-level and every position counts all blocks on the page.
 
