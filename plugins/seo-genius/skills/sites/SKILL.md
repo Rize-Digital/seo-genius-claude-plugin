@@ -45,10 +45,10 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 ## If something is missing
 
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
-- 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
+- A call is refused with "MCP scope required": connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
 - `list_sites_summary` is not in the tool list: use `list_sites` for the names and domains, and say the issue counts need one `/seo-genius:audit` per site.
 - One site only: show its row and suggest `/seo-genius:brief`.
-- Rate limited (429): stop, say so, suggest retrying in a minute.
+- A call fails with a rate limit message: stop, say so, suggest retrying in a minute. A call fails with "quota_exceeded": the plan's monthly call quota is used. Stop and say so; waiting a minute will not help.
 
 ## Done when
 

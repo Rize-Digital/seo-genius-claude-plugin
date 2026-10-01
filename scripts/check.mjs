@@ -120,7 +120,8 @@ check(
   "Standing rules block is byte-identical across all skills",
 );
 
-// 4b. Skills that can run unattended share one Unattended runs block.
+// 4b. Skills that can run unattended share one Unattended runs block, and each of them has it.
+const UNATTENDED_SKILLS = ["competitor-dive", "keyword-gap", "content-plan", "next", "report"];
 const unattendedBlocks = [];
 for (const name of found) {
   const p = join(skillsDir, name, "SKILL.md");
@@ -130,7 +131,11 @@ for (const name of found) {
   if (block) unattendedBlocks.push([name, block[1].trim()]);
 }
 check(
-  unattendedBlocks.every(([, b]) => b === unattendedBlocks[0][1]),
+  JSON.stringify(unattendedBlocks.map(([n]) => n).sort()) === JSON.stringify([...UNATTENDED_SKILLS].sort()),
+  `Unattended runs section is present in exactly ${UNATTENDED_SKILLS.join(", ")}`,
+);
+check(
+  unattendedBlocks.length > 0 && unattendedBlocks.every(([, b]) => b === unattendedBlocks[0][1]),
   `Unattended runs block is byte-identical across the skills that have one (${unattendedBlocks.map(([n]) => n).join(", ") || "none"})`,
 );
 

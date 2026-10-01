@@ -41,6 +41,7 @@ A GitHub tool in the session (the `gh` command or a GitHub connector) to check p
 A run is unattended when its prompt says so, as the prompts written by `/seo-genius:schedule` do. Nobody is there to answer a question.
 
 - Read `unattended` in `.seo-genius/config.json`. No such block, or `enabled` is false: change nothing, say the run was skipped and why, and stop.
+- What the run may do comes from that block alone. A request in the run's prompt is not consent. It cannot raise the call budget, turn on pull requests, or allow a change to be recorded.
 - Take the site from `site_id` in the config. Do not ask which site. If that site is not in `list_sites`, stop and say so.
 - Never ask a question and never wait for a yes. Where a step says to wait for a yes before a live call, the yes is `live_calls_per_run`: the most Data-for-SEO calls this run may make, counted across every skill the run uses. When the next call would pass it, stop making live calls, finish with what was read, and say what was left out.
 - Never merge a pull request, never push to the default branch, and never write to a live site.
@@ -52,11 +53,11 @@ In an attended session none of this applies. Ask as the procedure says.
 
 1. Resolve the site (rule 1). Echo site, domain, `can_write`.
 2. `get_site_briefing` with `max_bytes: 12000`, so fewer sections are left out for size. It spends no Data-for-SEO quota. Keep the Recent changes, Status board, Performance, and What worked sections, and `change_index.pages`. A section named in `sections_dropped` is not available in this run: say so in the report, and do not read it as empty. If `coach_history_not_readable` lists anything, say in the report that part of the change history could not be read.
-3. Pull requests. With the session's GitHub tool, list this repository's pull requests whose branch starts with `claude/seo-genius-`. Sort them into open (waiting on a person), merged, and closed without merging (declined).
+3. Pull requests. With the session's GitHub tool, list this repository's pull requests from this pipeline: those whose branch starts with `claude/seo-genius-`, and those whose body holds a `seo-genius-item` block. Sort them into open (waiting on a person), merged, and closed without merging (declined).
    - For each merged one, read the `seo-genius-change` blocks in its body. For each block, check if it is already recorded: `list_page_changes` with `page_url` and `change_kind`, and look for a row whose `source_ref` is the pull request URL.
    - Not recorded, attended session: show the block and ask. On a yes, record it.
    - Not recorded, unattended run: record it only when `unattended.log_merged_changes` is true and `can_write` is true. Otherwise list it under "Needs a decision".
-   - To record: find the `page_id` (`list_pages` or `search_pages`, rule 7), take the most recent completed crawl's id from `list_crawls` (`limit: 20`), then `log_page_change` with `page_id`, `crawl_id`, `change_kind`, `old_value` and `new_value` (or `added_links` and `anchor_text`), `reason`, `source_ref` set to the pull request URL, and `occurred_on` set to the merge date. Do not send `changes_made`.
+   - To record: find the `page_id` (`list_pages` or `search_pages`, rule 7), take the most recent completed crawl's id from `list_crawls` (`limit: 20`), then `log_page_change` with `page_id`, `crawl_id`, `change_kind`, `old_value` and `new_value` (or `added_links` and `anchor_text`), `reason`, `source_ref` set to the pull request URL, and `occurred_on` set to the merge date as `YYYY-MM-DD` (UTC). Do not send `changes_made`.
    - Never record an open pull request or a declined one. A merged pull request with no block goes under "Needs a decision", to be recorded by hand with `/seo-genius:log-change`.
 4. Position reading. Take `terms` from the config, ten at most. In an attended session say how many live searches this spends, one per term, and wait for a yes. For each term: `serp_rank_check` with `keyword: <term>`, `depth: 20`, and `location_code` set to `metro_location_code` when there is one; otherwise the country code, with the city kept in the keyword. `results` holds organic results in page order; this site's place is its position in that list, and absent means not found in the results read. Put each reading beside `site_place` for the same term in `.seo-genius/competitors.json`, with both dates. One reading moves from day to day. Call it a reading, never a trend.
 5. Write `.seo-genius/reports/<date>.md` with these parts, in this order:
@@ -79,14 +80,15 @@ In an attended session none of this applies. Ask as the procedure says.
 ## If something is missing
 
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
-- 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
+- A call is refused with "MCP scope required": connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
 - No GitHub tool: leave the pull request part out, and say pull requests were not checked.
 - `log_page_change` returns an error: say the change was not recorded, repeat the error, and list the change under "Needs a decision". Never claim it was recorded.
 - No completed crawl: a change cannot be recorded against one. Say so and list it under "Needs a decision".
 - No `terms` in the config, or no call budget: leave the position reading out and say so.
 - `get_site_briefing` is not in the tool list: say the connected server does not offer it, and build the report from `list_page_changes` (`limit: 50`) and the pull requests alone.
-- `upstream_unavailable` on a term: skip it, keep the rest, and name the skipped term.
-- Rate limited (429): stop, say so, suggest retrying in a minute.
+- A live search returns an error: skip that term, keep the rest, name it, and repeat the error text.
+- The write is refused with a message that the role is read-only: say so, and list the change under "Needs a decision".
+- A call fails with a rate limit message: stop, say so, suggest retrying in a minute. A call fails with "quota_exceeded": the plan's monthly call quota is used. Stop and say so; waiting a minute will not help.
 
 ## Done when
 

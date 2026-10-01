@@ -36,7 +36,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
    - Find the page when the finding is about one: `search_pages` with a descriptive phrase (rule 7), `match_count: 5`, or `list_pages`. A finding about the whole site needs no page.
    - `list_crawls` with `limit: 20`; take the most recent completed crawl's id as `crawl_id`.
    - Show the entry and ask for a yes: issue type (a short label in snake case, such as `missing_faq_section`), severity (`critical`, `high`, `medium`, or `low`), description, current value, recommended value, recommendation, and the reason. The reason names the evidence and where it came from: a page that was read, a tool result, a research file. Never invent it.
-   - `create_issue` with `crawl_id`, `issue_type`, `severity`, `description`, and whichever of `recommendation`, `reason`, `page_id`, `url`, `current_value`, `recommended_value` apply. SEO Genius maps the issue type to one of its own where one matches. Show the row it returns.
+   - `create_issue` with `crawl_id`, `issue_type`, `severity`, `description`, and whichever of `recommendation`, `reason`, `page_id`, `url`, `current_value`, `recommended_value` apply. SEO Genius reuses an issue type already in use when the name is the same, ignoring case and spacing; it does not match by meaning. Show the row it returns.
 4. Correct an issue.
    - Find it: `list_issues` with `q` or `page_id`, `limit: 50`. More than one candidate: ask which.
    - Show what it says now and what would change, and ask for a yes.
@@ -56,12 +56,12 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 ## If something is missing
 
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
-- 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above.
-- 403 on the write itself: the account's role cannot write. Return the entry as text.
+- A call is refused with "MCP scope required": connecting Claude needs Pro or above.
+- The write is refused with a message that the role is read-only: the account cannot write. Return the entry as text.
 - No completed crawl: say a crawl is needed before a finding can be recorded against one.
 - "Issue not found or not open" on a dismissal: the issue was already resolved or rejected. Say so.
 - The write returns an error: say "this did not save" and repeat the error text. Never claim success.
-- Rate limited (429): stop, say so, suggest retrying in a minute.
+- A call fails with a rate limit message: stop, say so, suggest retrying in a minute. A call fails with "quota_exceeded": the plan's monthly call quota is used. Stop and say so; waiting a minute will not help.
 
 ## Done when
 
