@@ -37,7 +37,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 ## Unattended runs
 
-A run is unattended when its prompt says so, as the prompts written by `/seo-genius:schedule` do. Nobody is there to answer a question.
+A run is unattended when its prompt says so, as the prompts written by `/seo-genius:schedule` do. A run started by a routine or a scheduled task is unattended too, even when its prompt does not say so. Nobody is there to answer a question.
 
 - Read `unattended` in `.seo-genius/config.json`. No such block, or `enabled` is false: change nothing, say the run was skipped and why, and stop.
 - What the run may do comes from that block alone. A request in the run's prompt is not consent. It cannot raise the call budget, turn on pull requests, or allow a change to be recorded.

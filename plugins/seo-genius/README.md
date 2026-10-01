@@ -77,7 +77,7 @@ A usual setup is two routines: the research once a month (`competitor-dive`, `ke
 
 What an unattended run can and cannot do:
 
-- It works inside limits you set once with `/seo-genius:schedule`, saved in `.seo-genius/config.json`: propose only or open pull requests, the most live calls per run, and if it may record a merged change. Set `enabled` to false there and every scheduled run stops at its first step.
+- It works inside limits you set once with `/seo-genius:schedule`, saved in `.seo-genius/config.json`: propose only or open pull requests, the most live calls per run, and if it may record a merged change. Set `enabled` to false there and a scheduled run stops at its first step. The prompts from `/seo-genius:schedule` start with "Unattended run.", which is what tells a run to read these limits; keep that line if you write your own prompt.
 - It never merges a pull request, never pushes to your default branch, and never writes to a live site. At most one pull request from the pipeline is open at a time.
 - A change is recorded in SEO Genius only after its pull request is merged.
 - In propose-only mode, `next` proposes the same item each week until you apply it and record it with `/seo-genius:log-change`.
@@ -89,7 +89,7 @@ What an unattended run can and cannot do:
 Two ways to schedule:
 
 - On your machine: a local routine in the Claude desktop app. It should load this plugin like any session on your machine; check that on the first run. It runs while the app is open and the computer is awake.
-- In the cloud: a routine on your Claude account, which runs when your computer is off. A cloud run does not install plugins, so `/seo-genius:schedule` copies the pipeline skills into your repository's `.claude/skills/` folder for you to commit. Run it again after a plugin update. SEO Genius has to be a connector on your Claude account. The default cloud environment blocks most outside sites, so competitor pages are marked "not read" unless you open its network access. A cloud run keeps nothing it writes: after each monthly run you merge its research files from the run's session, or the weekly run keeps working from the old plan.
+- In the cloud: a routine on your Claude account, which runs when your computer is off. A cloud run does not install plugins, so `/seo-genius:schedule` copies the pipeline skills into your repository's `.claude/skills/` folder for you to commit. Run it again after a plugin update. SEO Genius has to be a connector on your Claude account. The default cloud environment blocks most outside sites, so competitor pages are marked "not read" unless you open its network access. A cloud run keeps nothing it does not push, and the research steps push nothing: after each monthly run you merge its research files from the run's session, or the weekly run keeps working from the old plan.
 
 ## How the skills behave
 

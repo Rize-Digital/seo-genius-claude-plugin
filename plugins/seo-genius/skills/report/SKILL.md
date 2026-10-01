@@ -38,7 +38,7 @@ A GitHub tool in the session (the `gh` command or a GitHub connector) to check p
 
 ## Unattended runs
 
-A run is unattended when its prompt says so, as the prompts written by `/seo-genius:schedule` do. Nobody is there to answer a question.
+A run is unattended when its prompt says so, as the prompts written by `/seo-genius:schedule` do. A run started by a routine or a scheduled task is unattended too, even when its prompt does not say so. Nobody is there to answer a question.
 
 - Read `unattended` in `.seo-genius/config.json`. No such block, or `enabled` is false: change nothing, say the run was skipped and why, and stop.
 - What the run may do comes from that block alone. A request in the run's prompt is not consent. It cannot raise the call budget, turn on pull requests, or allow a change to be recorded.
@@ -58,13 +58,16 @@ In an attended session none of this applies. Ask as the procedure says.
    - Not recorded, attended session: show the block and ask. On a yes, record it.
    - Not recorded, unattended run: record it only when `unattended.log_merged_changes` is true and `can_write` is true. Otherwise list it under "Needs a decision".
    - To record: find the `page_id` (`list_pages` or `search_pages`, rule 7), take the most recent completed crawl's id from `list_crawls` (`limit: 20`), then `log_page_change` with `page_id`, `crawl_id`, `change_kind`, `old_value` and `new_value` (or `added_links` and `anchor_text`), `reason`, `source_ref` set to the pull request URL, and `occurred_on` set to the merge date as `YYYY-MM-DD` (UTC). Do not send `changes_made`.
-   - Never record an open pull request or a declined one. A merged pull request with no block goes under "Needs a decision", to be recorded by hand with `/seo-genius:log-change`.
+   - Never record an open pull request or a declined one.
+   - A merged pull request whose `seo-genius-item` block says `action: create` and that holds no `seo-genius-change` block needs no record. SEO Genius has no change kind for a new page; it enters the record on the next crawl. Say so once and do not list it under "Needs a decision".
+   - Any other merged pull request with no `seo-genius-change` block goes under "Needs a decision", to be recorded by hand with `/seo-genius:log-change`.
+   - List a declined pull request only when it was closed in the last seven days.
 4. Position reading. Take `terms` from the config, ten at most. In an attended session say how many live searches this spends, one per term, and wait for a yes. For each term: `serp_rank_check` with `keyword: <term>`, `depth: 20`, and `location_code` set to `metro_location_code` when there is one; otherwise the country code, with the city kept in the keyword. `results` holds organic results in page order; this site's place is its position in that list, and absent means not found in the results read. Put each reading beside `site_place` for the same term in `.seo-genius/competitors.json`, with both dates. One reading moves from day to day. Call it a reading, never a trend.
 5. Write `.seo-genius/reports/<date>.md` with these parts, in this order:
    - What changed: the logged changes from the briefing's Recent changes, each with its state as returned.
    - What moved: the readings from step 4 beside the earlier ones, and the Performance section as returned. State no cause. A position that moved after a change has not been shown to move because of it. How each change is measuring is in "What changed".
    - Waiting: fields and pages waiting on measurement, with their dates, and open pull requests.
-   - Needs a decision: merged changes not recorded, declined pull requests, placeholders left in a draft, and anything this run skipped.
+   - Needs a decision: merged changes not recorded, pull requests declined in the last seven days, placeholders left in a draft, and anything this run skipped.
    - Next: the first open item in `.seo-genius/plan.md`, and that `/seo-genius:next` prepares it.
    - Research age: the dates of the research files. Older than 45 days: suggest running `/seo-genius:competitor-dive`, `/seo-genius:keyword-gap`, and `/seo-genius:content-plan` again.
 6. Show the report in the reply.
@@ -80,7 +83,7 @@ In an attended session none of this applies. Ask as the procedure says.
 ## If something is missing
 
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
-- A call is refused with "MCP scope required": connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
+- A call is refused with "MCP scope required" or "MCP not in your plan": connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
 - No GitHub tool: leave the pull request part out, and say pull requests were not checked.
 - `log_page_change` returns an error: say the change was not recorded, repeat the error, and list the change under "Needs a decision". Never claim it was recorded.
 - No completed crawl: a change cannot be recorded against one. Say so and list it under "Needs a decision".
