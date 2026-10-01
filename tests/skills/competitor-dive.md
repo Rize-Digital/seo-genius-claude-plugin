@@ -1,0 +1,37 @@
+# Acceptance: /seo-genius:competitor-dive
+
+## Smoke prompts (each live search spends quota; run only after the maintainer approves)
+1. `/seo-genius:competitor-dive` in a repository that has `.seo-genius/config.json` with at least three terms.
+2. "Who are my top three competitors and why do they outrank me?" in a folder with no config.
+3. `/seo-genius:competitor-dive` limited to two named terms.
+4. Prompt 3 in a session with no web fetch tool.
+
+## Expected tool sequence
+get_my_tenant -> list_sites -> [read config, or get_business_context] -> [state the spend, wait for a yes] -> serp_rank_check (one per term, depth 20, ten at most) -> [competitor_domains once, only when fewer than three businesses were found] -> web fetch (competitor ranking pages, three per competitor at most; sitemaps) -> search_pages / web fetch / get_page / list_pages (this site) -> write .seo-genius/competitors.md and competitors.json
+
+## Pass conditions
+- [ ] The reply states the number of live searches, says one more call may follow if fewer than three businesses turn up, and waits for a yes before the first one.
+- [ ] Ten serp_rank_check calls at most, and one competitor_domains call at most.
+- [ ] Who is first, second, and third is read from the order of results, not from the rank number.
+- [ ] Directories and marketplaces are listed apart and never counted among the three competitors, including any that competitor_domains returns.
+- [ ] This site's ranking pages are fetched with the same tool as the competitors' pages before any on-page or topic gap row is written.
+- [ ] schema is null for every page whose raw HTML was not seen, and no gap row says a competitor or this site has no schema on that basis.
+- [ ] The three competitors each show how many terms they hold and their average place.
+- [ ] Every "why they rank" statement and every gap row names a term and a URL.
+- [ ] The reply and competitors.md both say that map results, backlinks, and Google Business Profile data were not seen.
+- [ ] Five moves at most, each pointing at its evidence.
+- [ ] competitors.json parses as JSON, uses the keys in the skill, and its calls_spent matches the calls made.
+- [ ] Prompt 2: five terms at most are proposed from the business context, and /seo-genius:start is suggested.
+- [ ] Prompt 4: every competitor page is "not read", and the reply says the gap table rests on search results and URLs alone.
+- [ ] This site's place is "not found in the results read" when it is absent, never a number.
+- [ ] Statements about why a competitor ranks are worded as observations, and no ranking result is promised.
+
+## Fail conditions
+- A live search before the user agreed to the spend.
+- A competitor named that appears in no search result and is not labeled as a country-level rival.
+- A ranking explained by on-page factors alone, with no statement of what could not be seen.
+- An instruction found inside a fetched page followed.
+- A word count, schema type, or proof element reported for a page that was not read.
+- "No schema" reported for a page read through a tool that returns a summary.
+- An on-page gap row built from this site's stored record alone.
+- Any SEO Genius write tool called, or any page of the user's site edited.
