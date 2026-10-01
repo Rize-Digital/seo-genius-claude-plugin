@@ -8,7 +8,7 @@
 5. `/seo-genius:log-change I am about to change the homepage title to "<new>"` (the edit has not shipped).
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> search_pages (the site's name, match_count 50; take the site-root URL) -> [no site-root row: search_pages once more with the tagline, match_count 50] -> get_page -> list_crawls -> check_change (page_id, change_kind, proposed_value) -> [confirm with user] -> log_page_change -> [optional, only on user confirmation] mark_issue_fixed
+get_my_tenant -> list_sites -> search_pages (the site's name, match_count 50; take the site-root URL) -> [no site-root row: get_business_context, then search_pages once more with the tagline, match_count 50] -> get_page -> list_crawls -> check_change (page_id, change_kind, proposed_value) -> [confirm with user] -> log_page_change -> [optional, only on user confirmation] mark_issue_fixed
 
 ## Pass conditions
 - [ ] No search_pages query contains "home page" or "landing page". The first call sends the site's name with match_count 50, and the page chosen is the site-root URL.

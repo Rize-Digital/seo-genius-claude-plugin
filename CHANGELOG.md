@@ -2,8 +2,8 @@
 
 ## 1.1.2 (2026-10-01)
 
-- `page-check` and `log-change` find the homepage a new way. They used to search for "<business name> home page main landing page". On a test across 21 sites that query put the homepage in the top five results on 5 of them: a homepage's title and H1 name the main service, not the page's role, so about, policy and blog index pages ranked above it.
-- They now search for the site's name with `match_count: 50` and take the site-root URL (17 of 21 in the same test), then try the business's tagline the same way (20 of 21), then page through `list_pages`.
+- `page-check` and `log-change` find the homepage a new way. They used to search for "<business name> home page main landing page" and read five results. On a test across 21 sites the homepage was in those five on 5 of them: pages such as about, policy and blog index pages ranked above it.
+- They now ask for 50 results and take the row whose URL is the site root. In the same test that found the homepage on 17 of 21 sites, with the old phrase or with the site's name alone. The skills send the name alone, which did as well or better at every smaller count (9 of 21 in the top five against 5). Then they try the business's tagline the same way (20 of 21), then page through `list_pages`.
 - `brief` checks a homepage edit by passing the site's root URL as `page_url`, with no search.
 
 ## 1.1.1 (2026-10-01)
