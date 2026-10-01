@@ -17,9 +17,12 @@ get_my_tenant -> list_sites -> [read config, or get_business_context] -> [state 
 - [ ] This site's ranking pages are fetched with the same tool as the competitors' pages before any on-page or topic gap row is written.
 - [ ] schema is null for every page whose raw HTML was not seen, and no gap row says a competitor or this site has no schema on that basis.
 - [ ] Each term is marked lost, held, or no results, and every row of the terms table carries its own time.
-- [ ] The three competitors are picked from the lost terms, furthest behind first: a business above the site on two or more lost terms, then the best-placed business on each lost term. Each shows the lost terms it holds and its average place.
+- [ ] The searches are sent one at a time, never several together, and a search that comes back empty with no error is reported as a failed search.
+- [ ] The three competitors are picked one lost term at a time, furthest behind first: on each lost term, the best-placed business above the site that is not picked yet. Each shows the lost terms it holds and its average place.
+- [ ] The business leading the term where the site is furthest behind is among the three, unless it was set aside as out of area.
 - [ ] A business that ranks on many terms but never above the site is not picked ahead of one that holds a lost term.
-- [ ] A business that serves none of the cities in the config is set aside as out of area and named with the reason.
+- [ ] A business that does not serve the city a term names is set aside for that term and named with the reason, even when it serves another city in the config. The next business above the site on that term is taken.
+- [ ] A term where every business above the site is out of area yields no competitor and is reported as lost only in a country-level search.
 - [ ] With no lost term, the reply says the site is first on every term that returned results.
 - [ ] Every "why they rank" statement and every gap row names a term and a URL.
 - [ ] The reply and competitors.md both say that map results, backlinks, and Google Business Profile data were not seen.
