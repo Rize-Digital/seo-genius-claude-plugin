@@ -33,8 +33,14 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 2. Find the page: `search_pages` with a descriptive phrase built from the user's words, `match_count: 5`. If the user gave a URL, match on it. More than one candidate: ask. None: page through `list_pages` (`limit: 100`, follow `next_cursor`, at most five pages) and match the URL or title; the homepage in particular often does not surface from `search_pages`. Still nothing: ask for the URL.
 3. `get_page` with `page_id` to read the current stored value of the field. If the user did not state the "before", use the stored value and say so.
 4. `list_crawls` with `limit: 20`; take the most recent completed crawl's id as `crawl_id`.
-5. Pick the `change_kind`, then show the entry and ask for a yes: page URL, change kind, before, after, reason. Do not write until the user confirms. The kind is exactly one of `title`, `meta_description`, `h1`, `canonical`, `schema`, `internal_links`, `redirect`, `content_depth` (copy added or expanded), `readability` (copy rewritten, same scope). If the edit fits none of them (image alt text, for example), say SEO Genius has no change kind for it yet, return the entry as text, and do not write. Never force an edit into the nearest kind, and do not offer to. In that text, leave any before or after the user did not state as "not given".
-6. `log_page_change` with typed fields only:
+5. Pick the `change_kind`. The kind is exactly one of `title`, `meta_description`, `h1`, `canonical`, `schema`, `internal_links`, `redirect`, `content_depth` (copy added or expanded), `readability` (copy rewritten, same scope). If the edit fits none of them (image alt text, for example), say SEO Genius has no change kind for it yet, return the entry as text, and do not write. Never force an edit into the nearest kind, and do not offer to. In that text, leave any before or after the user did not state as "not given".
+6. `check_change` with `page_id`, `change_kind`, and `proposed_value` set to the exact "after" (leave `proposed_value` out for `internal_links`, `content_depth`, and `readability`). The change has already shipped, so the verdict never stops the log: a shipped change left unrecorded is worse than one recorded with a warning. Show the verdict to the user as a history note, in the entry they confirm and again in the reply. The note is not sent to `log_page_change`; SEO Genius already holds the history it describes.
+   - `allow`: no note.
+   - `warn` or `block`: repeat each reason's `message`. `frozen` means this field was changed recently and that change was still being measured; this edit cuts the measurement short. `would_revert` means the new value is one the field held before.
+   - `check_change` not available, or it returns an error: say the history check was skipped, and continue.
+   If the user says the edit has not shipped yet, do not log it. Give the verdict as advice and stop: on a `frozen` block, wait until `unfreezes_on`; on a `would_revert` block, the edit would undo an earlier change and there is no date to wait for.
+7. Show the entry and ask for a yes: page URL, change kind, before, after, reason, and the history note when there is one. Do not write until the user confirms.
+8. `log_page_change` with typed fields only:
    - `page_id`: from step 2
    - `crawl_id`: from step 4
    - `change_kind`: from step 5
@@ -42,12 +48,13 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
    - `added_links`, `anchor_text`: for `internal_links`, the link URLs added and their anchor text
    - `reason`: the user's reason in one or two sentences, 1000 characters at most
    - `occurred_on`: `YYYY-MM-DD`, only when the change shipped on a day other than today
+   - `source_ref`: the pull request URL or commit SHA of the edit, 500 characters at most, only when the user gave one or this session made the commit. Never guess one.
    Do not send `changes_made`. It is deprecated, and `list_page_changes` never returns it, so a later session cannot read it back.
-7. If the user says the change clears a specific open issue: `list_issues` with `page_id`, `status: "open"`, `limit: 50`, show the matching issue, and on a second yes call `mark_issue_fixed` with `issue_id` and `resolution_note: "<what changed, logged via Claude Code plugin>"`.
+9. If the user says the change clears a specific open issue: `list_issues` with `page_id`, `status: "open"`, `limit: 50`, show the matching issue, and on a second yes call `mark_issue_fixed` with `issue_id` and `resolution_note: "<what changed, logged via Claude Code plugin>"`.
 
 ## Output
 
-"Logged: <change kind> on <URL>, before -> after, reason: <reason>. Origin: your Claude Code session. Impact is measured on a later crawl; nothing is proven yet." Then, if applicable: "Marked issue <short description> as fixed." Then the closing line per rule 9.
+"Logged: <change kind> on <URL>, before -> after, reason: <reason>. Origin: your Claude Code session. Impact is measured on a later crawl; nothing is proven yet." Then the history note, when step 6 produced one. Then, if applicable: "Marked issue <short description> as fixed." Then the closing line per rule 9.
 
 ## If something is missing
 
@@ -60,6 +67,9 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 
 ## Done when
 
+- `check_change` ran before the confirmation, or the reply says the history check was skipped.
+- A `warn` or `block` verdict appeared in the entry as a note and did not stop the log of a shipped change.
+- A change the user said has not shipped was not logged.
 - The user confirmed before the write.
 - `log_page_change` went in with `page_id`, `crawl_id`, `change_kind`, and `reason`, plus `old_value` and `new_value` for a field edit or `added_links` for internal links. No `changes_made`.
 - The reply separates logged from measured.
