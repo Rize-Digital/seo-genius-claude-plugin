@@ -35,6 +35,18 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - If the session cannot write files, show the report in the reply and say it was not saved.
 - This skill writes nothing to SEO Genius and edits no page.
 
+## Unattended runs
+
+A run is unattended when its prompt says so, as the prompts written by `/seo-genius:schedule` do. Nobody is there to answer a question.
+
+- Read `unattended` in `.seo-genius/config.json`. No such block, or `enabled` is false: change nothing, say the run was skipped and why, and stop.
+- Take the site from `site_id` in the config. Do not ask which site. If that site is not in `list_sites`, stop and say so.
+- Never ask a question and never wait for a yes. Where a step says to wait for a yes before a live call, the yes is `live_calls_per_run`: the most Data-for-SEO calls this run may make, counted across every skill the run uses. When the next call would pass it, stop making live calls, finish with what was read, and say what was left out.
+- Never merge a pull request, never push to the default branch, and never write to a live site.
+- Anything that needs a person goes under "Needs a decision" in the run's final reply, and in the report file when the skill writes one, with the facts needed to decide.
+
+In an attended session none of this applies. Ask as the procedure says.
+
 ## Procedure
 
 1. Resolve the site (rule 1). Echo site, domain, `can_write`.

@@ -10,6 +10,7 @@ const PLUGIN = join(ROOT, "plugins", "seo-genius");
 const EXPECTED_SKILLS = [
   "audit", "brief", "page-check", "keywords", "quick-wins", "competitors", "log-change",
   "start", "competitor-dive", "keyword-gap", "content-plan", "history",
+  "next", "report", "schedule", "sites", "issues",
 ];
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const SEMVER = /^\d+\.\d+\.\d+$/;
@@ -117,6 +118,20 @@ for (const name of found) {
 check(
   rulesBlocks.length === found.length && rulesBlocks.every((b) => b === rulesBlocks[0]),
   "Standing rules block is byte-identical across all skills",
+);
+
+// 4b. Skills that can run unattended share one Unattended runs block.
+const unattendedBlocks = [];
+for (const name of found) {
+  const p = join(skillsDir, name, "SKILL.md");
+  if (!existsSync(p)) continue;
+  const md = readFileSync(p, "utf8").replace(/\r\n/g, "\n");
+  const block = md.match(/\n## Unattended runs\n([\s\S]*?)(?=\n## )/);
+  if (block) unattendedBlocks.push([name, block[1].trim()]);
+}
+check(
+  unattendedBlocks.every(([, b]) => b === unattendedBlocks[0][1]),
+  `Unattended runs block is byte-identical across the skills that have one (${unattendedBlocks.map(([n]) => n).join(", ") || "none"})`,
 );
 
 // 5. Em dashes in any markdown file
