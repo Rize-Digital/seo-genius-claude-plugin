@@ -5,7 +5,7 @@
 The research pipeline: four skills that run in order and hand their results to each other through files in a `.seo-genius/` folder.
 
 - New skill `start`: one setup per site. Confirms the site, services, city, and up to ten search terms to compete on, and saves them to `.seo-genius/config.json`.
-- New skill `competitor-dive`: finds the three businesses that hold the top organic results for those terms, reads the pages that rank, reads the site's own pages the same way, and reports what can be seen of why they rank, what the site is missing, and what to add. It states what it cannot see (map results, backlinks, Google Business Profile data, and structured data unless raw HTML was read).
+- New skill `competitor-dive`: finds the three local businesses that outrank the site on those terms, starting with the terms it is losing, reads the pages that rank, reads the site's own pages the same way, and reports what can be seen of why they rank, what the site is missing, and what to add. It states what it cannot see (map results, backlinks, Google Business Profile data, and structured data unless raw HTML was read).
 - New skill `keyword-gap`: compares the ranking keywords of the site and its three competitors, removes brand and out-of-area terms, and groups the rest into topics where the site is missing or behind.
 - New skill `content-plan`: turns the research into an ordered backlog of pages to create and pages to improve. It checks each existing page against its change history first, and a page whose last change is still being measured waits. An item whose history could not be fully read is set aside, not planned.
 - New skill `history`: the logged changes to a page or the site, with dates, reasons, and who made them.
