@@ -46,7 +46,7 @@ Four more commands do the research a consultant does before touching a site. Run
 | Step | Command | What it does | Live calls |
 |---|---|---|---|
 | 1 | `/seo-genius:start` | Once per site. Confirms the site, the services, the city, and up to ten search terms you have to win. Saves `config.json`. | none |
-| 2 | `/seo-genius:competitor-dive` | Finds the three businesses that hold the top organic results for your terms, reads the pages that rank, reads your own pages the same way, and reports what can be seen of why they rank, what your site is missing, and what to add. Saves `competitors.md` and `competitors.json`. | one per term (ten at most), plus one if fewer than three businesses turn up |
+| 2 | `/seo-genius:competitor-dive` | Finds the three local businesses that outrank you on your terms, starting with the terms you are losing, reads the pages that rank, reads your own pages the same way, and reports what can be seen of why they rank, what your site is missing, and what to add. Saves `competitors.md` and `competitors.json`. | one per term (ten at most), plus one if fewer than three businesses turn up |
 | 3 | `/seo-genius:keyword-gap` | Pulls what you and those three rank for, removes brand and out-of-area terms, and groups the rest into topics where you are missing or behind. Saves `keyword-gap.md` and `keyword-gap.json`. | one per domain (four at most), plus one for local terms nobody ranks for |
 | 4 | `/seo-genius:content-plan` | Turns the research into an ordered backlog: pages to create, pages to improve, and pages to leave alone until an earlier change has been measured. Saves `plan.md`. | none |
 
