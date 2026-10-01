@@ -14,6 +14,7 @@ get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000) -> [list this
 - [ ] The report has its parts in order: What changed, What moved, Waiting, Needs a decision, Next, Research age.
 - [ ] Every change shown carries its state as the briefing returned it.
 - [ ] Every position reading shows its date and location, beside the earlier reading and its date, and is called a reading.
+- [ ] A search that comes back empty with no error is named as failed, gets no reading, and is not sent again in the same run.
 - [ ] No sentence says a change caused a movement.
 - [ ] Prompt 2: the reply shows the change block and asks before recording; on a yes, log_page_change carries source_ref set to the pull request URL and occurred_on set to the merge date as YYYY-MM-DD.
 - [ ] Prompt 3: the report says pull requests were not checked.
