@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.2 (2026-10-01)
+
+- `page-check` and `log-change` find the homepage a new way. They used to search for "<business name> home page main landing page". On a test across 21 sites that query put the homepage in the top five results on 5 of them: a homepage's title and H1 name the main service, not the page's role, so about, policy and blog index pages ranked above it.
+- They now search for the site's name with `match_count: 50` and take the site-root URL (17 of 21 in the same test), then try the business's tagline the same way (20 of 21), then page through `list_pages`.
+- `brief` checks a homepage edit by passing the site's root URL as `page_url`, with no search.
+
 ## 1.1.1 (2026-10-01)
 
 - Fix standing rule 7 in every skill. It called `search_pages` a vector search and nothing else. The tool also has a text search path, used for an account without vector search. That path matches on page title, meta description, H1 and URL and needs every word to match, so a long descriptive phrase finds less there. Every plan that can connect this plugin today includes vector search, so current installs search as before.
