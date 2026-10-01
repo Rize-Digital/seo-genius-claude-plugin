@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.0 (2026-10-01)
+
+The research pipeline: four skills that run in order and hand their results to each other through files in a `.seo-genius/` folder.
+
+- New skill `start`: one setup per site. Confirms the site, services, city, and up to ten search terms to compete on, and saves them to `.seo-genius/config.json`.
+- New skill `competitor-dive`: finds the three businesses that hold the top organic results for those terms, reads the pages that rank, reads the site's own pages the same way, and reports what can be seen of why they rank, what the site is missing, and what to add. It states what it cannot see (map results, backlinks, Google Business Profile data, and structured data unless raw HTML was read).
+- New skill `keyword-gap`: compares the ranking keywords of the site and its three competitors, removes brand and out-of-area terms, and groups the rest into topics where the site is missing or behind.
+- New skill `content-plan`: turns the research into an ordered backlog of pages to create and pages to improve. It checks each existing page against its change history first, and a page whose last change is still being measured waits.
+- New skill `history`: the logged changes to a page or the site, with dates, reasons, and who made them.
+- Every pipeline step states the most live calls it can make and waits for a yes. The pipeline proposes and edits no page. The only thing it can change in SEO Genius is starting a crawl from `start`, on a yes.
+- `brief`: small wording fixes on a block that carries two reasons, and on matching a page in the change index.
+- The existing `competitors` skill is unchanged and stays the quick position check.
+
 ## 1.1.0 (2026-10-01)
 
 - New skill `brief`: the site briefing in one read-only call (recent changes and their measurement status, fields frozen against a re-edit, pages that need attention, search performance, opportunities, what worked), with up to three next moves taken from it.

@@ -32,13 +32,13 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 For "is it safe to change X on page Y" with no request for the full briefing, do step 1, then go to step 5.
 
 1. Resolve the site (rule 1). Echo site, domain, `can_write`.
-2. `get_site_briefing`. It reads stored data only and spends no crawl and no quota, so the briefing already holds the business context and `get_business_context` is not needed here. Leave `max_bytes` at its default. Raise it (12000 at most) only when the user asks for the full briefing and `sections_dropped` is not empty.
+2. `get_site_briefing`. It reads stored data only and spends no crawl and no Data-for-SEO quota, so the briefing already holds the business context and `get_business_context` is not needed here. Leave `max_bytes` at its default. Raise it (12000 at most) only when the user asks for the full briefing and `sections_dropped` is not empty.
 3. Show the returned `markdown` as it is. Do not reword its numbers, dates, or page verdicts. Then add, in plain words:
    - each section named in `sections_dropped`, as left out to fit the size limit;
    - each section whose `empty_reason` is set. Report the reason; never present a section that could not be read as a clean result. `no_scored_changes_yet` means no past change has finished measurement, so nothing is proven yet. `performance_not_available` means search performance data is not connected or not synced. `no_recent_changes` means nothing was logged in the window the section names; an edit nobody logged does not appear. `no_crawl_yet` means the site has not been crawled. `no_business_context` means no business profile is stored. `coach_history_not_readable` means part of the change history could not be read. `nothing_frozen`, `no_pages_need_attention`, `no_opportunities_found`, and `no_history` mean what they say;
    - if `coach_history_not_readable` lists anything, say that Recent changes, Frozen, and the Status board may be incomplete. Missing is not the same as empty.
 4. Next moves, three at most. Take each from a line of the briefing and name that line. Order: Status board rows marked REVISE, CREATE, or ESCALATE, then Opportunities, then Health.
-   - Check every candidate against `change_index` from the same response as well as the markdown. The Frozen section shows ten lines at most and can be left out for size; `change_index` holds every one.
+   - Check every candidate against `change_index` from the same response as well as the markdown. The Frozen section shows a capped number of lines and can be left out for size; `change_index` holds every one. Its `page_url` is the full URL, while the markdown shows paths, so match on the path.
    - Never propose a field whose `change_index.entries` row (same `page_url` and `change_kind`) has `frozen_until` in the future.
    - Never propose a revision on a page whose `change_index.pages` row has verdict WAIT. Say when the wait ends (`until`).
    - `change_index.truncated` is true: say the index is incomplete, and run `check_change` (step 5) on each move before proposing it.
@@ -52,7 +52,7 @@ For "is it safe to change X on page Y" with no request for the full briefing, do
 6. Report the verdict. This skill only checks. It does not edit a page. When the user asked if an edit is safe, the answer is the whole job. When the check ran ahead of an edit the user asked for, the verdict decides what happens to that edit:
    - `allow`: say it is clear. A requested edit can go on.
    - `warn`: repeat each reason's `message`. `pending_measurement` means an earlier change to this field is still being measured, and editing now throws that measurement away. `recently_changed_other_kind` means another field on the page changed recently, so neither change can be measured cleanly. A requested edit goes on only if the user accepts that.
-   - `block`: say the edit should not be made now. Repeat each reason's `message`, give `unfreezes_on` when it is set (a `would_revert` block has no date), and say what `page_verdict` recommends for the page instead. A requested edit stops here. It goes on only if the user, after hearing the reasons, gives an explicit yes.
+   - `block`: say the edit should not be made now. Repeat each reason's `message`, give `unfreezes_on` when it is set (a `would_revert` block has no date, and when both reasons are present the edit is still a revert after the unfreeze date), and say what `page_verdict` recommends for the page instead. A requested edit stops here. It goes on only if the user, after hearing the reasons, gives an explicit yes.
 7. Checking records nothing. After an edit ships, log it with `/seo-genius:log-change` so the next briefing knows about it.
 
 ## Output
