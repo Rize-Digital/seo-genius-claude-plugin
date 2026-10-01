@@ -34,11 +34,11 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 3. `get_page` with `page_id` to read the current stored value of the field. If the user did not state the "before", use the stored value and say so.
 4. `list_crawls` with `limit: 20`; take the most recent completed crawl's id as `crawl_id`.
 5. Pick the `change_kind`. The kind is exactly one of `title`, `meta_description`, `h1`, `canonical`, `schema`, `internal_links`, `redirect`, `content_depth` (copy added or expanded), `readability` (copy rewritten, same scope). If the edit fits none of them (image alt text, for example), say SEO Genius has no change kind for it yet, return the entry as text, and do not write. Never force an edit into the nearest kind, and do not offer to. In that text, leave any before or after the user did not state as "not given".
-6. `check_change` with `page_id`, `change_kind`, and `proposed_value` set to the exact "after" (leave `proposed_value` out for `internal_links`, `content_depth`, and `readability`). The change has already shipped, so the verdict never stops the log: a shipped change left unrecorded is worse than one recorded with a warning. Carry the verdict into the entry as a history note:
+6. `check_change` with `page_id`, `change_kind`, and `proposed_value` set to the exact "after" (leave `proposed_value` out for `internal_links`, `content_depth`, and `readability`). The change has already shipped, so the verdict never stops the log: a shipped change left unrecorded is worse than one recorded with a warning. Show the verdict to the user as a history note, in the entry they confirm and again in the reply. The note is not sent to `log_page_change`; SEO Genius already holds the history it describes.
    - `allow`: no note.
    - `warn` or `block`: repeat each reason's `message`. `frozen` means this field was changed recently and that change was still being measured; this edit cuts the measurement short. `would_revert` means the new value is one the field held before.
    - `check_change` not available, or it returns an error: say the history check was skipped, and continue.
-   If the user says the edit has not shipped yet, do not log it. Give the verdict as advice (on a `block`, wait until `unfreezes_on`) and stop.
+   If the user says the edit has not shipped yet, do not log it. Give the verdict as advice and stop: on a `frozen` block, wait until `unfreezes_on`; on a `would_revert` block, the edit would undo an earlier change and there is no date to wait for.
 7. Show the entry and ask for a yes: page URL, change kind, before, after, reason, and the history note when there is one. Do not write until the user confirms.
 8. `log_page_change` with typed fields only:
    - `page_id`: from step 2
@@ -69,6 +69,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 
 - `check_change` ran before the confirmation, or the reply says the history check was skipped.
 - A `warn` or `block` verdict appeared in the entry as a note and did not stop the log of a shipped change.
+- A change the user said has not shipped was not logged.
 - The user confirmed before the write.
 - `log_page_change` went in with `page_id`, `crawl_id`, `change_kind`, and `reason`, plus `old_value` and `new_value` for a field edit or `added_links` for internal links. No `changes_made`.
 - The reply separates logged from measured.

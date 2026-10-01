@@ -44,8 +44,8 @@ You can also just ask in plain words ("what's wrong with my homepage?") and Clau
 - Keyword volume, ranking baselines, and competitor lists come at country level, because the data source supports countries only. The skills make the keywords themselves local and use a live search check for your metro.
 - Every number comes from a tool result. Missing data is reported as missing, never guessed.
 - Lists are capped and paginated; the reply says what was capped.
-- Before an edit, `brief` checks the page's history. A field changed recently is frozen while that change is measured, and a value the field held before is flagged as a revert.
-- The only write is `log-change`, and it asks for your confirmation first. Logging records that a change happened. It does not claim the change worked.
+- Before an edit, `brief` checks the page's history. A field changed very recently is frozen for a short period, and the check blocks. After that, until the earlier change has finished being measured, the check warns that another edit throws the measurement away. A value the field held before is flagged as a revert. `brief` only checks. It never edits a page.
+- The only skill that writes to SEO Genius is `log-change`, and it asks for your confirmation first. Logging records that a change happened. It does not claim the change worked.
 
 ## Data and privacy
 
