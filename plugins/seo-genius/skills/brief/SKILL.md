@@ -1,6 +1,6 @@
 ---
 name: brief
-description: Brief Claude on a site before any SEO work, using SEO Genius. Use at the start of a session, before a batch of edits, or before one edit, for example "brief me on my site", "what changed recently", "what is frozen", "what should I work on next", "is it safe to change the title on my pricing page", "can I edit this H1 yet". Returns the site briefing (crawl status, open-issue health, recent changes and their measurement status, fields frozen against a re-edit, pages that need attention, search performance, keyword opportunities, what worked before), and for a named page and field a verdict of allow, warn, or block with the reasons and dates. Read-only. Requires the SEO Genius MCP server, connected and authorized.
+description: Brief Claude on a site before any SEO work, using SEO Genius. Use at the start of a session, before a batch of edits, or before one edit, for example "brief me on my site", "what changed recently", "what is frozen", "what should I work on next", "is it safe to change the title on my pricing page", "can I edit this H1 yet". Returns the site briefing (crawl status, open-issue health, recent changes and their measurement status, fields frozen against a re-edit, pages that need attention, search performance, keyword opportunities, what worked before), and for a named page and field a verdict of allow, warn, or block with the reasons and dates. It only reads and checks; it never edits a page and never writes to SEO Genius. Requires the SEO Genius MCP server, connected and authorized.
 ---
 
 # SEO Genius: site briefing
@@ -35,22 +35,24 @@ For "is it safe to change X on page Y" with no request for the full briefing, do
 2. `get_site_briefing`. It reads stored data only and spends no crawl and no quota, so the briefing already holds the business context and `get_business_context` is not needed here. Leave `max_bytes` at its default. Raise it (12000 at most) only when the user asks for the full briefing and `sections_dropped` is not empty.
 3. Show the returned `markdown` as it is. Do not reword its numbers, dates, or page verdicts. Then add, in plain words:
    - each section named in `sections_dropped`, as left out to fit the size limit;
-   - each section whose `empty_reason` is set. An empty section is an answer, not a clean result. `no_scored_changes_yet` means no past change has finished measurement, so nothing is proven yet. `performance_not_available` means search performance data is not connected or not synced. `no_recent_changes` means nothing was logged; an edit nobody logged does not appear. `no_crawl_yet` means the site has not been crawled. `coach_history_not_readable` means part of the change history could not be read;
+   - each section whose `empty_reason` is set. Report the reason; never present a section that could not be read as a clean result. `no_scored_changes_yet` means no past change has finished measurement, so nothing is proven yet. `performance_not_available` means search performance data is not connected or not synced. `no_recent_changes` means nothing was logged in the window the section names; an edit nobody logged does not appear. `no_crawl_yet` means the site has not been crawled. `no_business_context` means no business profile is stored. `coach_history_not_readable` means part of the change history could not be read. `nothing_frozen`, `no_pages_need_attention`, `no_opportunities_found`, and `no_history` mean what they say;
    - if `coach_history_not_readable` lists anything, say that Recent changes, Frozen, and the Status board may be incomplete. Missing is not the same as empty.
 4. Next moves, three at most. Take each from a line of the briefing and name that line. Order: Status board rows marked REVISE, CREATE, or ESCALATE, then Opportunities, then Health.
-   - Never propose a field listed under Frozen.
-   - Never propose a revision on a page whose Status board row is WAIT. Say when the wait ends.
+   - Check every candidate against `change_index` from the same response as well as the markdown. The Frozen section shows ten lines at most and can be left out for size; `change_index` holds every one.
+   - Never propose a field whose `change_index.entries` row (same `page_url` and `change_kind`) has `frozen_until` in the future.
+   - Never propose a revision on a page whose `change_index.pages` row has verdict WAIT. Say when the wait ends (`until`).
+   - `change_index.truncated` is true: say the index is incomplete, and run `check_change` (step 5) on each move before proposing it.
    - ESCALATE means revising has not worked. Say it needs a person's decision, not another edit.
    - CREATE means the page has been revised enough. Propose new content, not another revision.
    - KEEP means the last change worked. Leave it.
-5. Before any single edit, when the user asks or when you are about to make one: `check_change` with
+5. Check one edit, when the user asks if it is safe, or before an edit the user asked you to make: `check_change` with
    - exactly one of `page_id` (find the page with `search_pages`, rule 7, or `list_pages`) or `page_url` (the full URL; a bare path is refused when the site's history holds it on more than one host)
    - `change_kind`: one of `title`, `meta_description`, `h1`, `canonical`, `schema`, `internal_links`, `redirect`, `content_depth`, `readability`
    - `proposed_value`: the exact new value, character for character, when it is known. Without it, any change to a frozen field counts as a block, and a revert cannot be detected.
-6. Act on the verdict:
-   - `allow`: go ahead.
-   - `warn`: repeat each reason's `message`. `pending_measurement` means an earlier change to this field is still being measured, and editing now throws that measurement away. `recently_changed_other_kind` means another field on the page changed recently, so neither change can be measured cleanly. Go ahead only if the user accepts that.
-   - `block`: do not make the edit. Repeat each reason's `message`, give `unfreezes_on` when it is set, and say what `page_verdict` recommends for the page instead. If the user still wants the edit after hearing that, it is their site. Make it only on their explicit yes.
+6. Report the verdict. This skill only checks. It does not edit a page. When the user asked if an edit is safe, the answer is the whole job. When the check ran ahead of an edit the user asked for, the verdict decides what happens to that edit:
+   - `allow`: say it is clear. A requested edit can go on.
+   - `warn`: repeat each reason's `message`. `pending_measurement` means an earlier change to this field is still being measured, and editing now throws that measurement away. `recently_changed_other_kind` means another field on the page changed recently, so neither change can be measured cleanly. A requested edit goes on only if the user accepts that.
+   - `block`: say the edit should not be made now. Repeat each reason's `message`, give `unfreezes_on` when it is set (a `would_revert` block has no date), and say what `page_verdict` recommends for the page instead. A requested edit stops here. It goes on only if the user, after hearing the reasons, gives an explicit yes.
 7. Checking records nothing. After an edit ships, log it with `/seo-genius:log-change` so the next briefing knows about it.
 
 ## Output
@@ -73,6 +75,6 @@ For "is it safe to change X on page Y" with no request for the full briefing, do
 ## Done when
 
 - The briefing was shown as returned, with dropped and empty sections named.
-- No next move touches a frozen field or revises a page marked WAIT.
-- Every single-edit check states the verdict, the reasons, and the date.
-- Nothing was written.
+- No next move touches a field that `change_index` shows as frozen, or revises a page marked WAIT.
+- Every single-edit check states the verdict, the reasons, and the date when there is one.
+- Nothing was written to SEO Genius, and this skill edited no page. A question about safety got an answer, not an edit.
