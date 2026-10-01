@@ -57,9 +57,9 @@ A web fetch tool in the session (WebFetch in Claude Code) to read pages. Without
 9. Build the gap table. One row per finding, each naming its evidence (the term and the URLs on both sides):
    - Page gaps: a page type at least two competitors have and this site lacks (a service, a service in a city, a cost or FAQ guide).
    - On-page gaps: an element at least two competitors' ranking pages share and this site's matching page lacks. Only elements read on both sides count. A competitor page or a site page that was not read gives no on-page row. Schema gives a row only when it was seen on both sides.
-   - Topic gaps: subjects at least two competitors cover in their headings and this site's matching page does not.
+   - Topic gaps: subjects at least two competitors cover in their headings and this site's matching page does not. The same rule holds: both sides have to have been read.
    - Directory gaps: directories that rank above the businesses for a term. A listing there is its own opportunity.
-10. What can be seen of why they are the top three: three statements at most per competitor, each tied to a row of evidence and worded as an observation, not a cause. Then state what this research cannot see: the map results (the search tool returns organic results only), backlinks, and Google Business Profile data such as reviews and categories. For a local business those often decide the order. Never present on-page factors as the whole explanation.
+10. What can be seen of why they are the top three: three statements at most per competitor, each tied to a row of evidence and worded as an observation, not a cause. Then state what this research cannot see: the map results (the search tool returns organic results only), backlinks, Google Business Profile data such as reviews and categories, and structured data on any page whose raw HTML was not read. For a local business those often decide the order. Never present on-page factors as the whole explanation.
 11. What to add: five moves at most, ordered by how many competitors have the thing and how many terms it affects. Each names the page to create or change and its evidence. These are inputs for `/seo-genius:content-plan`, which checks each one against the page's change history before anything is edited. Promise no ranking result.
 12. Save both files (see Files). `competitors.md` is the report as shown in the reply. `competitors.json`:
 
@@ -95,12 +95,12 @@ A web fetch tool in the session (WebFetch in Claude Code) to read pages. Without
       "site_page_counts": { "service": 0, "location": 0, "guide": 0 },
       "gaps": [{ "kind": "page", "finding": "", "competitors": [""], "evidence": "" }],
       "moves": [{ "action": "create", "page": "", "what": "", "evidence": "" }],
-      "not_seen": ["map results", "backlinks", "Google Business Profile"],
+      "not_seen": ["map results", "backlinks", "Google Business Profile", "structured data"],
       "calls_spent": 0
     }
     ```
 
-    `place` and `site_place` are positions among the organic results that were read, starting at 1; `site_place` is `null` when the site was not found. `kind` is one of `page`, `on_page`, `topic`, `directory`. `action` is `create` or `change`. `source` is `local results` or `country-level organic rival`. `schema` is a list of types, or `null` when it was not visible. `words` is a number, or `null`.
+    `place` and `site_place` are positions among the organic results that were read, starting at 1; `site_place` is `null` when the site was not found. `kind` is one of `page`, `on_page`, `topic`, `directory`. `action` is `create` or `change`. `source` is `local results` or `country-level organic rival`. `schema` is a list of types, or `null` when it was not visible. `words` is a number, or `null`. Leave `structured data` out of `not_seen` only when raw HTML was read for every page.
 
 ## Output
 
@@ -129,7 +129,7 @@ A web fetch tool in the session (WebFetch in Claude Code) to read pages. Without
 - The user agreed to the spend, including the possible extra call, before the first live search.
 - At most ten `serp_rank_check` calls and at most one `competitor_domains` call.
 - The three competitors come from search results, each with the number of terms it holds. No directory is among them.
-- Every statement about why they rank and every gap row names its evidence, and no on-page or schema row rests on a page that was not read.
+- Every statement about why they rank and every gap row names its evidence, and no on-page, topic, or schema row rests on a page that was not read.
 - The reply and the saved report both state what could not be seen.
 - Both files were saved, or the reply says they were not.
 - Nothing was written to SEO Genius and no page was edited.

@@ -15,14 +15,15 @@ get_my_tenant -> list_sites -> [read the research files and config] -> get_site_
 - [ ] Every backlog item names the research row it came from.
 - [ ] Every Improve item, and every page a Create item links from, was checked with check_change before it was given a status.
 - [ ] A check_change result whose page_verdict is WAIT puts the item in Waiting, even when its verdict is allow.
-- [ ] A warn with pending_measurement puts the item in Waiting with its closing date; a would_revert block puts it in Dropped.
+- [ ] A warn with pending_measurement puts the item in Waiting with its closing date; a would_revert block puts it in Dropped, also when frozen is beside it.
+- [ ] A check_change result with a non-empty coach_history_not_readable puts the item under Unchecked, marked "history partly checked", and the plan header says so.
 - [ ] A city page slot appears only where the research shows demand or competitor pages for that city.
 - [ ] A page that exists and whose topic is missing or behind is marked thin and gets an Improve item.
 - [ ] Prompt 4: the item on that page is waiting, with the date it opens, and is not in "This month".
 - [ ] A page whose verdict is WAIT has no open item.
 - [ ] When change_index.truncated is true, the reply says the index is incomplete, and each item still gets its status from the page_verdict that check_change returns.
 - [ ] Twenty items at most; the first five are "This month".
-- [ ] Every keyword volume in the plan appears in keyword-gap.json.
+- [ ] Every keyword volume in the plan appears in keyword-gap.json or in the briefing's Opportunities.
 - [ ] Prompt 2: the plan is built, and the reply says what it lacks without the competitor file.
 - [ ] Prompt 3: the reply stops and names the two skills to run first.
 - [ ] The reply ends by saying how to act on an item: check with /seo-genius:brief, record with /seo-genius:log-change.
@@ -31,7 +32,7 @@ get_my_tenant -> list_sites -> [read the research files and config] -> get_site_
 - A page of the user's site edited.
 - Any SEO Genius write tool called.
 - An open item on a frozen field, a page marked WAIT, or a field whose last change is still being measured.
-- An item marked "history not checked" placed in "This month".
+- An item whose history was not checked, or only partly checked, placed in "This month" or "Later".
 - A page per city for every service with no evidence for the city.
 - A score, percentage, or traffic forecast that appears in no tool result or research file.
 - An item with no evidence behind it.
