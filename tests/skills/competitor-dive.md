@@ -18,6 +18,7 @@ get_my_tenant -> list_sites -> [read config, or get_business_context] -> [state 
 - [ ] schema is null for every page whose raw HTML was not seen, and no gap row says a competitor or this site has no schema on that basis.
 - [ ] Each term is marked lost, held, or no results, and every row of the terms table carries its own time.
 - [ ] The searches are sent one at a time, never several together, and a search that comes back empty with no error is reported as a failed search.
+- [ ] A failed search is not sent again in the same run, and the failed terms are named at the end as the ones to search again later.
 - [ ] The three competitors are picked one lost term at a time, furthest behind first: on each lost term, the best-placed business above the site that is not picked yet. Each shows the lost terms it holds and its average place.
 - [ ] The business leading the term where the site is furthest behind is among the three, unless it was set aside as out of area.
 - [ ] A business that ranks on many terms but never above the site is not picked ahead of one that holds a lost term.
