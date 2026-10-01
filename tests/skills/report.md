@@ -20,7 +20,7 @@ get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000) -> [list this
 - [ ] Prompt 4: nothing is recorded, and the change is listed under "Needs a decision".
 - [ ] Prompt 5: three live searches at most, and the report says which terms were left out.
 - [ ] An open or declined pull request is never recorded.
-- [ ] A merged pull request that only adds a page, with no seo-genius-change block, is not listed as needing a record.
+- [ ] A merged pull request that only adds a page, with no seo-genius-change block, is not listed as needing a record, and is mentioned only in the week it merged.
 - [ ] A declined pull request is listed only when it closed in the last seven days.
 - [ ] A section the briefing left out for size is reported as not available, not as empty.
 - [ ] Nothing is committed, pushed, or edited.

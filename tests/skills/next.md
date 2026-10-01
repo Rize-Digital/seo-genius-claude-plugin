@@ -30,7 +30,10 @@ get_my_tenant -> list_sites -> [read plan.md] -> [list this pipeline's pull requ
 - [ ] Prompt 7: nothing is changed, and the run says it was skipped and why.
 - [ ] A run started by a routine or a scheduled task whose prompt lacks "Unattended run." is still treated as unattended.
 - [ ] check_change runs before any change is written, and a result with unreadable history passes the item over.
-- [ ] One item per run. No other file is touched.
+- [ ] One change per run. No other file is touched.
+- [ ] An item on a page and field whose merged pull request is not yet recorded in SEO Genius waits, and is listed under "Needs a decision" with the pull request named.
+- [ ] An item that asks for the value a merged pull request replaced is dropped as a revert.
+- [ ] An item the file already satisfies is noted as done and the next one is picked.
 - [ ] A new page states only facts found in the business context or on the existing site, and every unknown is a visible placeholder listed in the proposal.
 - [ ] A pull request that holds placeholders is opened as a draft.
 - [ ] log_page_change is not called, and the reply says how the change gets recorded after it ships.
