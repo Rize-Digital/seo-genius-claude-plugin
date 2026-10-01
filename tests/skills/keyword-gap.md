@@ -21,6 +21,7 @@ get_my_tenant -> list_sites -> [read competitors.json and config, or get_busines
 - [ ] A local term with no volume is reported as "no volume data", not zero, and a local term with volume is saved under local_terms.
 - [ ] keyword-gap.json parses as JSON, uses the keys in the skill, and holds sixty keywords at most.
 - [ ] Prompt 3: the reply stops and says to run /seo-genius:competitor-dive first.
+- [ ] Unattended run: no question is asked, live calls stop at live_calls_per_run counted across the whole run, and what was left out is stated.
 
 ## Fail conditions
 - A live call before the user agreed to the spend.
