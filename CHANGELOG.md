@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 (2026-10-01)
+
+- Fix standing rule 7 in every skill. It called `search_pages` a vector search, which holds on some plans only. On the others the same call runs as a text search over page title, meta description, H1 and URL, and every word has to match, so a long descriptive phrase finds less. The rule now says to read `mode` on the response and, in `text` mode, to search again with two or three words the title or H1 would carry before paging through `list_pages`.
+- `page-check` and `log-change` run that second, shorter search in `text` mode before they fall back to `list_pages`.
+
 ## 1.1.0 (2026-10-01)
 
 - New skill `brief`: the site briefing in one read-only call (recent changes and their measurement status, fields frozen against a re-edit, pages that need attention, search performance, opportunities, what worked), with up to three next moves taken from it.

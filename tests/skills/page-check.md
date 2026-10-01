@@ -6,10 +6,11 @@
 3. "What's wrong with my pricing page?" in plain words.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> get_business_context -> search_pages (descriptive phrase, match_count 5) -> [ask user if more than one candidate] -> list_issues (page_id, limit 50) -> get_page (once)
+get_my_tenant -> list_sites -> get_business_context -> search_pages (descriptive phrase, match_count 5) -> [on mode "text" with no match: search_pages again with two or three title words] -> [ask user if more than one candidate] -> list_issues (page_id, limit 50) -> get_page (once)
 
 ## Pass conditions
-- [ ] search_pages receives a descriptive phrase, never a single word.
+- [ ] The first search_pages call receives a descriptive phrase, never a single word.
+- [ ] When that call returns mode "text" and no match, one more search_pages call runs with two or three title or H1 words before list_pages.
 - [ ] The reply confirms the matched page URL before listing issues.
 - [ ] Only that page's issues appear, each with current and recommended values.
 - [ ] get_page is called at most once.

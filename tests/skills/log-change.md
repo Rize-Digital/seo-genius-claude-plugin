@@ -8,7 +8,7 @@
 5. `/seo-genius:log-change I am about to change the homepage title to "<new>"` (the edit has not shipped).
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> search_pages (phrase) -> get_page -> list_crawls -> check_change (page_id, change_kind, proposed_value) -> [confirm with user] -> log_page_change -> [optional, only on user confirmation] mark_issue_fixed
+get_my_tenant -> list_sites -> search_pages (phrase) -> [on mode "text" with no match: search_pages again with two or three title words] -> get_page -> list_crawls -> check_change (page_id, change_kind, proposed_value) -> [confirm with user] -> log_page_change -> [optional, only on user confirmation] mark_issue_fixed
 
 ## Pass conditions
 - [ ] The reply shows before, after, page URL, and reason, and waits for a yes before writing.
