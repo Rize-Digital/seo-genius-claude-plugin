@@ -39,7 +39,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 1. Resolve the site (rule 1). Echo site, domain, `can_write`.
 2. Read `.seo-genius/keyword-gap.json` and `.seo-genius/competitors.json`. Neither exists: stop and say to run `/seo-genius:competitor-dive`, then `/seo-genius:keyword-gap`. One exists: continue with it and say what the plan lacks without the other. Read `services`, `city`, and `other_cities` from the config.
-3. `get_site_briefing`. It spends no Data-for-SEO quota. Keep three things from it:
+3. `get_site_briefing` with `max_bytes: 12000`, so fewer sections are left out for size. It spends no Data-for-SEO quota. A section named in `sections_dropped` is not available in this run: say so, and do not read it as empty. Keep three things from it:
    - `change_index.pages`: each page's verdict and `until` date.
    - The Opportunities section (`sections.opportunities`): keywords this site already ranks for between positions 4 and 20, each with its `page_url`, `position`, and `search_volume`.
    - The What worked section.
@@ -52,21 +52,23 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 6. Build the backlog: one item for each thin or empty slot, one for each `local_terms` entry no slot covers, and one for each entry in `moves` from `competitors.json` that no slot covers.
    - Create: the page type, a working title, the main keyword and four supporting ones at most (from the gap file, with their volume), a URL path in the site's existing pattern, the sections to include (what the competitors' ranking pages share, from the fields the research read: FAQ, proof, and schema only where it was seen), and the existing pages that should link to it.
    - Improve: the existing URL, what to add, and the field it changes (`content_depth`, `title`, `h1`, `meta_description`, `schema`, or `internal_links`).
-7. Check history before giving any item a status. Call `check_change` with the page's `page_id` (from `list_pages`) and the `change_kind`, once for every Improve item, and once with `change_kind: internal_links` for every existing page a Create item would add a link on. Add `proposed_value` only when the item carries an exact new value. Read the result in this order:
+7. Check history before giving any item a status. Call `check_change` with the page's `page_id` (from `list_pages`) and the `change_kind`, once for every Improve item, and once with `change_kind: internal_links` for every existing page a Create item would add a link on. When `list_pages` did not return the page, pass its full URL as `page_url` instead. Add `proposed_value` only when the item carries an exact new value. Read the result in this order:
+   - `coach_history_not_readable` is not empty: part of this site's change history could not be read, so the verdict may be missing a recent change. The item is unchecked, marked "history partly checked".
    - `page_verdict.verdict` is WAIT: waiting until `page_verdict.until`, whatever the field and whatever the `verdict`. The same holds for a page whose `change_index.pages` row says WAIT.
-   - `block` with `frozen`: waiting until `unfreezes_on`.
-   - `block` with `would_revert`: dropped, with that reason. It would undo an earlier change.
+   - `block` with `would_revert`, alone or beside `frozen`: dropped, with that reason. It would undo an earlier change, and it is still a revert after any unfreeze date.
+   - `block` with `frozen` only: waiting until `unfreezes_on`.
    - `warn` with `pending_measurement`: waiting until the closing date given in that reason's `message`. Editing now would throw the measurement away.
    - `warn` with only `recently_changed_other_kind`: open, with the reason shown.
    - `allow`: open.
-   - A linking page that is waiting or dropped is left off the Create item's link list, with a note. The Create item itself stays open.
-8. Order the open items. First: Improve items on pages that already rank between 4 and 20 for a keyword in their topic, by `site_position` in the gap file or `position` in the briefing's Opportunities. Second: Create items for page types at least two competitors have. Third: guides. Inside each group, higher total search volume first. Where What worked shows a kind of change working on this site, prefer that kind and say that is the reason. Twenty items at most; the first five are "this month". An item marked "history not checked" never goes in "this month".
+   - A linking page that is waiting, dropped, or unchecked is left off the Create item's link list, with a note. The Create item itself stays open.
+8. Order the open items. First: Improve items on pages that already rank between 4 and 20 for a keyword in their topic, by `site_position` in the gap file or `position` in the briefing's Opportunities. Second: Create items for page types at least two competitors have. Third: guides. Inside each group, higher total search volume first. Where What worked shows a kind of change working on this site, prefer that kind and say that is the reason. Twenty items at most; the first five are "this month". An unchecked item is not an open item. It goes in neither "this month" nor "later".
 9. Save `.seo-genius/plan.md` (see Files) with these parts, in this order:
-   - A header: the date, the site, and which research files the plan was built from, with their dates.
+   - A header: the date, the site, which research files the plan was built from, with their dates, and one line saying so when any item is unchecked.
    - This month: a table, # | Action | Page | Topic | Keywords | What to do | Evidence | Status.
    - Later: the same table for the remaining open items.
    - Waiting: each waiting item with the date it opens.
    - Dropped: each dropped item with its reason.
+   - Unchecked: each item whose history was not checked, or only partly checked, saying which. These wait for a run that can read the history.
    - Topical map: Service | Slot | Covered, thin, or empty | URL | Competitors with this page.
 10. Close with how to act on an item: make the edit, check it with `/seo-genius:brief` first, and record it with `/seo-genius:log-change` after it ships. The plan orders the work. It does not promise a ranking.
 
@@ -74,7 +76,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 - One line: site, domain, `can_write`.
 - The topical map.
-- This month, Later, Waiting, and Dropped, as saved.
+- This month, Later, Waiting, Dropped, and Unchecked, as saved.
 - What the plan could not use (a missing research file, a capped page list, an unchecked history).
 - Where the plan was saved, or that it was not.
 - Closing line per rule 9.
@@ -84,7 +86,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
 - No config: read the services and cities from `get_business_context`, and suggest `/seo-genius:start`.
-- `get_site_briefing` or `check_change` is not in the tool list: build the plan without the history check, mark every item on an existing page "history not checked", put none of those in "this month", and say so at the top of the plan.
+- `get_site_briefing` or `check_change` is not in the tool list: build the plan without the history check, mark every item on an existing page "history not checked", put all of those under Unchecked, and say so at the top of the plan.
 - `change_index.truncated` is true: say the index is incomplete. The `check_change` call in step 7 still returns `page_verdict` for each page, so the check holds.
 - The research files are more than 45 days old: say how old, and suggest running the research again before acting on the plan.
 - Rate limited (429): stop, say so, suggest retrying in a minute.
@@ -92,7 +94,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 ## Done when
 
 - Every item names the research row it came from.
-- Every Improve item, and every page a Create item links from, was checked with `check_change`, or the item is marked "history not checked" and sits outside "this month".
+- Every Improve item, and every page a Create item links from, was checked with `check_change`. An item whose history was not checked, or only partly checked, sits under Unchecked and in no open list.
 - No open item touches a frozen field, a page marked WAIT, or a field whose last change is still being measured.
 - Every keyword volume comes from the gap file or the briefing. No score, percentage, or forecast was invented.
 - `.seo-genius/plan.md` was saved, or the reply says it was not.

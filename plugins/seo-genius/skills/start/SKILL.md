@@ -38,7 +38,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 1. Resolve the site (rule 1). Echo site, domain, `can_write`.
 2. `get_business_context`. From `profile_text` and `business_context`, read the business name, the services, the primary city and region, the country, the other cities served, and any stored `competitors`. List what is missing. Ask the user for the missing facts and use the answers for this setup. Tell them to complete the business profile in SEO Genius so every session has it. This skill does not write the business profile.
 3. `list_crawls` with `limit: 10`. Find the most recent completed crawl and its date.
-   - No completed crawl: say the pipeline needs one. When `can_write` is true, offer `trigger_crawl`, say it takes a few minutes and counts against the plan's crawls, and call it only on a yes. Starting a crawl is the one thing this skill can change in SEO Genius.
+   - No completed crawl: say the pipeline needs one. When `can_write` is true, offer `trigger_crawl`, say the crawl is queued and its results arrive later, that it counts against the plan's crawls, and call it only on a yes. Starting a crawl is the one thing this skill can change in SEO Genius.
    - Older than 14 days: say how old it is and make the same offer.
    - Continue the setup in both cases.
 4. Terms. Propose ten at most. Each is a service plus the primary city, phrased the way a customer searches ("fence installation boise"). Core services first. Show the list and let the user add, remove, or reword. These are the terms the competitor research checks.
@@ -79,8 +79,8 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" on any tool: connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
-- `trigger_crawl` returns 403 `feature_locked`: manual crawls are not in the plan. Say so and continue the setup; the next scheduled crawl will do.
-- `trigger_crawl` returns 429: the site's crawl allowance for the week is used. Say so, give `next_slot_at` when the error carries it, and continue the setup.
+- `trigger_crawl` fails with "Manual crawl not in your plan": say so and continue the setup; the next scheduled crawl will do.
+- `trigger_crawl` fails with "sitewide_crawl_quota_exceeded": the site's crawl allowance is used for now. Say so and continue the setup.
 - No services or no city in the business context and the user does not supply them: stop. The terms cannot be built from guesses.
 - Rate limited (429) on any other tool: stop, say so, suggest retrying in a minute.
 

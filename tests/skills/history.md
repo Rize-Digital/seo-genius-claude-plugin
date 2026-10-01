@@ -7,7 +7,7 @@
 4. `/seo-genius:history` on a page with no logged changes.
 
 ## Expected tool sequence
-Prompt 1: get_my_tenant -> list_sites -> search_pages (descriptive phrase) -> list_page_changes (page_id, limit 50)
+Prompt 1: get_my_tenant -> list_sites -> search_pages (descriptive phrase) -> [list_pages when the search misses] -> list_page_changes (page_id, limit 50)
 Prompt 2: ... -> list_page_changes (page_id or page_url, change_kind "title", chain true, no cursor)
 Prompt 3: get_my_tenant -> list_sites -> list_page_changes (since, until, limit 50)
 
