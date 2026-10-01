@@ -23,7 +23,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 4. Local, not national, with the right tool. `ranked_keywords`, `keyword_research`, and `competitor_domains` run at country level only (Data-for-SEO Labs does not take a city or state, and a city returns nothing). Pass the customer's country (`location_name: "United States"` or `location_code: 2840` for a US business) and make the keywords themselves local ("tree removal boise"). For a local position use `serp_rank_check` with the metro `location_code`, or with the city in the keyword when no code is known. State which was done.
 5. Never invent a number. Every figure traces to a tool result. Missing data is reported as missing.
 6. Cap every list. Call `list_issues` with `limit` (50 by default, 100 at most) and read the first page only unless the user asks for more. Never quote a crawl's `issues_found` field.
-7. Search to fit the mode. `search_pages` is a vector search on some plans and a text search on others; the response's `mode` says which ran. In `vector` mode give it a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so search again with two or three words the title or H1 would carry ("driveway installation"). Still no match: page through `list_pages`.
+7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
 
@@ -31,11 +31,11 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 1. Resolve the site (rule 1). Echo site, domain, `can_write`.
 2. `get_business_context` for the services and locations. Use them to turn the user's words into a search phrase: "homepage" becomes "<business name> home page main landing page"; "the driveway page" becomes "concrete driveway installation service page".
-3. `search_pages` with `q: <phrase>`, `match_count: 5`. If the user gave a URL, match it against the returned URLs first.
+3. `search_pages` with `q: <phrase>`, `match_count: 5`. If an earlier search in this session already showed `mode: text`, send the two or three words from rule 7 in place of the phrase. If the user gave a URL, match it against the returned URLs first.
    - One clear match: confirm the URL in the reply and continue.
    - More than one plausible match: list the candidate URLs and ask which one. Stop until answered.
-   - No match and the response's `mode` is `text`: search once more with two or three words the page's title or H1 would carry (rule 7), so "the driveway page" becomes "driveway installation". Then apply these branches again.
-   - Still no match, in either mode: page through `list_pages` (`limit: 100`, follow `next_cursor`, at most five pages) and match the URL or title; the homepage in particular often does not surface from `search_pages`. Still nothing: ask for the page URL. Stop.
+   - No match, the response's `mode` is `text`, and the query was the long phrase: search one more time, once only, with two or three words the page's title or H1 would carry (rule 7), so "the driveway page" becomes "driveway installation". Handle a match or several candidates as in the two branches above.
+   - Still no match, in either mode: page through `list_pages` without `q` (`limit: 100`, follow `next_cursor`, at most five pages) and match the URL or title; the homepage in particular often does not surface from `search_pages`. Still nothing: ask for the page URL. Stop.
 4. `list_issues` with `page_id: <matched page id>`, `status: "open"`, `limit: 50`.
 5. `get_page` once with `page_id` for the current title, meta description, H1, headings, and schema types.
 

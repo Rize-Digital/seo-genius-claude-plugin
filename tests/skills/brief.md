@@ -9,7 +9,7 @@
 
 ## Expected tool sequence
 Prompts 1 and 2: get_my_tenant -> list_sites -> get_site_briefing
-Prompts 3 to 5: get_my_tenant -> list_sites -> search_pages (descriptive phrase; on mode "text" with no match, two or three title words) or list_pages -> check_change (page_id or page_url, change_kind, proposed_value)
+Prompts 3 to 5: get_my_tenant -> list_sites -> search_pages (descriptive phrase; on mode "text" with no match, once more with two or three title or H1 words) or list_pages without q -> check_change (page_id or page_url, change_kind, proposed_value)
 
 ## Pass conditions
 - [ ] The reply echoes the resolved site, its domain, and can_write before the briefing.
