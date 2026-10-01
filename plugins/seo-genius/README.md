@@ -6,7 +6,7 @@ SEO audit, keyword research, rankings, competitor analysis, and quick wins for y
 
 - An SEO Genius account on Pro or above. Connecting an LLM uses the `mcp` scope, which the Free plan does not include.
 - Claude Code with the `/plugin` command.
-- Context cost: about 642 tokens added to every session for the six skill descriptions, plus roughly 1.1k to 1.4k tokens when a skill runs (measured with `claude plugin details` on 1.0.0).
+- Context cost: about 642 tokens added to every session for the six skill descriptions in 1.0.0, plus roughly 1.1k to 1.4k tokens when a skill runs (measured with `claude plugin details` on 1.0.0). The `brief` skill added in 1.1.0 adds one more description and has not been measured yet.
 
 ## Install
 
@@ -27,6 +27,7 @@ Choose `plugin:seo-genius:seo-genius`, then Authenticate. Your browser opens the
 
 | Command | What it does |
 |---|---|
+| `/seo-genius:brief` | What changed recently, what is still being measured, which fields are frozen, and up to three next moves. Also checks one edit before you make it. |
 | `/seo-genius:audit` | Top five open issues with current and recommended values, plus the one fix to do first. |
 | `/seo-genius:page-check <page>` | Everything wrong with one page, side by side with the recommended values. |
 | `/seo-genius:keywords <terms>` | Local search volume, CPC, and competition for your terms, in one batched call. |
@@ -43,6 +44,7 @@ You can also just ask in plain words ("what's wrong with my homepage?") and Clau
 - Keyword volume, ranking baselines, and competitor lists come at country level, because the data source supports countries only. The skills make the keywords themselves local and use a live search check for your metro.
 - Every number comes from a tool result. Missing data is reported as missing, never guessed.
 - Lists are capped and paginated; the reply says what was capped.
+- Before an edit, `brief` checks the page's history. A field changed recently is frozen while that change is measured, and a value the field held before is flagged as a revert.
 - The only write is `log-change`, and it asks for your confirmation first. Logging records that a change happened. It does not claim the change worked.
 
 ## Data and privacy

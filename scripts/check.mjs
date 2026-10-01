@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PLUGIN = join(ROOT, "plugins", "seo-genius");
-const EXPECTED_SKILLS = ["audit", "page-check", "keywords", "quick-wins", "competitors", "log-change"];
+const EXPECTED_SKILLS = ["audit", "brief", "page-check", "keywords", "quick-wins", "competitors", "log-change"];
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const MCP_URL = "https://api.seogenius.ai/api/mcp/v1?client=claude-code-plugin";
@@ -93,7 +93,9 @@ const rulesBlocks = [];
 for (const name of found) {
   const p = join(skillsDir, name, "SKILL.md");
   if (!existsSync(p)) { fail(`${name}/SKILL.md is missing`); continue; }
-  const md = readFileSync(p, "utf8");
+  // Normalize line endings: a Windows checkout can hold CRLF and LF skill files side
+  // by side, and the byte-identical Standing rules check below must not fail on that.
+  const md = readFileSync(p, "utf8").replace(/\r\n/g, "\n");
   const fm = frontmatter(md);
   check(!!fm, `${name}: frontmatter present`);
   if (!fm) continue;
