@@ -21,7 +21,7 @@ get_my_tenant -> list_sites -> [read config.json] -> [ask where to run, the mode
 - [ ] Prompt 4: the reply says a cloud run needs a GitHub repository and offers the local way.
 - [ ] Prompt 5: the copies are replaced and `skills_copied_from` shows the new version.
 - [ ] The reply holds two prompts for the chosen way, each starting with "Unattended run.", and the steps to create the routines.
-- [ ] The cloud steps say how to add SEO Genius as a connector, to remove the connectors not needed, that competitor pages need the environment's network access opened, and that the research files have to be merged after each monthly run.
+- [ ] The cloud steps say how to add SEO Genius as a connector, to remove the connectors not needed, that competitor pages need the environment's network access opened, and that the research files have to be merged after each monthly run, on a branch outside the `claude/seo-genius-` prefix.
 - [ ] The local steps say to leave the isolated worktree option off and to check on the first run that the SEO Genius skills and tools were found.
 - [ ] The reply says that one call budget governs every scheduled run.
 

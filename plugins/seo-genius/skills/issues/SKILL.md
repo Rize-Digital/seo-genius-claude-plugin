@@ -56,7 +56,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 ## If something is missing
 
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
-- A call is refused with "MCP scope required": connecting Claude needs Pro or above.
+- A call is refused with "MCP scope required" or "MCP not in your plan": connecting Claude needs Pro or above.
 - The write is refused with a message that the role is read-only: the account cannot write. Return the entry as text.
 - No completed crawl: say a crawl is needed before a finding can be recorded against one.
 - "Issue not found or not open" on a dismissal: the issue was already resolved or rejected. Say so.

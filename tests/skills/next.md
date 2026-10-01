@@ -10,13 +10,16 @@
 7. An unattended run with no `unattended` block in the config.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> [read plan.md] -> [list pull requests on claude/seo-genius- branches] -> list_pages or search_pages -> check_change (the item's page and field; internal_links for each page a Create item links from) -> [write the proposal file] -> [pull request mode only: branch, commit, push, open a pull request]
+get_my_tenant -> list_sites -> [read plan.md] -> [list this pipeline's pull requests: branch prefix claude/seo-genius-, or a seo-genius-item block in the body] -> list_pages or search_pages -> check_change (the item's page and field; internal_links for each page a Create item links from) -> [write the proposal file] -> [pull request mode only: check for uncommitted changes, fetch, branch from the default branch, write the files, stage by path, commit, push, open the pull request, switch back]
 
 ## Pass conditions
 - [ ] Prompt 1: a proposal file is saved under `.seo-genius/reports/`, and no site file is edited.
 - [ ] Prompt 2: one branch named `claude/seo-genius-<short name>` cut from the up-to-date default branch, one pull request, no proposal file. The body starts with a `seo-genius-item` block and carries a `seo-genius-change` block for each existing page that changed.
 - [ ] Prompt 2: only this item's files are staged, and the run ends on the branch it started on.
-- [ ] An item whose pull request was merged is skipped, and one that was closed without merging is skipped, each matched by page and change kind, not by item number.
+- [ ] An item whose pull request was merged is skipped when it asks for the value that pull request set, and one that was closed without merging is skipped, each matched by page and change kind, not by item number.
+- [ ] A plan item that asks for a different value on a page and field an earlier pull request changed is not skipped. It goes to the history check.
+- [ ] In a run that may open a pull request, an item that becomes a brief is listed under "Needs a decision" and the next item is picked.
+- [ ] No site file is written before the uncommitted-changes check and the new branch.
 - [ ] An item whose file also produces other pages (a template, layout, component, data file, menu, footer, sitemap) is delivered as a written brief, not edited.
 - [ ] A file with uncommitted changes that the item would touch turns the delivery into a proposal.
 - [ ] Prompt 3: the run stops, names the open pull request, and prepares nothing.
@@ -25,6 +28,7 @@ get_my_tenant -> list_sites -> [read plan.md] -> [list pull requests on claude/s
 - [ ] Prompt 6: no question is asked, one pull request at most is opened, and nothing is merged.
 - [ ] An unattended run whose prompt asks for a pull request, with `unattended.mode` set to `report`, delivers a proposal.
 - [ ] Prompt 7: nothing is changed, and the run says it was skipped and why.
+- [ ] A run started by a routine or a scheduled task whose prompt lacks "Unattended run." is still treated as unattended.
 - [ ] check_change runs before any change is written, and a result with unreadable history passes the item over.
 - [ ] One item per run. No other file is touched.
 - [ ] A new page states only facts found in the business context or on the existing site, and every unknown is a visible placeholder listed in the proposal.

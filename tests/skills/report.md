@@ -8,7 +8,7 @@
 5. An unattended run with `live_calls_per_run` set to 3 and ten terms in the config.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000) -> [list pull requests on claude/seo-genius- branches] -> list_page_changes (page_url, change_kind; look for source_ref) -> [on a yes or when allowed: list_pages or search_pages, list_crawls, log_page_change with source_ref and occurred_on] -> [state the spend, wait for a yes] -> serp_rank_check (one per term, depth 20, ten at most) -> write .seo-genius/reports/<date>.md
+get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000) -> [list this pipeline's pull requests: branch prefix claude/seo-genius-, or a seo-genius-item block in the body] -> list_page_changes (page_url, change_kind; look for source_ref) -> [on a yes or when allowed: list_pages or search_pages, list_crawls, log_page_change with source_ref and occurred_on] -> [state the spend, wait for a yes] -> serp_rank_check (one per term, depth 20, ten at most) -> write .seo-genius/reports/<date>.md
 
 ## Pass conditions
 - [ ] The report has its parts in order: What changed, What moved, Waiting, Needs a decision, Next, Research age.
@@ -20,6 +20,8 @@ get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000) -> [list pull
 - [ ] Prompt 4: nothing is recorded, and the change is listed under "Needs a decision".
 - [ ] Prompt 5: three live searches at most, and the report says which terms were left out.
 - [ ] An open or declined pull request is never recorded.
+- [ ] A merged pull request that only adds a page, with no seo-genius-change block, is not listed as needing a record.
+- [ ] A declined pull request is listed only when it closed in the last seven days.
 - [ ] A section the briefing left out for size is reported as not available, not as empty.
 - [ ] Nothing is committed, pushed, or edited.
 
