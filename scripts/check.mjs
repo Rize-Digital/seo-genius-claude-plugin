@@ -7,7 +7,10 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PLUGIN = join(ROOT, "plugins", "seo-genius");
-const EXPECTED_SKILLS = ["audit", "brief", "page-check", "keywords", "quick-wins", "competitors", "log-change"];
+const EXPECTED_SKILLS = [
+  "audit", "brief", "page-check", "keywords", "quick-wins", "competitors", "log-change",
+  "start", "competitor-dive", "keyword-gap", "content-plan", "history",
+];
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const MCP_URL = "https://api.seogenius.ai/api/mcp/v1?client=claude-code-plugin";
