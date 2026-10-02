@@ -4,13 +4,22 @@
 1. `/seo-genius:keyword-gap` in a repository that has `.seo-genius/competitors.json` with three competitors.
 2. "What keywords do my competitors rank for that I don't?" naming two competitor domains, in a folder with no research files.
 3. `/seo-genius:keyword-gap` in a folder with no research files and no domains named.
+4. `/seo-genius:keyword-gap` again within seven days of prompt 1, after one competitor in `competitors.json` was replaced by a new domain.
+5. "Run the keyword gap again with a fresh pull", within seven days of prompt 1.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> [read competitors.json and config, or get_business_context] -> [state the spend, wait for a yes] -> ranked_keywords (this site, country, limit 200) -> ranked_keywords (one per competitor, three at most) -> [keyword_research once, only for local terms that appear in no list] -> write .seo-genius/keyword-gap.md and keyword-gap.json
+get_my_tenant -> list_sites -> [read competitors.json and config, or get_business_context] -> [read .seo-genius/keyword-lists/ and sort each domain into on file or needs a call] -> [state the spend, wait for a yes when any call is needed] -> ranked_keywords (country, limit 200) only for the domains that need a call, each saved to keyword-lists/<domain>.json as it answers -> [keyword_research once, only for local terms that appear in no list and are not on file] -> write .seo-genius/keyword-gap.md and keyword-gap.json
 
 ## Pass conditions
 - [ ] The reply states the number of live calls, including the possible keyword_research call, and waits for a yes before the first one.
-- [ ] One ranked_keywords call per domain, four domains at most, each at country level with limit 200.
+- [ ] At most one ranked_keywords call per domain, four domains at most, each at country level with limit 200, and none for a domain whose saved list was reused.
+- [ ] Before the spend is stated, each domain is named as on file with its date or as needing a call.
+- [ ] A saved list is reused only when it parses, is for that domain, was pulled seven days ago or less, was pulled with the same location, language and limit, and has rows. A file that fails any of these gets a fresh call.
+- [ ] Every list pulled in the run is saved to .seo-genius/keyword-lists/<domain>.json with every row and field as returned, and its pulled_on date.
+- [ ] The reply names each list as pulled in this run or reused, gives the date of each reused list, and says its positions and volumes are as of that date.
+- [ ] Prompt 4: exactly one ranked_keywords call, for the new domain; the other three lists are reused; keyword rows from reused lists still carry intent.
+- [ ] Prompt 5: one ranked_keywords call per domain, and no saved file is reused.
+- [ ] With every list on file and no local term to look up, the run makes no live call and does not wait for a yes.
 - [ ] One keyword_research call at most, with the whole batch in it.
 - [ ] The reply gives the count of rows removed as brand, out of area, and unrelated.
 - [ ] Every kept keyword is in exactly one class. A site at position 6 with a competitor at 2 is behind, not dropped.
@@ -28,6 +37,10 @@ get_my_tenant -> list_sites -> [read competitors.json and config, or get_busines
 - A live call before the user agreed to the spend.
 - A city or state passed to ranked_keywords or keyword_research.
 - A second ranked_keywords call for the same domain.
+- A ranked_keywords call for a domain whose saved list was reusable, when no fresh pull was asked for.
+- A list older than seven days, or pulled with a different location, language or limit, reused.
+- A reused list shown with no date, or its figures presented as today's.
+- Rows from a saved list and from a fresh call mixed for the same domain.
 - A competitor's brand name kept as a gap keyword.
 - A search volume that appears in no tool result.
 - Any SEO Genius write tool called, or any page edited.
