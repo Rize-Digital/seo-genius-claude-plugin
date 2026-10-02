@@ -58,7 +58,6 @@ In an attended session none of this applies. Ask as the procedure says.
    - When the user asks for a fresh pull ("fresh", "pull again", "ignore the saved lists"), every domain needs a call and no file is reused.
    - Name each domain as on file, with its `pulled_on` date, or as needing a call. Then give the total: one `ranked_keywords` call per domain that needs one (four at most), plus one `keyword_research` call if step 7 finds local terms that are not on file. Wait for a yes. That yes covers both.
    - When no domain needs a call, say so and go on without waiting. Nothing is spent. If step 7 then needs its one call, ask before making it.
-   - In an unattended run the same reuse applies. Only live calls count toward `live_calls_per_run`; a reused list costs nothing.
 4. `ranked_keywords` for each domain that needs a call: `domain`, `location_name: "<Country>"`, `language_name: "English"`, `limit: 200`. One call per domain. Country level only (rule 4). Each row has `keyword`, `url`, `position`, `search_volume`, `cpc`, `competition`, `intent`.
    - As soon as a call answers with rows, save it to `.seo-genius/keyword-lists/<domain>.json` (shape in step 10), before the next call, replacing any older file for that domain. A call that fails or returns no rows saves nothing.
    - A domain whose list is reused gets no call. Read its `rows` from the file. Never mix rows from a saved list with rows from a fresh call for the same domain.
@@ -182,3 +181,4 @@ In an attended session none of this applies. Ask as the procedure says.
 - The counts of removed rows and the capped domains are stated.
 - Both files were saved, or the reply says they were not.
 - Nothing was written to SEO Genius and no page was edited.
+- In an unattended run, saved lists were reused under the same rule, and only live calls were counted toward `live_calls_per_run`. A reused list costs nothing.
