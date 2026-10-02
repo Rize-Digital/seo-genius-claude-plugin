@@ -31,7 +31,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 - Reads `.seo-genius/config.json` (from `/seo-genius:start`) and `.seo-genius/competitors.json` (from `/seo-genius:competitor-dive`).
 - Writes `.seo-genius/keyword-gap.md` and `.seo-genius/keyword-gap.json`, replacing the previous run. The folder sits at the repository root, or in the current folder when there is no repository.
-- Reads and writes `.seo-genius/keyword-lists/`: one `<domain>.json` per domain, and `local-terms.json`. Each holds a list exactly as the tool returned it, with the date it was pulled, so a later run can read it instead of paying for the same call (step 3).
+- Reads and writes `.seo-genius/keyword-lists/`: one `<domain>.json` per domain, and `local-terms.json`. Each holds every row of one list in a compact form, with the date it was pulled, so a later run can read it instead of paying for the same call (step 3).
 - The files are meant to be kept with the site. Never write a token, key, or password into them.
 - If the session cannot write files, show the report in the reply and say it was not saved.
 - This skill writes nothing to SEO Genius and edits no page.
@@ -59,7 +59,7 @@ In an attended session none of this applies. Ask as the procedure says.
    - Name each domain as on file, with its `pulled_on` date, or as needing a call. Then give the total: one `ranked_keywords` call per domain that needs one (four at most), plus one `keyword_research` call if step 7 finds local terms that are not on file. Wait for a yes. That yes covers both.
    - When no domain needs a call, say so and go on without waiting. Nothing is spent. If step 7 then needs its one call, ask before making it.
 4. `ranked_keywords` for each domain that needs a call: `domain`, `location_name: "<Country>"`, `language_name: "English"`, `limit: 200`. One call per domain. Country level only (rule 4). Each row has `keyword`, `url`, `position`, `search_volume`, `cpc`, `competition`, `intent`.
-   - As soon as a call answers with rows, save it to `.seo-genius/keyword-lists/<domain>.json` (shape in step 10), before the next call, replacing any older file for that domain. A call that fails or returns no rows saves nothing.
+   - As soon as a call answers with rows, save them to `.seo-genius/keyword-lists/<domain>.json` in the compact form of step 10, before the next call, replacing any older file for that domain. A call that fails or returns no rows saves nothing.
    - A domain whose list is reused gets no call. Read its `rows` from the file. Never mix rows from a saved list with rows from a fresh call for the same domain.
    - Positions and volumes in a reused list are as of its `pulled_on` date, not today. Carry that date with the list.
    - Rows come ordered by search volume, so a domain that returns 200 rows may rank for more than was read. Note which domains hit that cap.
@@ -131,11 +131,19 @@ In an attended session none of this applies. Ask as the procedure says.
       "language_name": "English",
       "limit": 200,
       "cap_hit": false,
-      "rows": []
+      "url_base": "https://www.a.example",
+      "columns": ["keyword", "url", "position", "search_volume", "intent"],
+      "rows": [
+        ["tree removal boise", "/tree-removal", 4, 90, "commercial"]
+      ]
     }
     ```
 
-    `rows` is the tool's `ranked_keywords` array, unchanged and uncleaned: every row and every field as returned. Cleaning and sorting happen on each run, so a change to the competitor set or to the services does not need a new call.
+    - One array per row, one row per line, values in the order of `columns`. Save every row the tool returned, in the order returned, uncleaned. Cleaning and sorting happen on each run, so a change to the competitor set or to the services does not need a new call.
+    - Keep these five fields and no others. No step reads the rest of what the tool returns. A value the tool did not give is `null`.
+    - `url_base`: when every row's `url` starts with the same scheme and host, save that once and keep only what follows it in each row (`/` for the home page). The full URL is `url_base` followed by the row's value. When the rows do not all share one scheme and host, set `url_base` to an empty string and keep each URL whole.
+    - Written this way a list is about a quarter of the size of one object per row with every field, and writing it is most of what a fresh pull costs.
+    - A file from an earlier version, with one object per row and no `columns`, is still read: take the same five fields from each object.
 
     The saved local-terms lookup, `.seo-genius/keyword-lists/local-terms.json`:
 
@@ -144,11 +152,14 @@ In an attended session none of this applies. Ask as the procedure says.
       "pulled_on": "YYYY-MM-DD",
       "location_code": 2840,
       "asked": [""],
-      "rows": []
+      "columns": ["keyword", "search_volume"],
+      "rows": [
+        ["tree removal boise", 90]
+      ]
     }
     ```
 
-    `asked` is every term that was sent, so a term that came back with no data is still known to have been looked up. `rows` is the tool's answer, unchanged.
+    `asked` is every term that was sent, so a term that came back with no data is still known to have been looked up. `rows` holds what came back, one array per term, with `null` where the tool gave no volume.
 
 ## Output
 
@@ -175,7 +186,7 @@ In an attended session none of this applies. Ask as the procedure says.
 
 - The user agreed to the spend, including the possible `keyword_research` call, before the first live call.
 - At most one `ranked_keywords` call per domain, four domains at most, none for a domain whose saved list was reused, and at most one `keyword_research` call.
-- Every list pulled in this run was saved under `.seo-genius/keyword-lists/` as returned, and every reused list is named with the date it was pulled.
+- Every list pulled in this run was saved under `.seo-genius/keyword-lists/` with every row, in the compact form, and every reused list is named with the date it was pulled.
 - Every kept keyword is in exactly one class, and the number holding is stated.
 - Every volume and position comes from a tool result and is labeled country-level.
 - The counts of removed rows and the capped domains are stated.

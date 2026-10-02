@@ -15,7 +15,9 @@ get_my_tenant -> list_sites -> [read competitors.json and config, or get_busines
 - [ ] At most one ranked_keywords call per domain, four domains at most, each at country level with limit 200, and none for a domain whose saved list was reused.
 - [ ] Before the spend is stated, each domain is named as on file with its date or as needing a call.
 - [ ] A saved list is reused only when it parses, is for that domain, was pulled seven days ago or less, was pulled with the same location, language and limit, and has rows. A file that fails any of these gets a fresh call.
-- [ ] Every list pulled in the run is saved to .seo-genius/keyword-lists/<domain>.json with every row and field as returned, and its pulled_on date.
+- [ ] Every list pulled in the run is saved to .seo-genius/keyword-lists/<domain>.json with its pulled_on date and every row in the order returned, as one array per row under columns (keyword, url, position, search_volume, intent).
+- [ ] For every saved row the five values equal the tool result. With url_base set, url_base followed by the row's value is the returned URL; with rows on more than one host, url_base is empty and each URL is whole.
+- [ ] A file saved by an earlier version, with one object per row and no columns, is still reused.
 - [ ] The reply names each list as pulled in this run or reused, gives the date of each reused list, and says its positions and volumes are as of that date.
 - [ ] Prompt 4: exactly one ranked_keywords call, for the new domain; the other three lists are reused; keyword rows from reused lists still carry intent.
 - [ ] Prompt 5: one ranked_keywords call per domain, and no saved file is reused.
@@ -42,6 +44,7 @@ get_my_tenant -> list_sites -> [read competitors.json and config, or get_busines
 - A list older than seven days, or pulled with a different location, language or limit, reused.
 - A reused list shown with no date, or its figures presented as today's.
 - Rows from a saved list and from a fresh call mixed for the same domain.
+- A saved list with fewer rows than the tool returned, or with rows cleaned or re-sorted before saving.
 - A competitor's brand name kept as a gap keyword.
 - A search volume that appears in no tool result.
 - Any SEO Genius write tool called, or any page edited.
