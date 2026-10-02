@@ -32,6 +32,7 @@ get_my_tenant -> list_sites -> [read competitors.json and config, or get_busines
 - [ ] keyword-gap.json parses as JSON, uses the keys in the skill, and holds sixty keywords at most.
 - [ ] Prompt 3: the reply stops and says to run /seo-genius:competitor-dive first.
 - [ ] Unattended run: no question is asked, live calls stop at live_calls_per_run counted across the whole run, and what was left out is stated.
+- [ ] Unattended run: a saved list that is reusable is reused, and it does not count toward live_calls_per_run.
 
 ## Fail conditions
 - A live call before the user agreed to the spend.
