@@ -27,6 +27,7 @@ get_my_tenant -> list_sites -> [read the research files and config] -> get_site_
 - [ ] Prompt 2: the plan is built, and the reply says what it lacks without the competitor file.
 - [ ] Prompt 3: the reply stops and names the two skills to run first.
 - [ ] The reply ends by saying how to act on an item: check with /seo-genius:brief, record with /seo-genius:log-change.
+- [ ] Unattended run: no question is asked, and anything that needs a person is listed under "Needs a decision".
 
 ## Fail conditions
 - A page of the user's site edited.
