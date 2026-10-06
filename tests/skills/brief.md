@@ -9,7 +9,8 @@
 
 ## Expected tool sequence
 Prompts 1 and 2: get_my_tenant -> list_sites -> get_site_briefing
-Prompts 3 to 5: get_my_tenant -> list_sites -> search_pages (descriptive phrase; on mode "text" with no match, once more with two or three title or H1 words) or list_pages without q -> check_change (page_id or page_url, change_kind, proposed_value)
+Prompts 3 to 5 on the homepage: get_my_tenant -> list_sites -> check_change (page_url set to the site's root URL, change_kind, proposed_value), with no search
+Prompts 4 and 5 on any other page: get_my_tenant -> list_sites -> search_pages (descriptive phrase; on mode "text" with no match, once more with two or three title or H1 words) or list_pages without q -> check_change (page_id or page_url, change_kind, proposed_value)
 
 ## Pass conditions
 - [ ] The reply echoes the resolved site, its domain, and can_write before the briefing.
@@ -17,6 +18,7 @@ Prompts 3 to 5: get_my_tenant -> list_sites -> search_pages (descriptive phrase;
 - [ ] Every section in sections_dropped is named, and every empty section is explained from its empty_reason.
 - [ ] Next moves are three at most, and each names the briefing line it came from.
 - [ ] No next move touches a field that change_index shows as frozen, or revises a page whose verdict is WAIT.
+- [ ] Prompt 3: check_change receives page_url set to the site's root URL, and no search_pages query contains "home page" or "landing page".
 - [ ] Prompt 3 on an allow verdict: the reply says it is clear, and no page is edited.
 - [ ] check_change receives exactly one of page_id or page_url, a change_kind from the server's list, and proposed_value when the user gave the new value.
 - [ ] Prompt 4: the reply leads with block, gives the frozen reason and the unfreeze date, and does not make the edit.

@@ -8,10 +8,11 @@
 5. `/seo-genius:log-change I am about to change the homepage title to "<new>"` (the edit has not shipped).
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> search_pages (phrase) -> [on mode "text" with no match: search_pages once more with two or three title or H1 words] -> get_page -> list_crawls -> check_change (page_id, change_kind, proposed_value) -> [confirm with user] -> log_page_change -> [optional, only on user confirmation] mark_issue_fixed
+get_my_tenant -> list_sites -> search_pages (the site's name, match_count 50; take the site-root URL) -> [no site-root row: get_business_context, then search_pages once more with the tagline, match_count 50] -> get_page -> list_crawls -> check_change (page_id, change_kind, proposed_value) -> [confirm with user] -> log_page_change -> [optional, only on user confirmation] mark_issue_fixed
 
 ## Pass conditions
-- [ ] When the first search_pages call returns mode "text" and no match, exactly one more search_pages call runs with two or three title or H1 words before list_pages.
+- [ ] No search_pages query contains "home page" or "landing page". The first call sends the site's name with match_count 50, and the page chosen is the site-root URL.
+- [ ] For a page other than the homepage (the prompts above do not cover one): when the first search_pages call returns mode "text" and no match, exactly one more search_pages call runs with two or three title or H1 words before list_pages.
 - [ ] A list_pages fallback call carries no q.
 - [ ] The reply shows before, after, page URL, and reason, and waits for a yes before writing.
 - [ ] check_change is called with page_id, change_kind "title", and the new title before the confirmation.
