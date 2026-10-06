@@ -24,13 +24,13 @@ Prompts 4 and 5 on any other page: get_my_tenant -> list_sites -> search_pages (
 - [ ] Prompt 4: the reply leads with block, gives the frozen reason and the unfreeze date, and does not make the edit.
 - [ ] Prompt 5: the reply leads with block and names the revert.
 - [ ] The reply says that checking records nothing and points to /seo-genius:log-change for after the edit.
-- [ ] The closing line names what was capped and that no quota was spent.
+- [ ] The closing line names what was capped and that no Data-for-SEO quota was spent.
 
 ## Fail conditions
 - Any SEO Genius write tool called.
 - A page edited when the user only asked if the edit is safe.
 - A next move on a field that change_index shows as frozen.
 - A crawl triggered, or a Data-for-SEO call made, to build the briefing.
-- An empty section presented as "all clear".
+- A section that could not be read presented as "all clear".
 - An edit made after a block verdict without the user's explicit yes.
 - A next move invented with no line in the briefing behind it.
