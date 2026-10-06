@@ -13,6 +13,18 @@ The research pipeline: four skills that run in order and hand their results to e
 - `brief`: small wording fixes on a block that carries two reasons, and on matching a page in the change index.
 - The existing `competitors` skill is unchanged and stays the quick position check.
 
+## 1.1.2 (2026-10-01)
+
+- `page-check` and `log-change` find the homepage a new way. They used to search for "<business name> home page main landing page" and read five results. On a test across 21 sites the homepage was in those five on 5 of them: pages such as about, policy and blog index pages ranked above it.
+- They now ask for 50 results and take the row whose URL is the site root. In the same test that found the homepage on 17 of 21 sites, with the old phrase or with the site's name alone. The skills send the name alone, which did as well or better at every smaller count (9 of 21 in the top five against 5). Then they try the business's tagline the same way (20 of 21), then page through `list_pages`.
+- `brief` checks a homepage edit by passing the site's root URL as `page_url`, with no search.
+
+## 1.1.1 (2026-10-01)
+
+- Fix standing rule 7 in every skill. It called `search_pages` a vector search and nothing else. The tool also has a text search path, used for an account without vector search. That path matches on page title, meta description, H1 and URL and needs every word to match, so a long descriptive phrase finds less there. Every plan that can connect this plugin today includes vector search, so current installs search as before.
+- Rule 7 now covers the text path too: read `mode` on the response and remember it; when it is `text`, search with two or three words the title or H1 would carry, once more if the first phrase missed; then page through `list_pages` without `q`, because `q` there is the same text search.
+- `page-check` and `log-change` run that one shorter search in `text` mode before they fall back to `list_pages`.
+
 ## 1.1.0 (2026-10-01)
 
 - New skill `brief`: the site briefing in one read-only call (recent changes and their measurement status, fields frozen against a re-edit, pages that need attention, search performance, opportunities, what worked), with up to three next moves taken from it.
