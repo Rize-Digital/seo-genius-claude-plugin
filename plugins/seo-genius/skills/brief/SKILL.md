@@ -46,7 +46,7 @@ For "is it safe to change X on page Y" with no request for the full briefing, do
    - CREATE means the page has been revised enough. Propose new content, not another revision.
    - KEEP means the last change worked. Leave it.
 5. Check one edit, when the user asks if it is safe, or before an edit the user asked you to make: `check_change` with
-   - exactly one of `page_id` (find the page with `search_pages`, rule 7, or `list_pages`) or `page_url` (the full URL; a bare path is refused when the site's history holds it on more than one host)
+   - exactly one of `page_id` (find the page with `search_pages`, rule 7, or `list_pages`) or `page_url` (the full URL; a bare path is refused when the site's history holds it on more than one host). For the homepage, pass `page_url` with the site's root URL (`https://<domain>/`) and skip the search
    - `change_kind`: one of `title`, `meta_description`, `h1`, `canonical`, `schema`, `internal_links`, `redirect`, `content_depth`, `readability`
    - `proposed_value`: the exact new value, character for character, when it is known. Without it, any change to a frozen field counts as a block, and a revert cannot be detected.
 6. Report the verdict. This skill only checks. It does not edit a page. When the user asked if an edit is safe, the answer is the whole job. When the check ran ahead of an edit the user asked for, the verdict decides what happens to that edit:

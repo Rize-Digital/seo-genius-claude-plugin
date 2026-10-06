@@ -30,12 +30,14 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 ## Procedure
 
 1. Resolve the site (rule 1). Echo site, domain, `can_write`.
-2. `get_business_context` for the services and locations. Use them to turn the user's words into a search phrase: "homepage" becomes "<business name> home page main landing page"; "the driveway page" becomes "concrete driveway installation service page".
-3. `search_pages` with `q: <phrase>`, `match_count: 5`. If an earlier search in this session already showed `mode: text`, send the two or three words from rule 7 in place of the phrase. If the user gave a URL, match it against the returned URLs first.
-   - One clear match: confirm the URL in the reply and continue.
+2. `get_business_context` for the services and locations. Use them to turn the user's words into a search phrase that says what the page is about: "the driveway page" becomes "concrete driveway installation service page". The homepage is the exception and has its own lookup in step 3.
+3. Find the page. If the user gave a URL, use it to pick from the rows each search returns.
+   - The homepage: five results are often not enough to reach it, so ask for 50 and pick it by URL. `search_pages` with `q: <the site's name from list_sites>`, `match_count: 50`, in either mode, and take the row whose URL is the site root: the site's domain, with or without `www`, and nothing after it except an optional `/`. More than one such row: list them and ask which. Leave out role words ("home page", "landing page"); they do not help. No such row: search once more with `q: <the business's tagline from get_business_context>`, `match_count: 50`, and take the site-root row. Still none, or no tagline: go to the `list_pages` branch below. This lookup sets rule 7's query advice aside: send the name as it is, even when it is one word.
+   - Any other page: `search_pages` with `q: <phrase>`, `match_count: 5`. If an earlier search in this session already showed `mode: text`, send the two or three words from rule 7 in place of the phrase.
+   - One clear match (for the homepage, the site-root row): confirm the URL in the reply and continue.
    - More than one plausible match: list the candidate URLs and ask which one. Stop until answered.
    - No match, the response's `mode` is `text`, and the query was the long phrase: search one more time, once only, with two or three words the page's title or H1 would carry (rule 7), so "the driveway page" becomes "driveway installation". Handle a match or several candidates as in the two branches above.
-   - Still no match, in either mode: page through `list_pages` without `q` (`limit: 100`, follow `next_cursor`, at most five pages) and match the URL or title; the homepage in particular often does not surface from `search_pages`. Still nothing: ask for the page URL. Stop.
+   - Still no match, in either mode: page through `list_pages` without `q` (`limit: 100`, follow `next_cursor`, at most five pages) and match the URL or title. Still nothing: ask for the page URL. Stop.
 4. `list_issues` with `page_id: <matched page id>`, `status: "open"`, `limit: 50`.
 5. `get_page` once with `page_id` for the current title, meta description, H1, headings, and schema types.
 
