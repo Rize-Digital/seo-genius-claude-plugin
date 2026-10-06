@@ -13,7 +13,7 @@ Full instructions, commands, and troubleshooting: [plugins/seo-genius/README.md]
 
 ```text
 .claude-plugin/marketplace.json   the marketplace config file
-plugins/seo-genius/               the plugin: config, MCP server, seven skills, README
+plugins/seo-genius/               the plugin: config, MCP server, twelve skills, README
 scripts/check.mjs                 structural checks (node scripts/check.mjs)
 tests/skills/                     acceptance checklists per skill
 ```
