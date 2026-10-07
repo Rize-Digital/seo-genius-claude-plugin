@@ -1,0 +1,22 @@
+name: Validate server research integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate plugin structure
+        run: node scripts/check.mjs
+      - name: Test compact keyword-gap adapter
+        run: node --test tests/server-keyword-gap-adapter.test.mjs
