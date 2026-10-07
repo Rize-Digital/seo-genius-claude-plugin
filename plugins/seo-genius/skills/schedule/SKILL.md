@@ -45,8 +45,8 @@ This skill is for an attended session only. It asks, and it waits for answers.
 3. Ask what an unattended run may do, and say what each choice means:
    - Mode. `report`: `next` writes each change as a proposal and edits nothing. It proposes the same item on every run until a person applies it and records it with `/seo-genius:log-change`. `pr`: `next` makes one change on a branch and opens a pull request for a person to merge. Recommend `report` for the first runs.
    - Live calls per run. The most Data-for-SEO calls one run may make. The monthly research can use up to 16 with ten terms (up to 11 for the competitor research, up to 5 for the keyword gap). The weekly report uses one per term. Zero means no live calls. One number governs every scheduled run: set it below 16 and the monthly research spends on the competitor searches first, and the keyword gap gets what is left.
-   - Record merged changes. Yes: `report` records a change in SEO Genius once its pull request is merged. No: it lists the change for the user to record.
-4. Show the block and write it to `.seo-genius/config.json` only on a yes. For a cloud schedule, set `skills_copied_from` to this plugin's version in the block that is shown, read from `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`, and show with it the five files step 5 will write. Steps 5 to 7 run only after that yes.
+   - Recording changes. An unattended run never records a page change. A merged pull request is a code event; an attended session checks deployment evidence and the actual ship date before recording it. An older `log_merged_changes` setting has no effect.
+4. Show the block and write it to `.seo-genius/config.json` only on a yes. Replace the entire old `unattended` block, including removal of any legacy `log_merged_changes` key. For a cloud schedule, set `skills_copied_from` to this plugin's version in the block that is shown, read from `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`, and show with it the five files step 5 will write. Steps 5 to 7 run only after that yes.
 
    ```json
    "unattended": {
@@ -54,7 +54,6 @@ This skill is for an attended session only. It asks, and it waits for answers.
      "where": "local",
      "mode": "report",
      "live_calls_per_run": 16,
-     "log_merged_changes": false,
      "skills_copied_from": null,
      "set_on": "YYYY-MM-DD"
    }
@@ -120,7 +119,7 @@ This skill is for an attended session only. It asks, and it waits for answers.
 
 ## Done when
 
-- The user chose where to run, the mode, the call budget, and the rule for recording merged changes, and confirmed the block before it was written.
+- The user chose where to run, the mode, and the call budget, and confirmed the block before it was written. The saved block has no `log_merged_changes` key.
 - Only the `unattended` block in the config changed.
 - For a cloud schedule, the five skill copies exist with their `name:` lines changed and nothing else.
 - The reply holds the two prompts and the steps to create the routines.
