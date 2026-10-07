@@ -4,6 +4,8 @@
 1. `/seo-genius:audit` with no arguments.
 2. `/seo-genius:audit <site name from list_sites>` on an org-scoped connection.
 3. "What's my SEO like?" typed in plain words, no slash command.
+4. A newer `completed` crawl with issue analysis pending and an older `issues_ready` crawl.
+5. The newest crawl is failed, with an older `issues_ready` crawl; repeat with a newest crawl still processing.
 
 ## Expected tool sequence
 get_my_tenant -> list_sites -> get_business_context -> list_crawls -> get_crawl -> list_issues (critical) -> list_issues (high) -> get_issue (only if a row lacks current or recommended value)
@@ -17,6 +19,8 @@ get_my_tenant -> list_sites -> get_business_context -> list_crawls -> get_crawl 
 - [ ] The reply states that lists were capped and that nothing was re-crawled.
 - [ ] No page list, no raw JSON, no invented number.
 - [ ] Prompt 3 triggers the skill without the slash command.
+- [ ] Prompt 4: the audit does not present the older issues as current or treat `completed` as a finished audit; it waits unless `get_crawl` explicitly proves no issue analysis remains.
+- [ ] Prompt 5: neither case presents the older crawl as current. A fresh crawl can be offered after failure but not while the newest crawl is processing.
 
 ## Fail conditions
 - A reply that shows a crawl issue count.
