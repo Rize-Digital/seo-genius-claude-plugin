@@ -27,18 +27,22 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
 
+## Research memory
+
+Read `../../references/research-store.md` first. After site resolution, call `list_research` then `get_research` for `pipeline_config.config`, `competitor_dive.analysis`, `keyword_gap.analysis`, and any prior `content_plan.plan` and `content_plan.metadata`. Read only relevant sections with sufficient `max_bytes` and fetch a dropped required section separately. Confirm every research document belongs to the current resolved site; report source dates and missing or stale inputs. Remote data is canonical. Local `.seo-genius/` files are compatibility copies or explicit offline fallback. A saved plan is historical context, not authorization to ship changes.
+
 ## Files
 
 - Reads `.seo-genius/config.json`, `.seo-genius/competitors.json`, and `.seo-genius/keyword-gap.json`.
-- Writes `.seo-genius/plan.md`, replacing the previous plan. The folder sits at the repository root, or in the current folder when there is no repository.
+- Writes `.seo-genius/plan.md` as an optional compatibility copy. With approved research-save permission also appends `content_plan.plan` and `content_plan.metadata` through `save_research`. Server research is the canonical context between cloud/agent sessions. The folder sits at the repository root, or in the current folder when there is no repository.
 - The file is meant to be kept with the site. Never write a token, key, or password into it.
 - If the session cannot write files, show the plan in the reply and say it was not saved.
-- This skill writes nothing to SEO Genius and edits no page.
+- This skill may write a versioned research document to SEO Genius only with explicit research-save authorization and `can_write`. It never edits a page, changes an SEO issue, or logs an unshipped change.
 
 ## Procedure
 
-1. Resolve the site (rule 1). Echo site, domain, `can_write`.
-2. Read `.seo-genius/keyword-gap.json` and `.seo-genius/competitors.json`. Neither exists: stop and say to run `/seo-genius:competitor-dive`, then `/seo-genius:keyword-gap`. One exists: continue with it and say what the plan lacks without the other. Read `services`, `city`, and `other_cities` from the config.
+1. Resolve the site (rule 1). Echo site, domain, `can_write`. Read existing research-store versions/ages and any current prior plan before proposing replacement work.
+2. Read `keyword_gap.analysis` and `competitor_dive.analysis` via `get_research`, then `pipeline_config.config`. Confirm their `site`, dates and competitor/market inputs agree. If the remote kinds are absent or unavailable, use validated same-site `.seo-genius/keyword-gap.json`, `.seo-genius/competitors.json` and config only as a reported fallback. Neither research input exists: stop and say to run `/seo-genius:competitor-dive`, then `/seo-genius:keyword-gap`. One exists: continue but say exactly what evidence is unavailable. Compare with any stored `content_plan.plan` and `metadata` so planned items are not accidentally repeated; do not infer that an item was deployed from its presence in a previous plan. Read `services`, `city`, and `other_cities` from the matched config.
 3. `get_site_briefing` with `max_bytes: 12000`, so fewer sections are left out for size. It spends no Data-for-SEO quota. A section named in `sections_dropped` is not available in this run: say so, and do not read it as empty. Keep three things from it:
    - `change_index.pages`: each page's verdict and `until` date.
    - The Opportunities section (`sections.opportunities`): keywords this site already ranks for between positions 4 and 20, each with its `page_url`, `position`, and `search_volume`.
@@ -62,7 +66,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
    - `allow`: open.
    - A linking page that is waiting, dropped, or unchecked is left off the Create item's link list, with a note. The Create item itself stays open.
 8. Order the open items. First: Improve items on pages that already rank between 4 and 20 for a keyword in their topic, by `site_position` in the gap file or `position` in the briefing's Opportunities. Second: Create items for page types at least two competitors have. Third: guides. Inside each group, higher total search volume first. Where What worked shows a kind of change working on this site, prefer that kind and say that is the reason. Twenty items at most; the first five are "this month". An unchecked item is not an open item. It goes in neither "this month" nor "later".
-9. Save `.seo-genius/plan.md` (see Files) with these parts, in this order:
+9. Build `.seo-genius/plan.md` (see Files) with these parts, in this order:
    - A header: the date, the site, which research files the plan was built from, with their dates, and one line saying so when any item is unchecked.
    - This month: a table, # | Action | Page | Topic | Keywords | What to do | Evidence | Status.
    - Later: the same table for the remaining open items.
@@ -70,7 +74,8 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
    - Dropped: each dropped item with its reason.
    - Unchecked: each item whose history was not checked, or only partly checked, saying which. These wait for a run that can read the history.
    - Topical map: Service | Slot | Covered, thin, or empty | URL | Competitors with this page.
-10. Close with how to act on an item: make the edit, check it with `/seo-genius:brief` first, and record it with `/seo-genius:log-change` after it ships. The plan orders the work. It does not promise a ranking.
+10. When explicitly authorized to save research (or under an approved unattended research-write scope) and `can_write`, call `save_research({kind: "content_plan", payload: {plan: <full plan.md Markdown>, metadata: {site: <resolved site>, generated_on: <today>, research_sources: <kind, research.id and as_of for each input>, previous_plan_id: <prior plan id or null>, open_count: <number>, waiting_count: <number>, unchecked_count: <number>}}, generated_on: <today>, site: <resolved site>})`. Use only returned IDs, dates and actual counts, never guesses. If full Markdown exceeds the payload cap, preserve the actionable plan and state what supporting detail was omitted. Require returned `research.id` before claiming persistence. If not authorized or the tool is unavailable, save the optional local file when possible and label NOT SAVED remotely.
+11. Close with how to act on an item: check with `/seo-genius:brief` before the edit, verify deployment, and record it using `/seo-genius:log-change` only after it ships. The plan orders the work. It does not promise a ranking.
 
 ## Output
 
@@ -78,7 +83,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - The topical map.
 - This month, Later, Waiting, Dropped, and Unchecked, as saved.
 - What the plan could not use (a missing research file, a capped page list, an unchecked history).
-- Where the plan was saved, or that it was not.
+- Confirmed server research ID, optional local plan path, or the precise reason it was NOT SAVED remotely.
 - Closing line per rule 9.
 
 ## If something is missing
@@ -97,5 +102,5 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - Every Improve item, and every page a Create item links from, was checked with `check_change`. An item whose history was not checked, or only partly checked, sits under Unchecked and in no open list.
 - No open item touches a frozen field, a page marked WAIT, or a field whose last change is still being measured.
 - Every keyword volume comes from the gap file or the briefing. No score, percentage, or forecast was invented.
-- `.seo-genius/plan.md` was saved, or the reply says it was not.
-- Nothing was written to SEO Genius and no page was edited.
+- A server `content_plan` research ID was verified after an authorized save, or the reply explicitly says NOT SAVED remotely. Local compatibility files were saved or their absence disclosed.
+- No website page, issue or change record was written; a versioned research document was written only if explicitly authorized, with a confirmed research ID.
