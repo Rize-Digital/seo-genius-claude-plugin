@@ -41,7 +41,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
    - No completed crawl: say the pipeline needs one. When `can_write` is true, offer `trigger_crawl`, say the crawl is queued and its results arrive later, that it counts against the plan's crawls, and call it only on a yes. Starting a crawl is the one thing this skill can change in SEO Genius.
    - Older than 14 days: say how old it is and make the same offer.
    - Continue the setup in both cases.
-4. Terms. Propose ten at most. Each is a service plus the primary city, phrased the way a customer searches ("fence installation boise"). Core services first. Show the list and let the user add, remove, or reword. These are the terms the competitor research checks.
+4. Terms. Propose at most ten service-plus-city terms, phrased as a customer would search ("fence installation boise"). Use only the primary city and explicitly recorded service-area cities from the business profile or the user. The primary city is the fallback, not an automatic majority: when the business serves larger nearby markets, propose a mix across relevant cities rather than ten variations of the smallest town. Prioritize core services and any markets supported by existing stored keyword or business context; do not infer search demand or invent a service area. Show the exact list and the geographic rationale, and let the user add, remove, or reword terms. The user must approve the exact list before it is saved. These terms are what competitor research checks.
 5. Location. Use a metro `location_code` only when the user or the business context gives one. Otherwise record `null`; later steps keep the city in the keyword and search at country level (rule 4). Never guess a code.
 6. Save `.seo-genius/config.json`:
 
@@ -62,8 +62,10 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
    }
    ```
 
-   A config already exists: show what would change and overwrite only on a yes.
-7. Close with the order of the pipeline: `/seo-genius:brief`, then `/seo-genius:competitor-dive`, then `/seo-genius:keyword-gap`, then `/seo-genius:content-plan`.
+   Approval gate: do not save a provisional config, even when a user asks to run another skill afterward. An instruction to run the next skill is not approval of the proposed terms. Approval is explicit only when the user accepts the exact displayed list, or the request itself clearly specifies and authorizes that exact list. If approval is missing, stop with the proposed unsaved config and ask once. A config already exists: show what would change and overwrite only on a yes.
+
+   For a chained start -> competitor-dive run, combine the proposed terms and the maximum live-search budget from competitor-dive into one approval request. One explicit yes can authorize both only for that same list and maximum budget in this session. If either changes, ask again. Never spend quota or queue a downstream write while approval is pending.
+7. Close with the order of the pipeline: `/seo-genius:brief`, then `/seo-genius:competitor-dive`, then `/seo-genius:keyword-gap`, then `/seo-genius:content-plan`. If a chained run was requested, proceed only after the term and quota approvals above. Otherwise report which step is blocked and what still needs approval.
 
 ## Output
 
@@ -86,7 +88,8 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 ## Done when
 
-- The user confirmed the terms. Ten at most.
+- The user explicitly confirmed the exact terms. Ten at most, with service-area markets represented only when grounded in the business profile or user input.
+- A queued follow-on skill never counted as consent, and no provisional config was written before approval.
 - No crawl was started without a yes.
 - No `location_code` was guessed.
 - `.seo-genius/config.json` was saved, or the reply says it was not.
