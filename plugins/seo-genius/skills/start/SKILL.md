@@ -42,7 +42,7 @@ Read `../../references/research-store.md` before running this skill. After resol
 1. Resolve the site (rule 1). Echo site, domain, `can_write`. Read the stored pipeline configuration through `list_research` / `get_research` (Research memory). If one exists and is valid, use it as the proposed starting point instead of rebuilding terms. Skip a duplicate save when the approved config is unchanged.
 2. `get_business_context`. From `profile_text` and `business_context`, read the business name, the services, the primary city and region, the country, the other cities served, and any stored `competitors`. List what is missing. Ask the user for the missing facts and use the answers for this setup. Tell them to complete the business profile in SEO Genius so every session has it. This skill does not write the business profile.
 3. `list_crawls` with `limit: 10`. Find the most recent finished crawl by `completed_at` being set and `status` not being `failed` (a finished crawl may have `status: "issues_ready"`); do not rely on the literal status `completed` alone.
-   - No completed crawl: say the pipeline needs one. When `can_write` is true, offer `trigger_crawl`, say the crawl is queued and its results arrive later, that it counts against the plan's crawls, and call it only on a yes. Starting a crawl is the one thing this skill can change in SEO Genius.
+   - No completed crawl: say the pipeline needs one. When `can_write` is true, offer `trigger_crawl`, say the crawl is queued and its results arrive later, that it counts against the plan's crawls, and call it only on a yes. Starting a crawl is the only website-adjacent operation this skill can trigger. A separately authorized `save_research` may append configuration without touching the website.
    - Older than 14 days: say how old it is and make the same offer.
    - Continue the setup in both cases.
 4. Terms. Propose ten at most. Each is a service plus the primary city, phrased the way a customer searches ("fence installation boise"). Core services first. Show the list and let the user add, remove, or reword. These are the terms the competitor research checks.
@@ -94,4 +94,4 @@ Read `../../references/research-store.md` before running this skill. After resol
 - No crawl was started without a yes.
 - No `location_code` was guessed.
 - `pipeline_config.config` was saved with a confirmed research document ID when authorized and supported; otherwise explicitly label it NOT SAVED remotely. The local compatibility copy was saved or its absence was disclosed.
-- The business profile in SEO Genius was not written. The only change this skill can make in SEO Genius is starting a crawl, on a yes.
+- The business profile was not written. The only permitted SEO Genius writes are a user-approved crawl trigger and an independently authorized versioned `save_research`; no website content was edited.
