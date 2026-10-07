@@ -167,7 +167,8 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - `ranked_keywords` returns nothing for a competitor: say so and continue with the others.
 - A saved list that does not parse, or has no `rows`: do not use it. Count that domain as needing a call, and say the saved file was unusable.
 - The session cannot write files: every domain needs a call each run, because no list can be saved. Say so when stating the spend.
-- `upstream_unavailable` on a call: report it, skip that domain, keep the rest.
+- `upstream_unavailable` on a call: report the actual provider error and do not pretend a missing domain has no rankings. Skip that domain; after two consecutive failed provider calls, stop live research for this run. For the site's own list or if all competitors fail, stop without generating a gap report.
+- `site_paused` or `site_archived` (409): stop all live calls on the first refusal and report the blocked site state. A refused or failed call still counts against this run's planned call cap; do not retry it in the same run.
 - Rate limited (429): if the message is `quota_exceeded`, stop and report that the monthly quota is exhausted rather than recommending a retry in one minute. For other rate limits, stop and report the actual retry guidance, if supplied.
 
 ## Done when
