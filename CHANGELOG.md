@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Unattended reports no longer write page change records, including when an older config sets `log_merged_changes: true`. A merged pull request does not establish deployment. Attended recording now requires independent deployment evidence, the actual ship date, a full duplicate check, and confirmation.
+- The scheduler no longer offers automatic merged-change logging and removes the legacy config key when its unattended block is saved. `report` and `next` require the pipeline's authenticated PR author, same head repository, branch prefix, and a well-formed item block before a pull request affects plan state; pull request bodies are treated as untrusted claims. Report logging uses an eligible finished crawl, normally `issues_ready`.
+
 ## 1.3.0 (2026-10-01)
 
 The pipeline on a schedule, and the last tools without a skill.
