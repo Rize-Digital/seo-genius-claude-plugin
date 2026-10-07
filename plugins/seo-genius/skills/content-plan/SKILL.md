@@ -43,12 +43,12 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
    - `change_index.pages`: each page's verdict and `until` date.
    - The Opportunities section (`sections.opportunities`): keywords this site already ranks for between positions 4 and 20, each with its `page_url`, `position`, and `search_volume`.
    - The What worked section.
-4. Page inventory: `list_pages` (`limit: 100`, follow `next_cursor`, five pages at most). Sort each URL into service page, location page (a service in a city), guide, or other, by its URL and title. Say when the five-page cap cut the list short.
+4. Page inventory: `list_pages` (`limit: 25`, follow `next_cursor`, twenty pages at most). Sort each URL into service page, location page (a service in a city), guide, or other, by its URL and title. Smaller responses avoid client size failures. Say when the twenty-page cap cut the list short; do not treat unobserved pages as absent.
 5. Topical map. For each service in the config, lay out the slots:
    - The main service page.
    - A page for a city only where there is evidence for it: a gap keyword that names the city, a `local_terms` entry for it, or at least two competitors with location pages. Never one page per city by default; thin city pages help nobody.
    - The guides the keyword topics call for (cost, FAQ, how to choose, comparisons).
-   Mark each slot covered (a page exists and its topic is not in the gap file; name the URL), thin (a page exists and its topic is missing or behind in the gap file), or empty (no page). Where `competitors.json` has `page_counts`, show how many pages of each kind each competitor has, and that those counts are approximate.
+   Mark each slot covered (a page exists and its topic is not in the gap file; name the URL), thin (a page exists and its topic is missing or behind in the gap file), or empty (no page). Where `competitors.json` has `page_counts`, show observed page counts as approximate. A `null` competitor count means unknown, not zero; never turn an unknown count or an unread FAQ/page into evidence that a competitor lacks a page or a section. When the site inventory is capped or unavailable, label unverified slots unknown rather than empty.
 6. Build the backlog: one item for each thin or empty slot, one for each `local_terms` entry no slot covers, and one for each entry in `moves` from `competitors.json` that no slot covers.
    - Create: the page type, a working title, the main keyword and four supporting ones at most (from the gap file, with their volume), a URL path in the site's existing pattern, the sections to include (what the competitors' ranking pages share, from the fields the research read: FAQ, proof, and schema only where it was seen), and the existing pages that should link to it.
    - Improve: the existing URL, what to add, and the field it changes (`content_depth`, `title`, `h1`, `meta_description`, `schema`, or `internal_links`).
