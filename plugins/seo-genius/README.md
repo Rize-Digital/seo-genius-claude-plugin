@@ -6,7 +6,7 @@ SEO audit, keyword research, rankings, competitor analysis, and quick wins for y
 
 - An SEO Genius account on Pro or above. Connecting an LLM uses the `mcp` scope, which the Free plan does not include.
 - Claude Code with the `/plugin` command.
-- Context cost: about 642 tokens added to every session for the six skill descriptions in 1.0.0, plus roughly 1.1k to 1.4k tokens when a skill runs (measured with `claude plugin details` on 1.0.0). The six skills added in 1.1.0 and 1.2.0 add six more descriptions and have not been measured yet.
+- Context cost: about 642 tokens added to every session for the six skill descriptions in 1.0.0, plus roughly 1.1k to 1.4k tokens when a skill runs (measured with `claude plugin details` on 1.0.0). The eleven skills added since 1.0.0 add eleven more descriptions and have not been measured yet.
 - For the research pipeline: a folder Claude can write to, ideally your site's repository, and a web fetch tool in the session so competitor pages can be read.
 
 ## Install
@@ -36,6 +36,8 @@ Choose `plugin:seo-genius:seo-genius`, then Authenticate. Your browser opens the
 | `/seo-genius:competitors <terms>` | Your local ranking baseline, your organic rivals, and a live position check for named terms. |
 | `/seo-genius:log-change <what you changed>` | Records a change you shipped, with the reason, so SEO Genius can measure it on the next crawl. |
 | `/seo-genius:history <page>` | Every logged change to a page or the site: date, before and after, the reason, who made it. |
+| `/seo-genius:sites` | Every site in the workspace in one table, ordered by what needs attention first. |
+| `/seo-genius:issues <what to record or dismiss>` | Files a finding as an issue, corrects one, or dismisses a false positive, each after you confirm. |
 
 You can also just ask in plain words ("what's wrong with my homepage?") and Claude picks the right skill.
 
@@ -61,6 +63,34 @@ What to know before you rely on it:
 - The pipeline proposes. It does not edit your pages. The only thing it can change in SEO Genius is starting a crawl from `start`, and only when you say yes.
 - It orders the work. It does not promise a ranking.
 
+## Run it on a schedule
+
+Three more commands turn the pipeline into something that runs on its own.
+
+| Command | What it does |
+|---|---|
+| `/seo-genius:schedule` | Sets up scheduled runs. Records what an unattended run may do, and gives you the prompts to paste into a routine. |
+| `/seo-genius:report` | The weekly report: what changed, what moved, what is waiting, and what needs a decision. |
+| `/seo-genius:next` | Takes the next item from the plan and writes the exact change as a proposal, or opens a pull request when you allow it. One item per run. |
+
+A usual setup is two routines: the research once a month (`competitor-dive`, `keyword-gap`, `content-plan`), and `report` then `next` once a week.
+
+What an unattended run can and cannot do:
+
+- It works inside limits you set once with `/seo-genius:schedule`, saved in `.seo-genius/config.json`: propose only or open pull requests, the most live calls per run, and if it may record a merged change. Set `enabled` to false there and a scheduled run stops at its first step. The prompts from `/seo-genius:schedule` start with "Unattended run.", which is what tells a run to read these limits; keep that line if you write your own prompt.
+- It never merges a pull request, never pushes to your default branch, and never writes to a live site. At most one pull request from the pipeline is open at a time.
+- A change is recorded in SEO Genius only after its pull request is merged.
+- In propose-only mode, `next` proposes the same item each week until you apply it and record it with `/seo-genius:log-change`.
+- `next` changes only pages it has checked. An item whose file is shared with other pages (a template, a menu, a footer) is written up for you to apply, not edited.
+- `next` leaves a page alone while an earlier change to it is still being measured, and passes over an item when the page's history could not be read. A run that finds nothing ready says so. That is a normal result.
+- New pages are drafted from facts already on your site and in your business profile. Anything unknown is left as a visible placeholder. It does not invent reviews, prices, or claims.
+- The report shows changes and movements side by side and claims no cause.
+
+Two ways to schedule:
+
+- On your machine: a local routine in the Claude desktop app. It should load this plugin like any session on your machine; check that on the first run. It runs while the app is open and the computer is awake.
+- In the cloud: a routine on your Claude account, which runs when your computer is off. A cloud run does not install plugins, so `/seo-genius:schedule` copies the pipeline skills into your repository's `.claude/skills/` folder for you to commit. Run it again after a plugin update. SEO Genius has to be a connector on your Claude account. The default cloud environment blocks most outside sites, so competitor pages are marked "not read" unless you open its network access. A cloud run keeps nothing it does not push, and the research steps push nothing: after each monthly run you merge its research files from the run's session, or the weekly run keeps working from the old plan.
+
 ## How the skills behave
 
 - They confirm which site they are working on before doing anything.
@@ -69,7 +99,7 @@ What to know before you rely on it:
 - Every number comes from a tool result. Missing data is reported as missing, never guessed.
 - Lists are capped and paginated; the reply says what was capped.
 - Before an edit, `brief` checks the page's history. A field changed very recently is frozen for a short period, and the check blocks. After that, until the earlier change has finished being measured, the check warns that another edit throws the measurement away. A value the field held before is flagged as a revert. `brief` only checks. It never edits a page.
-- The only skill that writes to your site's record in SEO Genius is `log-change`, and it asks for your confirmation first. Logging records that a change happened. It does not claim the change worked. `audit` and `start` can start a crawl, and only when you say yes.
+- Three skills write to SEO Genius, each only on a yes: `log-change` records a change you shipped, `issues` files, corrects, or dismisses an issue, and `report` records a change whose pull request was merged. A scheduled run records merged changes only if you allowed that when you set the schedule. Logging records that a change happened. It does not claim the change worked. `audit` and `start` can start a crawl, and only when you say yes.
 
 ## Data and privacy
 

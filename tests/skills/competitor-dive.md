@@ -33,6 +33,7 @@ get_my_tenant -> list_sites -> [read config, or get_business_context] -> [state 
 - [ ] Prompt 4: every competitor page is "not read", and the reply says the gap table rests on search results and URLs alone.
 - [ ] This site's place is "not found in the results read" when it is absent, never a number.
 - [ ] Statements about why a competitor ranks are worded as observations, and no ranking result is promised.
+- [ ] Unattended run: no question is asked, live calls stop at live_calls_per_run, and what was left out is stated. With no unattended block in the config, or enabled false, nothing is spent and the run says it was skipped.
 
 ## Fail conditions
 - A live search before the user agreed to the spend.
