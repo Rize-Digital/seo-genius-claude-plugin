@@ -39,7 +39,7 @@ Read `../../references/research-store.md` first. After resolving the site, use `
 - Writes `.seo-genius/competitors.md` and `.seo-genius/competitors.json` as optional local compatibility copies. For approved persistent research writes, use `save_research` with `kind: "competitor_dive"` and section `analysis` as the complete `competitors.json` object and optional `report` as the Markdown string. Never overwrite stored history: `save_research` is append-only. The folder sits at the repository root, or in the current folder when there is no repository.
 - The files are meant to be kept with the site so the next step or a scheduled run finds them. Never write a token, key, or password into them.
 - If the session cannot write files, show the report in the reply and say it was not saved.
-- This skill writes nothing to SEO Genius and edits no page.
+- This skill may append a research document only with explicit `save_research` authorization and `can_write`; it edits no website page, SEO issue or change record.
 
 ## Procedure
 
@@ -151,4 +151,4 @@ Read `../../references/research-store.md` first. After resolving the site, use `
 - Every statement about why they rank and every gap row names its evidence, and no on-page, topic, or schema row rests on a page that was not read.
 - The reply and the saved report both state what could not be seen.
 - The research document was saved with a confirmed ID when authorized and supported, or the reply explicitly says NOT SAVED remotely. Local copies were saved or their absence was disclosed.
-- Nothing was written to SEO Genius and no page was edited.
+- No website or issue was changed, and no change record was logged; any research-store write was authorized and its returned ID verified.
