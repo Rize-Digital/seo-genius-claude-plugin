@@ -35,7 +35,7 @@ Choose `plugin:seo-genius:seo-genius`, then Authenticate. Your browser opens the
 | `/seo-genius:quick-wins` | Three single-field fixes with paste-ready values, and the keywords within reach of page one. |
 | `/seo-genius:competitors <terms>` | Your local ranking baseline, your organic rivals, and a live position check for named terms. |
 | `/seo-genius:log-change <what you changed>` | Records a change you shipped, with the reason, so SEO Genius can measure it on the next crawl. |
-| `/seo-genius:history <page>` | Every logged change to a page or the site: date, before and after, the reason, who made it. |
+| `/seo-genius:history <page>` | Readable reported changes to a page or site, with dates, before and after, reasons, actors, and an explicit coverage limit. |
 
 You can also just ask in plain words ("what's wrong with my homepage?") and Claude picks the right skill.
 
