@@ -119,13 +119,53 @@ check(
   "Standing rules block is byte-identical across all skills",
 );
 
-// 5. Em dashes in any markdown file
+// 5. Guard source-level contracts for the known live-smoke regressions.
+// These are structural guardrails, not a replacement for a live Claude skill run.
+const policyContracts = {
+  start: [
+    "Approval gate: do not save a provisional config",
+    "An instruction to run the next skill is not approval",
+    "explicitly recorded service-area cities",
+  ],
+  "competitor-dive": [
+    "A queued instruction is not approval to spend quota",
+    "with `read: false` and `read_error`",
+    "`faq` is `true` only when observed",
+    "set each `page_counts` numeric field to `null`",
+    "`limit: 25`",
+  ],
+  "content-plan": [
+    "A `null` competitor count means unknown",
+    "`limit: 25`",
+  ],
+};
+for (const [skill, markers] of Object.entries(policyContracts)) {
+  const md = readFileSync(join(skillsDir, skill, "SKILL.md"), "utf8");
+  for (const marker of markers) check(md.includes(marker), `${skill}: regression guard for ${marker}`);
+}
+const dive = readFileSync(join(skillsDir, "competitor-dive", "SKILL.md"), "utf8");
+const example = dive.match(/`competitors\.json`:[^\n]*\n\s*```json\n([\s\S]*?)\n\s*```/);
+if (!example) fail("competitor-dive: competitors.json example exists");
+else {
+  try {
+    const payload = JSON.parse(example[1]);
+    const competitorPage = payload.competitors?.[0]?.pages?.[0];
+    const sitePage = payload.site_pages?.[0];
+    for (const [kind, page] of [["competitor", competitorPage], ["site", sitePage]]) {
+      check(page?.read === false && typeof page.read_error === "string", `${kind}: unread example explains failure`);
+      check(page?.faq === null && page?.schema === null && page?.title === null, `${kind}: unread fields are unknown, not absent`);
+    }
+    check(payload.competitors?.[0]?.page_counts?.service === null, "unread competitor page count is null");
+  } catch (e) { fail(`competitors.json example does not parse: ${e.message}`); }
+}
+
+// 6. Em dashes in any markdown file
 for (const p of walkMd(ROOT)) {
   const n = (readFileSync(p, "utf8").match(/\u2014/g) || []).length;
   check(n === 0, `no em dashes in ${rel(p)} (${n})`);
 }
 
-// 6. Em dashes in the listing copy inside the JSON manifests
+// 7. Em dashes in the listing copy inside the JSON manifests
 const listingCopy = [];
 if (pj && typeof pj.description === "string") listingCopy.push(["plugin.json description", pj.description]);
 if (mp && typeof mp.description === "string") listingCopy.push(["marketplace.json description", mp.description]);

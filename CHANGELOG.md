@@ -1,4 +1,12 @@
 # Changelog
+## Unreleased
+
+- `start`: require explicit approval of the exact research terms before writing config; a queued next skill is not approval. Allow one explicit approval to cover an unchanged chained research budget.
+- `start`: propose geographically grounded search terms across recorded service-area cities, not only the primary city.
+- `competitor-dive`: preserve unknown values when pages or sitemaps cannot be read; follow same-host redirects once and record failures.
+- `competitor-dive` and `content-plan`: use smaller paginated page inventories, and prevent missing data from becoming false page or FAQ gaps.
+- Add acceptance scenarios and structural regression guards for these cases.
+
 
 ## 1.2.0 (2026-10-01)
 
