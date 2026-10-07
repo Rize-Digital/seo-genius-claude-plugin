@@ -1,6 +1,6 @@
 # Acceptance: /seo-genius:keyword-gap
 
-## Smoke prompts (each ranked_keywords call spends quota; run only after the maintainer approves)
+## Legacy fallback smoke prompts (paid calls require approval)
 1. `/seo-genius:keyword-gap` in a repository that has `.seo-genius/competitors.json` with three competitors.
 2. "What keywords do my competitors rank for that I don't?" naming two competitor domains, in a folder with no research files.
 3. `/seo-genius:keyword-gap` in a folder with no research files and no domains named.
@@ -11,10 +11,10 @@
 8. A fresh-pull request with local terms also needs one `keyword_research` call.
 9. A paid call gets 409 `site_paused`, 429 `quota_exceeded`, or two consecutive `upstream_unavailable` responses.
 
-## Expected tool sequence
+## Expected legacy fallback tool sequence
 get_my_tenant -> list_sites -> [read competitors.json and config, or get_business_context] -> [read .seo-genius/keyword-lists/ and sort each domain into on file or needs a call] -> [state the spend, wait for a yes when any call is needed] -> ranked_keywords (country, limit 200) only for the domains that need a call, each saved to keyword-lists/<domain>.json as it answers -> [keyword_research once, only for local terms that appear in no list and are not on file] -> write .seo-genius/keyword-gap.md and keyword-gap.json
 
-## Pass conditions
+## Legacy fallback pass conditions
 - [ ] The reply states the number of live calls, including the possible keyword_research call, and waits for a yes before the first one.
 - [ ] At most one ranked_keywords call per domain, four domains at most, each at country level with limit 200, and none for a domain whose saved list was reused.
 - [ ] Before the spend is stated, each domain is named as on file with its date or as needing a call.
@@ -43,6 +43,17 @@ get_my_tenant -> list_sites -> [read competitors.json and config, or get_busines
 - [ ] keyword-gap.json parses as JSON, uses the keys in the skill, and holds sixty keywords at most.
 - [ ] Prompt 3: the reply stops and says to run /seo-genius:competitor-dive first.
 
+## Preferred server keyword-gap and research-store acceptance
+- [ ] With server `keyword_gap` available, the run calls it once for up to three in-area competitors and does not also call `ranked_keywords`.
+- [ ] The worst-case quota budget is explained before spending: up to four ranked-keyword lists through a single server call, plus one optional local-term call; cached lists may refund quota.
+- [ ] `fresh: true` reaches the server tool when fresh data is explicitly requested; the result's list `cached_at`, `cap_hit`, `status`, `rows_left_out`, and `compared` fields are preserved.
+- [ ] When Node is available, the compact response passes `plugins/seo-genius/scripts/normalize-server-keyword-gap.mjs`; columns may arrive in any order and a different target site is rejected.
+- [ ] Branded, out-of-area and irrelevant rows are filtered AFTER the server comparison; no false local service gaps are created from unfiltered country-level rows.
+- [ ] Resulting `keyword-gap.json` retains the legacy `topics`, `local_terms` and counts shape so content-plan can read it.
+- [ ] When authorized, `save_research(kind: keyword_gap)` stores `analysis`, optional `source_gap`, and `report` with a verified research ID. A fresh run with no local files reads it again.
+- [ ] A missing server tool uses the legacy fallback after disclosing the limitation; an errored paid server request NEVER triggers a second billed fallback.
+- [ ] Read-only connections, unavailable store migrations, dropped sections, paused sites, exhausted quota and partial failed competitor lists are reported accurately.
+
 ## Fail conditions
 - A live call before the user agreed to the spend.
 - Fresh pull requested but `fresh: true` omitted on a live DataForSEO call.
@@ -59,4 +70,4 @@ get_my_tenant -> list_sites -> [read competitors.json and config, or get_busines
 - A saved list with fewer rows than the tool returned, or with rows cleaned or re-sorted before saving.
 - A competitor's brand name kept as a gap keyword.
 - A search volume that appears in no tool result.
-- Any SEO Genius write tool called, or any page edited.
+- An SEO Genius write other than an explicitly approved `save_research`, or any website page edited.
