@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Integrate tenant-scoped `list_research`, `get_research`, and `save_research` across setup, competitor research, keyword-gap analysis, and content planning. Research documents are versioned; local files remain optional compatibility copies and offline fallbacks.
+- Make `keyword_gap` the primary server-side keyword comparison, decoding compact columns/rows without the legacy four large `ranked_keywords` responses. Preserve brand, service-area and topic filtering and output compatibility.
+- Add a deterministic decoder inside the distributed Claude plugin, Node regression tests, CI validation and research-store acceptance scenarios.
+- Require `can_write` and approval for persistent research writes; distinguish missing/dropped sections from empty evidence and do not count research saves as deployed SEO changes.
+
 - `keyword-gap`: a requested fresh pull now passes `fresh: true` to DataForSEO-backed keyword tools instead of bypassing only local files.
 - `keyword-gap`: retain the upstream `cached_at` date when known; unknown shared-cache age is never described as today's fresh data or reused as a dated list.
 - `keyword-gap`: stop on paused or archived sites, monthly quota exhaustion, or repeated upstream failures instead of wasting quota on retries.
