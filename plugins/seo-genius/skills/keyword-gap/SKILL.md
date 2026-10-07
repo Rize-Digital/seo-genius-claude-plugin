@@ -38,7 +38,7 @@ Read `../../references/research-store.md` before beginning. The SEO Genius resea
 - Reads and writes `.seo-genius/keyword-lists/`: one `<domain>.json` per domain, and `local-terms.json`. Each holds every row of one list in a compact form, with the date it was pulled, so a later run can read it instead of paying for the same call (step 3).
 - The files are meant to be kept with the site. Never write a token, key, or password into them.
 - If the session cannot write files, show the report in the reply and say it was not saved.
-- This skill writes nothing to SEO Genius and edits no page.
+- This skill may append a versioned `keyword_gap` research document only with approved research-save permission and `can_write`; it never edits a website page or change log.
 
 ## Preferred server-side procedure
 
@@ -194,10 +194,10 @@ Use the existing file-based steps below ONLY if `keyword_gap` is not exposed or 
 ## Done when
 
 - The user agreed to the spend, including the possible `keyword_research` call, before the first live call.
-- At most one `ranked_keywords` call per domain, four domains at most, none for a domain whose saved list was reused, and at most one `keyword_research` call.
-- Every list pulled in this run was saved under `.seo-genius/keyword-lists/` with every row, in the compact form, and every reused list is named with the date it was pulled.
+- On the preferred path, exactly one `keyword_gap` call at most, no `ranked_keywords` calls, and at most one additional `keyword_research` call. On the legacy fallback, at most one `ranked_keywords` call per domain, four domains at most, and at most one `keyword_research` call.
+- On the preferred server path, one `keyword_gap` result was decoded, its `lists` and `rows_left_out` were preserved, and no raw `ranked_keywords` bulk pulls were made. On the legacy fallback only, pulled lists were saved locally in compact form and reused lists were identified with their dates.
 - Every kept keyword is in exactly one class, and the number holding is stated.
 - Every volume and position comes from a tool result and is labeled country-level.
 - The counts of removed rows and the capped domains are stated.
 - The server research ID was verified after an authorized save, or the reply says NOT SAVED remotely. The local copies were saved or their absence was disclosed.
-- Nothing was written to SEO Genius and no page was edited.
+- No website page or issue was edited, and no page-change record was logged; any research-store write was explicitly authorized and its returned ID verified.
