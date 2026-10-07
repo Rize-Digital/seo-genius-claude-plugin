@@ -23,7 +23,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 4. Local, not national, with the right tool. `ranked_keywords`, `keyword_research`, and `competitor_domains` run at country level only (Data-for-SEO Labs does not take a city or state, and a city returns nothing). Pass the customer's country (`location_name: "United States"` or `location_code: 2840` for a US business) and make the keywords themselves local ("tree removal boise"). For a local position use `serp_rank_check` with the metro `location_code`, or with the city in the keyword when no code is known. State which was done.
 5. Never invent a number. Every figure traces to a tool result. Missing data is reported as missing.
 6. Cap every list. Call `list_issues` with `limit` (50 by default, 100 at most) and read the first page only unless the user asks for more. Never quote a crawl's `issues_found` field.
-7. Search with phrases. `search_pages` is a vector search; give it a descriptive phrase ("concrete driveway installation service page"), never a single word.
+7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
 
@@ -32,7 +32,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 1. Resolve the site (rule 1). If `can_write` is false: write the change out as a short block (page, change kind, before, after, reason) the user can paste or send to a workspace owner, say the account is read-only, and stop.
 2. Find the page: `search_pages` with a descriptive phrase built from the user's words, `match_count: 5`. If the user gave a URL, match on it. More than one candidate: ask. None: page through `list_pages` (`limit: 100`, follow `next_cursor`, at most five pages) and match the URL or title; the homepage in particular often does not surface from `search_pages`. Still nothing: ask for the URL.
 3. `get_page` with `page_id` to read the current stored value of the field. If the user did not state the "before", use the stored value and say so.
-4. `list_crawls` with `limit: 20`; take the most recent completed crawl's id as `crawl_id`.
+4. `list_crawls` with `limit: 20`, newest first. Inspect its first row only for `crawl_id`; never skip to an older crawl. Use it when status is `issues_ready`. When status is `completed`, call `get_crawl` and use it only if the result explicitly shows issue analysis is disabled or finished with nothing pending. If the newest crawl is unfinished, failed, cancelled, or has no such proof, defer the log.
 5. Pick the `change_kind`. The kind is exactly one of `title`, `meta_description`, `h1`, `canonical`, `schema`, `internal_links`, `redirect`, `content_depth` (copy added or expanded), `readability` (copy rewritten, same scope). If the edit fits none of them (image alt text, for example), say SEO Genius has no change kind for it yet, return the entry as text, and do not write. Never force an edit into the nearest kind, and do not offer to. In that text, leave any before or after the user did not state as "not given".
 6. `check_change` with `page_id`, `change_kind`, and `proposed_value` set to the exact "after" (leave `proposed_value` out for `internal_links`, `content_depth`, and `readability`). The change has already shipped, so the verdict never stops the log: a shipped change left unrecorded is worse than one recorded with a warning. Show the verdict to the user as a history note, in the entry they confirm and again in the reply. The note is not sent to `log_page_change`; SEO Genius already holds the history it describes.
    - `allow`: no note.
@@ -62,7 +62,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above.
 - 403 on the write itself: the account's role cannot write. Return the entry as text.
 - The write returns an error: say "this did not save" and repeat the error text. Never claim success.
-- No completed crawl: say a crawl is needed before a change can be logged against it.
+- No eligible crawl: say issue analysis must finish before a change can be logged against that crawl. Do not use `completed` alone as proof.
 - Rate limited (429): stop, say so, suggest retrying in a minute.
 
 ## Done when

@@ -6,9 +6,10 @@
 3. `/seo-genius:log-change I added alt text to the hero image on the homepage` (no change kind covers alt text).
 4. Prompt 1 a second time on the same page with a different new title, while the first is still frozen.
 5. `/seo-genius:log-change I am about to change the homepage title to "<new>"` (the edit has not shipped).
+6. Prompt 1 with a newest `completed` crawl whose issue analysis is pending and an older `issues_ready` crawl; repeat with a failed newest crawl.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> search_pages (phrase) -> get_page -> list_crawls -> check_change (page_id, change_kind, proposed_value) -> [confirm with user] -> log_page_change -> [optional, only on user confirmation] mark_issue_fixed
+get_my_tenant -> list_sites -> search_pages (phrase) -> get_page -> list_crawls -> [get_crawl only if assessing a completed crawl] -> check_change (page_id, change_kind, proposed_value) -> [confirm with user] -> log_page_change -> [optional, only on user confirmation] mark_issue_fixed
 
 ## Pass conditions
 - [ ] The reply shows before, after, page URL, and reason, and waits for a yes before writing.
@@ -22,6 +23,7 @@ get_my_tenant -> list_sites -> search_pages (phrase) -> get_page -> list_crawls 
 - [ ] The reply distinguishes "logged" from "measured" in plain words.
 - [ ] On can_write false: no write, the change is returned as copyable text.
 - [ ] On a write error: the reply says it did not save and why.
+- [ ] Prompt 6: only the first, newest crawl is inspected for eligibility. A transient `completed` or failed crawl and any older crawl are not used for the ledger entry. A `completed` crawl requires explicit proof from `get_crawl` that issue analysis is disabled or finished with nothing pending.
 
 ## Fail conditions
 - change_kind missing, or a value outside the server's list.

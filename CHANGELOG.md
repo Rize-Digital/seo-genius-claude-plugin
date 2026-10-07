@@ -10,20 +10,22 @@
 The pipeline on a schedule, and the last tools without a skill.
 
 - New skill `next`: takes the next open item from the content plan, checks the page's history again, and writes the exact change as a proposal. On request, or when a scheduled run is set to allow it, it makes that one change on a branch and opens a pull request. One item per run, one open pull request at a time, and only pages it has checked: an item whose file is shared with other pages is written up for a person to apply. It never merges.
-- New skill `report`: the weekly report of what changed, what moved, what is waiting, and what needs a decision. It records a change in SEO Genius once its pull request is merged, on a yes or when the schedule allows it. It claims no cause for a movement.
-- New skill `schedule`: records what an unattended run may do in `.seo-genius/config.json`, copies the pipeline skills into the repository for cloud runs, and hands over the prompts to paste into a routine. It creates no routine itself. A cloud run keeps nothing it does not push, so its research files are merged by a person after each monthly run.
+- New skill `report`: the weekly report of what changed, what moved, what is waiting, and what needs a decision. An attended session can record a shipped change after independent deployment evidence and confirmation. It claims no cause for a movement.
+- New skill `schedule`: records what an unattended run may do in `.seo-genius/config.json`, copies the pipeline skills into the repository for cloud runs, and hands over the prompts to paste into a routine. It creates no routine itself. The 1.3.0 pipeline hands research between steps through files; a cloud run keeps nothing it does not push, so a person must merge its research files before the weekly run can use them. The server research store is not used by this version.
 - New skill `sites`: every site in the workspace in one table, ordered by what needs attention first.
 - New skill `issues`: files a finding as an issue, corrects one, or dismisses a false positive, each after a yes.
 - `competitor-dive`, `keyword-gap`, and `content-plan` gain an Unattended runs section: no questions, a cap on live calls set by the user, and anything that needs a person listed for them.
 - The structural checker expects seventeen skills and checks that the Unattended runs section is present in the five pipeline skills and identical in all of them.
+- `competitor-dive` now starts with local terms the site loses. `keyword-gap` saves compact keyword lists and reuses a list only while its source pull remains within seven days; a requested fresh pull bypasses both file and server reuse.
+- All seventeen skills carry the 1.1.1 mode-aware page-search rule from main, including the skills added in this release.
 
 ## 1.2.0 (2026-10-01)
 
 The research pipeline: four skills that run in order and hand their results to each other through files in a `.seo-genius/` folder.
 
 - New skill `start`: one setup per site. Confirms the site, services, city, and up to ten search terms to compete on, and saves them to `.seo-genius/config.json`.
-- New skill `competitor-dive`: finds the three local businesses that outrank the site on those terms, starting with the terms it is losing, reads the pages that rank, reads the site's own pages the same way, and reports what can be seen of why they rank, what the site is missing, and what to add. It states what it cannot see (map results, backlinks, Google Business Profile data, and structured data unless raw HTML was read).
-- New skill `keyword-gap`: compares the ranking keywords of the site and its three competitors, removes brand and out-of-area terms, and groups the rest into topics where the site is missing or behind. It saves every row of each list it pulls, in a compact form, and reuses one saved in the last seven days, so a rerun after one competitor changes costs one call, not four. Ask for a fresh pull to ignore the saved lists.
+- New skill `competitor-dive`: finds the three businesses that hold the top organic results for those terms, reads the pages that rank, reads the site's own pages the same way, and reports what can be seen of why they rank, what the site is missing, and what to add. It states what it cannot see (map results, backlinks, Google Business Profile data, and structured data unless raw HTML was read).
+- New skill `keyword-gap`: compares the ranking keywords of the site and its three competitors, removes brand and out-of-area terms, and groups the rest into topics where the site is missing or behind.
 - New skill `content-plan`: turns the research into an ordered backlog of pages to create and pages to improve. It checks each existing page against its change history first, and a page whose last change is still being measured waits. An item whose history could not be fully read is set aside, not planned.
 - New skill `history`: the logged changes to a page or the site, with dates, reasons, and who made them.
 - Every pipeline step states the most live calls it can make and waits for a yes. The pipeline proposes and edits no page. The only thing it can change in SEO Genius is starting a crawl from `start`, on a yes.

@@ -7,9 +7,10 @@
 4. Prompt 1 on a read-only account.
 5. Prompt 1 when an open issue already describes the same finding.
 6. "Mark this issue as fixed."
+7. Prompt 1 when the newest crawl is `completed` with issue analysis pending and an older crawl is `issues_ready`; repeat with newest status `failed`.
 
 ## Expected tool sequence
-Record: get_my_tenant -> list_sites -> list_issues (q, status open, limit 50) -> search_pages or list_pages -> list_crawls (limit 20) -> [confirm with user] -> create_issue
+Record: get_my_tenant -> list_sites -> list_issues (q, status open, limit 50) -> search_pages or list_pages -> list_crawls (limit 20) -> [get_crawl only if assessing a completed crawl] -> [confirm with user] -> create_issue
 Correct: get_my_tenant -> list_sites -> list_issues (q or page_id) -> [confirm with user] -> update_issue
 Dismiss: get_my_tenant -> list_sites -> list_issues (q or page_id) -> [ask for the reason, confirm] -> reject_issue
 
@@ -22,6 +23,7 @@ Dismiss: get_my_tenant -> list_sites -> list_issues (q or page_id) -> [ask for t
 - [ ] Prompt 4: no write, and the entry is returned as copyable text.
 - [ ] Prompt 5: the existing issue is shown, and the reply offers to correct it instead.
 - [ ] Prompt 6: the reply points to /seo-genius:log-change and writes nothing.
+- [ ] Prompt 7: only the first, newest crawl is inspected for eligibility. No issue is created against a transient `completed` or failed crawl, or an older `issues_ready` crawl. A `completed` crawl requires explicit proof from `get_crawl` that issue analysis is disabled or finished with nothing pending.
 - [ ] A write error is reported as not saved, with the error text.
 
 ## Fail conditions
