@@ -7,7 +7,7 @@
 4. Prompt 3 in a session with no web fetch tool.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> [read config, or get_business_context] -> [state the spend, wait for a yes] -> serp_rank_check (one per term, depth 20, ten at most) -> [competitor_domains once, only when fewer than three businesses were found] -> web fetch (competitor ranking pages, three per competitor at most; sitemaps) -> search_pages / web fetch / get_page / list_pages (this site) -> write .seo-genius/competitors.md and competitors.json
+get_my_tenant -> list_sites -> list_research -> get_research(pipeline_config/config and competitor_dive/analysis) -> [read validated local fallback or get_business_context when remote unavailable] -> [state the spend, wait for a yes] -> serp_rank_check (one per term, depth 20, ten at most) -> [competitor_domains once, only when fewer than three businesses were found] -> web fetch (competitor ranking pages, three per competitor at most; sitemaps) -> search_pages / web fetch / get_page / list_pages (this site) -> [save_research(competitor_dive/analysis and optional report) when authorized] -> [optional local competitors.md and competitors.json]
 
 ## Pass conditions
 - [ ] The reply states the number of live searches, says one more call may follow if fewer than three businesses turn up, and waits for a yes before the first one.
@@ -34,6 +34,14 @@ get_my_tenant -> list_sites -> [read config, or get_business_context] -> [state 
 - [ ] This site's place is "not found in the results read" when it is absent, never a number.
 - [ ] Statements about why a competitor ranks are worded as observations, and no ranking result is promised.
 
+## Server research-store acceptance
+- [ ] Prior `competitor_dive.analysis` and `pipeline_config.config` are fetched for the resolved site before spending DataForSEO quota.
+- [ ] The stored site, date, city and term set are checked before a cached competitor report is reused; a user-requested fresh run bypasses it.
+- [ ] Authorized completed research is saved in an append-only `competitor_dive` document with required `analysis` and optional `report` sections.
+- [ ] No unauthorized research save occurs; the result is clearly labeled NOT SAVED remotely when persistence is unavailable.
+- [ ] A new Claude/cloud run with no local files can read the prior analysis by `get_research`.
+- [ ] A tenant mismatch or dropped research section is reported as unknown, not as a clean competitor gap.
+
 ## Fail conditions
 - A live search before the user agreed to the spend.
 - A competitor named that appears in no search result and is not labeled as a country-level rival.
@@ -42,4 +50,4 @@ get_my_tenant -> list_sites -> [read config, or get_business_context] -> [state 
 - A word count, schema type, or proof element reported for a page that was not read.
 - "No schema" reported for a page read through a tool that returns a summary.
 - An on-page or topic gap row built from this site's stored record alone, or from a page that was not read.
-- Any SEO Genius write tool called, or any page of the user's site edited.
+- An SEO Genius write other than an explicitly authorized `save_research` or `trigger_crawl`, or any page of the user's site edited.
