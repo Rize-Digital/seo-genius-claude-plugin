@@ -119,13 +119,36 @@ check(
   "Standing rules block is byte-identical across all skills",
 );
 
-// 5. Em dashes in any markdown file
+// 5. Verify the server-side research integration is included in the distributed plugin.
+// These are static instruction/contracts checks. Runtime behavior is exercised separately.
+const researchRef = join(PLUGIN, "references", "research-store.md");
+check(existsSync(researchRef), "distributed plugin includes the shared research store contract");
+if (existsSync(researchRef)) {
+  const text = readFileSync(researchRef, "utf8");
+  for (const term of ["list_research", "get_research", "save_research", "research: null", "sections_dropped"]) {
+    check(text.includes(term), `research store reference documents ${term}`);
+  }
+}
+for (const name of ["start", "competitor-dive", "keyword-gap", "content-plan"]) {
+  const path = join(skillsDir, name, "SKILL.md");
+  const md = readFileSync(path, "utf8");
+  check(md.includes("../../references/research-store.md"), `${name} links to research store reference`);
+  check(md.includes("list_research") && md.includes("get_research"), `${name} reads persistent research`);
+  check(md.includes("save_research"), `${name} supports authorized research writes`);
+}
+const keywordGapSkill = readFileSync(join(skillsDir, "keyword-gap", "SKILL.md"), "utf8");
+check(keywordGapSkill.includes("keyword_gap({"), "keyword-gap skill calls the server-side compact tool");
+check(keywordGapSkill.includes("Do not run legacy steps 3-4"), "keyword-gap skill avoids duplicate paid list calls");
+check(keywordGapSkill.includes("server-keyword-gap.mjs"), "keyword-gap skill uses distributed converter");
+check(existsSync(join(PLUGIN, "scripts", "normalize-server-keyword-gap.mjs")), "converter included inside distributed plugin");
+
+// 6. Em dashes in any markdown file
 for (const p of walkMd(ROOT)) {
   const n = (readFileSync(p, "utf8").match(/\u2014/g) || []).length;
   check(n === 0, `no em dashes in ${rel(p)} (${n})`);
 }
 
-// 6. Em dashes in the listing copy inside the JSON manifests
+// 7. Em dashes in the listing copy inside the JSON manifests
 const listingCopy = [];
 if (pj && typeof pj.description === "string") listingCopy.push(["plugin.json description", pj.description]);
 if (mp && typeof mp.description === "string") listingCopy.push(["marketplace.json description", mp.description]);
