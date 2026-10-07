@@ -5,6 +5,7 @@
 2. "Who are my top three competitors and why do they outrank me?" in a folder with no config.
 3. `/seo-genius:competitor-dive` limited to two named terms.
 4. Prompt 3 in a session with no web fetch tool.
+5. A live term returns an empty successful `results` array, followed by a timeout or `upstream_unavailable`; repeat with `quota_exceeded`, rate limit, and site paused/archived.
 
 ## Expected tool sequence
 get_my_tenant -> list_sites -> [read config, or get_business_context] -> [state the spend, wait for a yes] -> serp_rank_check (one per term, depth 20, ten at most) -> [competitor_domains once, only when fewer than three businesses were found] -> web fetch (competitor ranking pages, three per competitor at most; sitemaps) -> search_pages / web fetch / get_page / list_pages (this site) -> write .seo-genius/competitors.md and competitors.json
@@ -16,9 +17,10 @@ get_my_tenant -> list_sites -> [read config, or get_business_context] -> [state 
 - [ ] Directories and marketplaces are listed apart and never counted among the three competitors, including any that competitor_domains returns.
 - [ ] This site's ranking pages are fetched with the same tool as the competitors' pages before any on-page or topic gap row is written.
 - [ ] schema is null for every page whose raw HTML was not seen, and no gap row says a competitor or this site has no schema on that basis.
-- [ ] Each term is marked lost, held, or no results, and every row of the terms table carries its own time.
-- [ ] The searches are sent one at a time, never several together, and a search that comes back empty with no error is reported as a failed search.
-- [ ] A failed search is not sent again in the same run, and the failed terms are named at the end as the ones to search again later.
+- [ ] Each term is marked lost, held, no results, or unavailable, and every row of the terms table carries its own time when a search was attempted.
+- [ ] The searches are sent one at a time, never several together, and an empty response with no error is reported as valid `no_results` without a rank.
+- [ ] A `no_results` term is not sent again in the same run and is named separately from failed and unattempted terms.
+- [ ] Prompt 5: empty successful results are `no_results`, not `not found`; timeout, upstream failure, quota failure, and unattempted terms are `unavailable` with reasons. Further live calls, including `competitor_domains`, stop after those errors; each attempt counts against budget. A paused or archived site produces no new research file.
 - [ ] The three competitors are picked one lost term at a time, furthest behind first: on each lost term, the best-placed business above the site that is not picked yet. Each shows the lost terms it holds and its average place.
 - [ ] The business leading the term where the site is furthest behind is among the three, unless it was set aside as out of area.
 - [ ] A business that ranks on many terms but never above the site is not picked ahead of one that holds a lost term.

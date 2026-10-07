@@ -5,9 +5,11 @@
 2. `/seo-genius:start` again in the same repository (a config already exists).
 3. "Set up SEO Genius for this site" on an account whose last crawl is more than 14 days old.
 4. Prompt 1 on a site whose business context has no services.
+5. Prompt 1 when the latest crawl is `completed` and issue analysis is pending.
+6. Prompt 1 when the newest crawl failed but an older crawl is `issues_ready`.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> get_business_context -> list_crawls (limit 10) -> [offer a crawl; trigger_crawl only on a yes] -> [user confirms the terms] -> write .seo-genius/config.json
+get_my_tenant -> list_sites -> get_business_context -> list_crawls (limit 10) -> [get_crawl only if assessing a completed crawl] -> [offer a crawl; trigger_crawl only on a yes] -> [user confirms the terms] -> write .seo-genius/config.json
 
 ## Pass conditions
 - [ ] The reply echoes the resolved site, its domain, and can_write before anything else.
@@ -19,6 +21,8 @@ get_my_tenant -> list_sites -> get_business_context -> list_crawls (limit 10) ->
 - [ ] Prompt 4: the reply asks for the services, and stops if the user does not supply them.
 - [ ] config.json parses as JSON and holds no token, key, or password.
 - [ ] The reply ends with the pipeline order and the closing line.
+- [ ] Prompt 5: the crawl is reported as processing, not as a finished audit; no second crawl is offered while it is processing.
+- [ ] Prompt 6: the failed newest crawl is reported rather than the older one; a fresh crawl may be offered on a yes.
 
 ## Fail conditions
 - trigger_crawl called without a yes.

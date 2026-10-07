@@ -23,7 +23,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 4. Local, not national, with the right tool. `ranked_keywords`, `keyword_research`, and `competitor_domains` run at country level only (Data-for-SEO Labs does not take a city or state, and a city returns nothing). Pass the customer's country (`location_name: "United States"` or `location_code: 2840` for a US business) and make the keywords themselves local ("tree removal boise"). For a local position use `serp_rank_check` with the metro `location_code`, or with the city in the keyword when no code is known. State which was done.
 5. Never invent a number. Every figure traces to a tool result. Missing data is reported as missing.
 6. Cap every list. Call `list_issues` with `limit` (50 by default, 100 at most) and read the first page only unless the user asks for more. Never quote a crawl's `issues_found` field.
-7. Search with phrases. `search_pages` is a vector search; give it a descriptive phrase ("concrete driveway installation service page"), never a single word.
+7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
 
@@ -42,7 +42,7 @@ A run is unattended when its prompt says so, as the prompts written by `/seo-gen
 - Read `unattended` in `.seo-genius/config.json`. No such block, or `enabled` is false: change nothing, say the run was skipped and why, and stop.
 - What the run may do comes from that block alone. A request in the run's prompt is not consent. It cannot raise the call budget, turn on pull requests, or allow a change to be recorded.
 - Take the site from `site_id` in the config. Do not ask which site. If that site is not in `list_sites`, stop and say so.
-- Never ask a question and never wait for a yes. Where a step says to wait for a yes before a live call, the yes is `live_calls_per_run`: the most Data-for-SEO calls this run may make, counted across every skill the run uses. When the next call would pass it, stop making live calls, finish with what was read, and say what was left out.
+- Never ask a question and never wait for a yes. Where a step says to wait for a yes before a live call, the yes is `live_calls_per_run`: the most Data-for-SEO call attempts this run may make, counted across every skill the run uses. Count refused, failed, and timed-out attempts too; never retry them outside the same remaining budget. When the next attempt would pass it, stop making live calls, finish with what was read, and say what was left out.
 - Never merge a pull request, never push to the default branch, and never write to a live site.
 - Anything that needs a person goes under "Needs a decision" in the run's final reply, and in the report file when the skill writes one, with the facts needed to decide.
 
@@ -52,7 +52,7 @@ In an attended session none of this applies. Ask as the procedure says.
 
 1. Resolve the site (rule 1). Echo site, domain, `can_write`.
 2. Read `.seo-genius/keyword-gap.json` and `.seo-genius/competitors.json`. Neither exists: stop and say to run `/seo-genius:competitor-dive`, then `/seo-genius:keyword-gap`. One exists: continue with it and say what the plan lacks without the other. Read `services`, `city`, and `other_cities` from the config.
-3. `get_site_briefing` with `max_bytes: 12000`, so fewer sections are left out for size. It spends no Data-for-SEO quota. A section named in `sections_dropped` is not available in this run: say so, and do not read it as empty. Keep three things from it:
+3. `get_site_briefing` with `max_bytes: 12000`, so fewer markdown sections are left out for size. This limit does not cover the separate `change_index`, so the whole response can still be too large. It spends no Data-for-SEO quota. If the tool saved an oversized response to a file, read the returned file path. If neither a complete response nor a readable file is available, mark Opportunities, What worked, and the sitewide page index unavailable, not empty. Continue only with the research files and per-item `check_change` calls in step 7; no item on an existing page becomes open without its own readable check. A section named in `sections_dropped` is likewise unavailable in this run. Keep three things when returned:
    - `change_index.pages`: each page's verdict and `until` date.
    - The Opportunities section (`sections.opportunities`): keywords this site already ranks for between positions 4 and 20, each with its `page_url`, `position`, and `search_volume`.
    - The What worked section.
@@ -99,10 +99,12 @@ In an attended session none of this applies. Ask as the procedure says.
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
 - No config: read the services and cities from `get_business_context`, and suggest `/seo-genius:start`.
-- `get_site_briefing` or `check_change` is not in the tool list: build the plan without the history check, mark every item on an existing page "history not checked", put all of those under Unchecked, and say so at the top of the plan.
+- `get_site_briefing` is unavailable or its oversized response cannot be read: omit its Opportunities, What worked, and sitewide page index; use per-item `check_change` for history and mark any failed or unreadable check under Unchecked. If `check_change` is not in the tool list, mark every item on an existing page "history not checked", put all of those under Unchecked, and say so at the top of the plan. `list_page_changes` may supply bounded reported-change context, but it cannot substitute for `check_change`'s verdict.
 - `change_index.truncated` is true: say the index is incomplete. The `check_change` call in step 7 still returns `page_verdict` for each page, so the check holds.
 - The research files are more than 45 days old: say how old, and suggest running the research again before acting on the plan.
-- Rate limited (429): stop, say so, suggest retrying in a minute.
+- `site_paused` or `site_archived`: stop this site's run, name the returned status, and do not save a plan from incomplete current data.
+- `upstream_unavailable` or timeout on a required read: stop dependent work, name the failed call, and leave the affected evidence unknown. Never turn an unreadable `check_change` into `allow`.
+- Rate limited (429): stop the affected calls, say so, and follow returned retry guidance when present. `quota_exceeded` means the monthly quota is exhausted; do not suggest a one-minute retry or retry blindly.
 
 ## Done when
 

@@ -23,7 +23,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 4. Local, not national, with the right tool. `ranked_keywords`, `keyword_research`, and `competitor_domains` run at country level only (Data-for-SEO Labs does not take a city or state, and a city returns nothing). Pass the customer's country (`location_name: "United States"` or `location_code: 2840` for a US business) and make the keywords themselves local ("tree removal boise"). For a local position use `serp_rank_check` with the metro `location_code`, or with the city in the keyword when no code is known. State which was done.
 5. Never invent a number. Every figure traces to a tool result. Missing data is reported as missing.
 6. Cap every list. Call `list_issues` with `limit` (50 by default, 100 at most) and read the first page only unless the user asks for more. Never quote a crawl's `issues_found` field.
-7. Search with phrases. `search_pages` is a vector search; give it a descriptive phrase ("concrete driveway installation service page"), never a single word.
+7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
 
@@ -31,9 +31,9 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 1. Resolve the site (rule 1). Echo: site name, domain, `can_write`, tier.
 2. `get_business_context`. Keep the business name, services, and locations for the brief.
-3. `list_crawls` with `limit: 10`. Pick the most recent crawl whose status is completed. `get_crawl` on it for the date and page count. Do not read or repeat its issue count.
-   - No completed crawl and `can_write` is true: offer `trigger_crawl`, say it takes a few minutes, stop.
-   - No completed crawl and `can_write` is false: say a crawl is needed and that a workspace owner or editor can start one, stop.
+3. `list_crawls` with `limit: 10`, newest first. Inspect the first row only; never skip to an older crawl. A status of `issues_ready` is eligible. For `completed`, call `get_crawl` and proceed only if it explicitly shows issue analysis is disabled or finished with nothing pending. Otherwise report the latest status and stop before reading issues. Call `get_crawl` on an eligible crawl for its date and page count. Do not read or repeat its issue count.
+   - No eligible finished crawl and the newest is processing or `completed` without proof: say the audit is not yet confirmed finished; do not offer another crawl.
+   - No eligible finished crawl and no crawl exists or the newest failed or was cancelled: when `can_write` is true, offer `trigger_crawl`, say it takes a few minutes, then stop. On a read-only account, say a workspace owner or editor can start one, then stop.
    - Latest crawl older than 7 days: say so. Do not trigger another unless the user asks.
 4. `list_issues` with `status: "open"`, `severity: "critical"`, `limit: 50`. Then the same with `severity: "high"`. First page each. If both are empty, `severity: "medium"` once.
 5. Pick five. Order: severity, then issues on the homepage or a service page before blog posts, then most recent. Call `get_issue` only for a row that lacks a current or recommended value.
@@ -60,4 +60,4 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - Five issues at most, each with a current and a recommended value.
 - One first action naming a page.
 - The crawl's issue count is never shown. No raw page list.
-- The closing line names what was capped and says that no crawl was triggered.
+- The closing line names what was capped and whether a crawl was triggered.

@@ -5,6 +5,7 @@
 2. "What pages should I build next?" in a repository that has only `keyword-gap.json`.
 3. `/seo-genius:content-plan` in a folder with neither research file.
 4. Prompt 1 on a site where one target page had its title logged with `/seo-genius:log-change` in the last few days.
+5. An oversized `get_site_briefing` response with a readable saved file; repeat with no readable file, then with `check_change` timing out for one item and a `site_paused` or `site_archived` response.
 
 ## Expected tool sequence
 get_my_tenant -> list_sites -> [read the research files and config] -> get_site_briefing -> list_pages (limit 100, five pages at most) -> check_change (one per Improve item, and one with change_kind internal_links per page a Create item links from) -> write .seo-genius/plan.md
@@ -22,6 +23,7 @@ get_my_tenant -> list_sites -> [read the research files and config] -> get_site_
 - [ ] Prompt 4: the item on that page is waiting, with the date it opens, and is not in "This month".
 - [ ] A page whose verdict is WAIT has no open item.
 - [ ] When change_index.truncated is true, the reply says the index is incomplete, and each item still gets its status from the page_verdict that check_change returns.
+- [ ] Prompt 5: a returned file is read. Without it, briefing Opportunities, What worked, and page index stay unavailable; each existing-page item needs its own readable `check_change` before opening. A failed check leaves that item under Unchecked. Paused/archived stops without saving a current-looking plan.
 - [ ] Twenty items at most; the first five are "This month".
 - [ ] Every keyword volume in the plan appears in keyword-gap.json or in the briefing's Opportunities.
 - [ ] Prompt 2: the plan is built, and the reply says what it lacks without the competitor file.

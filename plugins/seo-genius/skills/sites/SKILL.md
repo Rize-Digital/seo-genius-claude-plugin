@@ -23,16 +23,18 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 4. Local, not national, with the right tool. `ranked_keywords`, `keyword_research`, and `competitor_domains` run at country level only (Data-for-SEO Labs does not take a city or state, and a city returns nothing). Pass the customer's country (`location_name: "United States"` or `location_code: 2840` for a US business) and make the keywords themselves local ("tree removal boise"). For a local position use `serp_rank_check` with the metro `location_code`, or with the city in the keyword when no code is known. State which was done.
 5. Never invent a number. Every figure traces to a tool result. Missing data is reported as missing.
 6. Cap every list. Call `list_issues` with `limit` (50 by default, 100 at most) and read the first page only unless the user asks for more. Never quote a crawl's `issues_found` field.
-7. Search with phrases. `search_pages` is a vector search; give it a descriptive phrase ("concrete driveway installation service page"), never a single word.
+7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
 
 ## Procedure
 
+For this portfolio view, standing rules 1 and 2 are per-site exceptions: resolve the workspace without matching one site, and do not call `get_business_context` for each site. The summary call supplies the portfolio data. Keep the other standing rules.
+
 1. `get_my_tenant`. This skill covers every site, so do not ask which site, and pass no `site`.
 2. `list_sites_summary` with no arguments. Each row has `id`, `name`, `domain`, `status`, `open_issues` (`critical`, `high`, `medium`, `low`, `total`), and `latest_crawl` (`id`, `status`, `started_at`, `completed_at`). An archived site has `status` "archived" and no counts. A site with no crawl has `latest_crawl` null.
 3. Order the active sites: first those with no crawl, then by `critical`, then by `high`, most first. Put archived sites last.
-4. Add one note per site where it applies: no crawl yet; last crawl more than 14 days old; last crawl not completed.
+4. Add one note per site where it applies: no crawl yet; last crawl more than 14 days old; last crawl failed or was cancelled; last crawl unfinished. `issues_ready` marks the finished issue-analysis path. `completed` means the page scan finished but issue analysis may still be pending; unless the summary explicitly proves no issue analysis remains, label audit completion unknown and do not treat an older crawl as the current audit.
 5. Do not show `issues_found` from the crawl (rule 6). The counts to show are the ones in `open_issues`.
 6. Close by naming the first site in the order and the next step for it: `/seo-genius:brief` or `/seo-genius:audit` with that site.
 
