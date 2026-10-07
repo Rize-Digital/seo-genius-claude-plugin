@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `keyword-gap`: a requested fresh pull now passes `fresh: true` to DataForSEO-backed keyword tools instead of bypassing only local files.
+- `keyword-gap`: retain the upstream `cached_at` date when known; unknown shared-cache age is never described as today's fresh data or reused as a dated list.
+- `keyword-gap`: stop on paused or archived sites, monthly quota exhaustion, or repeated upstream failures instead of wasting quota on retries.
+- Expand keyword-gap acceptance cases for freshness, data provenance, and failure handling.
+
+
 ## 1.2.0 (2026-10-01)
 
 The research pipeline: four skills that run in order and hand their results to each other through files in a `.seo-genius/` folder.
