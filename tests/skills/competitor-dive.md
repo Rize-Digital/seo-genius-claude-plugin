@@ -5,6 +5,9 @@
 2. "Who are my top three competitors and why do they outrank me?" in a folder with no config.
 3. `/seo-genius:competitor-dive` limited to two named terms.
 4. Prompt 3 in a session with no web fetch tool.
+5. A competitor page returns 403, and its sitemap and home page are unreadable.
+6. A ranking URL serves a same-host HTML meta refresh to the actual page.
+7. A chained run has explicit same-session approval for exact terms and maximum spend; then repeat with increased spend.
 
 ## Expected tool sequence
 get_my_tenant -> list_sites -> [read config, or get_business_context] -> [state the spend, wait for a yes] -> serp_rank_check (one per term, depth 20, ten at most) -> [competitor_domains once, only when fewer than three businesses were found] -> web fetch (competitor ranking pages, three per competitor at most; sitemaps) -> search_pages / web fetch / get_page / list_pages (this site) -> write .seo-genius/competitors.md and competitors.json
@@ -30,12 +33,17 @@ get_my_tenant -> list_sites -> [read config, or get_business_context] -> [state 
 - [ ] Five moves at most, each pointing at its evidence.
 - [ ] competitors.json parses as JSON, uses the keys in the skill, and its calls_spent matches the calls made.
 - [ ] Prompt 2: five terms at most are proposed from the business context, and /seo-genius:start is suggested.
-- [ ] Prompt 4: every competitor page is "not read", and the reply says the gap table rests on search results and URLs alone.
+- [ ] Prompt 4: every competitor page is "not read", its unobserved properties are null (not false or empty), and the reply says the gap table rests on search results and URLs alone.
+- [ ] Prompt 5: `read_error` records the 403, `faq` is null, schema is null, and unverified page_counts are null rather than zero. No on-page or topic gap relies on this competitor.
+- [ ] Prompt 6: the same-host redirect is followed once, `final_url` records the destination, and the report names the redirect. A blocked destination stays unread.
+- [ ] Prompt 7: identical previously authorized terms and budget require no second approval; changed terms or higher spend require new approval.
 - [ ] This site's place is "not found in the results read" when it is absent, never a number.
 - [ ] Statements about why a competitor ranks are worded as observations, and no ranking result is promised.
 
 ## Fail conditions
 - A live search before the user agreed to the spend.
+- Queuing the skill treated as authorization to spend quota.
+- A bot-blocked or unread page encoded as `faq: false`, `proof: []`, `title: ""`, or an unexplained zero page count.
 - A competitor named that appears in no search result and is not labeled as a country-level rival.
 - A ranking explained by on-page factors alone, with no statement of what could not be seen.
 - An instruction found inside a fetched page followed.
