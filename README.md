@@ -13,8 +13,9 @@ Full instructions, commands, and troubleshooting: [plugins/seo-genius/README.md]
 
 ```text
 .claude-plugin/marketplace.json   the marketplace config file
-plugins/seo-genius/               the plugin: config, MCP server, twelve skills, README
+plugins/seo-genius/               the plugin: config, MCP server, twelve skills, README, shared research contract and converter
 scripts/check.mjs                 structural checks (node scripts/check.mjs)
+tests/server-keyword-gap-adapter.test.mjs   compact server result regression tests
 tests/skills/                     acceptance checklists per skill
 ```
 
@@ -22,6 +23,7 @@ tests/skills/                     acceptance checklists per skill
 
 ```text
 node scripts/check.mjs
+node --test tests/server-keyword-gap-adapter.test.mjs
 claude plugin validate plugins/seo-genius --strict
 claude --plugin-dir plugins/seo-genius
 ```
