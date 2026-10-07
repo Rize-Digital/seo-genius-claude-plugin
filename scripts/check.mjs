@@ -144,7 +144,7 @@ for (const [skill, markers] of Object.entries(policyContracts)) {
   for (const marker of markers) check(md.includes(marker), `${skill}: regression guard for ${marker}`);
 }
 const dive = readFileSync(join(skillsDir, "competitor-dive", "SKILL.md"), "utf8");
-const example = dive.match(/`competitors\\.json`:[^\n]*\n\s*```json\n([\s\S]*?)\n\s*```/);
+const example = dive.match(/`competitors\.json`:[^\n]*\n\s*```json\n([\s\S]*?)\n\s*```/);
 if (!example) fail("competitor-dive: competitors.json example exists");
 else {
   try {
