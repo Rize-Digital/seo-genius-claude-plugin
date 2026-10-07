@@ -77,9 +77,9 @@ A usual setup is two routines: the research once a month (`competitor-dive`, `ke
 
 What an unattended run can and cannot do:
 
-- It works inside limits you set once with `/seo-genius:schedule`, saved in `.seo-genius/config.json`: propose only or open pull requests, the most live calls per run, and if it may record a merged change. Set `enabled` to false there and a scheduled run stops at its first step. The prompts from `/seo-genius:schedule` start with "Unattended run.", which is what tells a run to read these limits; keep that line if you write your own prompt.
+- It works inside limits you set once with `/seo-genius:schedule`, saved in `.seo-genius/config.json`: propose only or open pull requests, and the most live calls per run. Set `enabled` to false there and a scheduled run stops at its first step. The prompts from `/seo-genius:schedule` start with "Unattended run.", which tells a run to read these limits; keep that line if you write your own prompt.
 - It never merges a pull request, never pushes to your default branch, and never writes to a live site. At most one pull request from the pipeline is open at a time.
-- A change is recorded in SEO Genius only after its pull request is merged.
+- A merged pull request shows that code changed, not that the page shipped. Unattended runs never record page changes, even if an older config has `log_merged_changes: true`. An attended session records a shipped change only after checking deployment evidence and the actual ship date.
 - In propose-only mode, `next` proposes the same item each week until you apply it and record it with `/seo-genius:log-change`.
 - `next` changes only pages it has checked. An item whose file is shared with other pages (a template, a menu, a footer) is written up for you to apply, not edited.
 - `next` leaves a page alone while an earlier change to it is still being measured, and passes over an item when the page's history could not be read. A run that finds nothing ready says so. That is a normal result.
@@ -99,7 +99,7 @@ Two ways to schedule:
 - Every number comes from a tool result. Missing data is reported as missing, never guessed.
 - Lists are capped and paginated; the reply says what was capped.
 - Before an edit, `brief` checks the page's history. A field changed very recently is frozen for a short period, and the check blocks. After that, until the earlier change has finished being measured, the check warns that another edit throws the measurement away. A value the field held before is flagged as a revert. `brief` only checks. It never edits a page.
-- Three skills write to SEO Genius, each only on a yes: `log-change` records a change you shipped, `issues` files, corrects, or dismisses an issue, and `report` records a change whose pull request was merged. A scheduled run records merged changes only if you allowed that when you set the schedule. Logging records that a change happened. It does not claim the change worked. `audit` and `start` can start a crawl, and only when you say yes.
+- Three skills can write to SEO Genius in an attended session, each only on a yes: `log-change` records a change you shipped, `issues` files, corrects, or dismisses an issue, and `report` can record a pull request change after independent deployment evidence and the actual ship date. Scheduled reports only list unrecorded changes for review. Logging records a reported change; it does not prove an SEO outcome. `audit` and `start` can start a crawl, and only when you say yes.
 
 ## Data and privacy
 
