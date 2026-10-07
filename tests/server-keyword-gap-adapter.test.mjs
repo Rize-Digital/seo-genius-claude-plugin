@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeServerKeywordGap } from "../scripts/normalize-server-keyword-gap.mjs";
+import { normalizeServerKeywordGap } from "../plugins/seo-genius/scripts/normalize-server-keyword-gap.mjs";
 
 const valid = () => ({
   site: "example.com",
