@@ -31,9 +31,9 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 1. Resolve the site (rule 1). Echo: site name, domain, `can_write`, tier.
 2. `get_business_context`. Keep the business name, services, and locations for the brief.
-3. `list_crawls` with `limit: 10`. Pick the most recent crawl whose status is completed. `get_crawl` on it for the date and page count. Do not read or repeat its issue count.
-   - No completed crawl and `can_write` is true: offer `trigger_crawl`, say it takes a few minutes, stop.
-   - No completed crawl and `can_write` is false: say a crawl is needed and that a workspace owner or editor can start one, stop.
+3. `list_crawls` with `limit: 10`. Pick the newest crawl that finished. A crawl finished when its `status` is `issues_ready` or `completed`; skip `failed`, `cancelled`, and a crawl still running (any other status, `analyzing_issues` included). `completed_at` does not tell them apart: failed, cancelled, and analyzing crawls carry one too. `get_crawl` on it for the date and page count. Do not read or repeat its issue count.
+   - No finished crawl and `can_write` is true: offer `trigger_crawl`, say it takes a few minutes, stop.
+   - No finished crawl and `can_write` is false: say a crawl is needed and that a workspace owner or editor can start one, stop.
    - Latest crawl older than 7 days: say so. Do not trigger another unless the user asks.
 4. `list_issues` with `status: "open"`, `severity: "critical"`, `limit: 50`. Then the same with `severity: "high"`. First page each. If both are empty, `severity: "medium"` once.
 5. Pick five. Order: severity, then issues on the homepage or a service page before blog posts, then most recent. Call `get_issue` only for a row that lacks a current or recommended value.
