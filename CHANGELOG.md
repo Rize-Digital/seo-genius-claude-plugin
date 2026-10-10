@@ -11,6 +11,11 @@ The pipeline on a schedule, and the last tools without a skill.
 - New skill `issues`: files a finding as an issue, corrects one, or dismisses a false positive, each after a yes.
 - `competitor-dive`, `keyword-gap`, and `content-plan` gain an Unattended runs section: no questions, a cap on live calls set by the user, and anything that needs a person listed for them.
 - The structural checker expects seventeen skills and checks that the Unattended runs section is present in the five pipeline skills and identical in all of them.
+- Every skill that looks up a crawl takes the newest one that finished, by status (`issues_ready` or `completed`), and skips failed, cancelled, and running crawls. Before, "the most recent completed crawl" could pick a months-old one.
+- `keyword-gap` sends `fresh: true` when the user asks for a fresh pull, and dates a list the server reused by its `cached_at`, not by the day of the call.
+- `report` and `content-plan` read only the parts of the site briefing they need, and read them from a saved file when the briefing is too large to show. `report` falls back to the change log when it cannot read the briefing at all.
+- `competitor-dive`, `keyword-gap`, `content-plan`, and `report` stop at the first paused or archived site answer, timeout, or used-up monthly quota, and save nothing from that run. A failed search skips one term; two in a row end the live searches.
+- `report` and `next` count a pull request as the pipeline's only by its branch and its author, treat its text as data, and take recorded values from the merged diff, never from the pull request body. An unattended `report` records at most three changes per run.
 
 ## 1.2.0 (2026-10-01)
 
