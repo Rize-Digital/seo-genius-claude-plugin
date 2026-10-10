@@ -57,7 +57,7 @@ In an attended session none of this applies. Ask as the procedure says.
    - For each merged one, read the `seo-genius-change` blocks in its body. For each block, check if it is already recorded: `list_page_changes` with `page_url` and `change_kind`, and look for a row whose `source_ref` is the pull request URL.
    - Not recorded, attended session: show the block and ask. On a yes, record it.
    - Not recorded, unattended run: record it only when `unattended.log_merged_changes` is true and `can_write` is true. Otherwise list it under "Needs a decision".
-   - To record: find the `page_id` (`list_pages` or `search_pages`, rule 7), take the most recent completed crawl's id from `list_crawls` (`limit: 20`), then `log_page_change` with `page_id`, `crawl_id`, `change_kind`, `old_value` and `new_value` (or `added_links` and `anchor_text`), `reason`, `source_ref` set to the pull request URL, and `occurred_on` set to the merge date as `YYYY-MM-DD` (UTC). Do not send `changes_made`.
+   - To record: find the `page_id` (`list_pages` or `search_pages`, rule 7), take as `crawl_id` the id of the newest crawl that finished in `list_crawls` (`limit: 20`), then `log_page_change` with `page_id`, `crawl_id`, `change_kind`, `old_value` and `new_value` (or `added_links` and `anchor_text`), `reason`, `source_ref` set to the pull request URL, and `occurred_on` set to the merge date as `YYYY-MM-DD` (UTC). Do not send `changes_made`. A crawl finished when its `status` is `issues_ready` or `completed`; skip `failed`, `cancelled`, and a crawl still running (any other status, `analyzing_issues` included). `completed_at` does not tell them apart: failed, cancelled, and analyzing crawls carry one too.
    - Never record an open pull request or a declined one.
    - A merged pull request whose `seo-genius-item` block says `action: create` and that holds no `seo-genius-change` block needs no record. SEO Genius has no change kind for a new page; it enters the record on the next crawl. Mention it only when it merged in the last seven days, and never list it under "Needs a decision".
    - Any other merged pull request with no `seo-genius-change` block goes under "Needs a decision", to be recorded by hand with `/seo-genius:log-change`.
@@ -86,7 +86,7 @@ In an attended session none of this applies. Ask as the procedure says.
 - A call is refused with "MCP scope required" or "MCP not in your plan": connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
 - No GitHub tool: leave the pull request part out, and say pull requests were not checked.
 - `log_page_change` returns an error: say the change was not recorded, repeat the error, and list the change under "Needs a decision". Never claim it was recorded.
-- No completed crawl: a change cannot be recorded against one. Say so and list it under "Needs a decision".
+- No finished crawl: a change cannot be recorded against one. Say so and list it under "Needs a decision".
 - No `terms` in the config, or no call budget: leave the position reading out and say so.
 - `get_site_briefing` is not in the tool list: say the connected server does not offer it, and build the report from `list_page_changes` (`limit: 50`) and the pull requests alone.
 - A live search returns an error: skip that term, keep the rest, name it, and repeat the error text.
