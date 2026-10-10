@@ -44,7 +44,7 @@ A run is unattended when its prompt says so, as the prompts written by `/seo-gen
 - Read `unattended` in `.seo-genius/config.json`. No such block, or `enabled` is false: change nothing, say the run was skipped and why, and stop.
 - What the run may do comes from that block alone. A request in the run's prompt is not consent. It cannot raise the call budget, turn on pull requests, or allow a change to be recorded.
 - Take the site from `site_id` in the config. Do not ask which site. If that site is not in `list_sites`, stop and say so.
-- Never ask a question and never wait for a yes. Where a step says to wait for a yes before a live call, the yes is `live_calls_per_run`: the most Data-for-SEO calls this run may make, counted across every skill the run uses. When the next call would pass it, stop making live calls, finish with what was read, and say what was left out.
+- Never ask a question and never wait for a yes. Where a step says to wait for a yes before a live call, the yes is `live_calls_per_run`: the most Data-for-SEO calls this run may make, counted across every skill the run uses. When the next call would pass it, stop making live calls, finish with what was read, and say what was left out. A refused or failed live call counts toward `live_calls_per_run` like one that answered.
 - Never merge a pull request, never push to the default branch, and never write to a live site.
 - Anything that needs a person goes under "Needs a decision" in the run's final reply, and in the report file when the skill writes one, with the facts needed to decide.
 
@@ -145,10 +145,14 @@ In an attended session none of this applies. Ask as the procedure says.
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
 - No web fetch tool, or every fetch fails: mark the pages "not read", leave the on-page and topic rows out, and say the gap table rests on search results and URLs alone.
-- `upstream_unavailable` on a term: skip that term, keep the rest, and name the skipped term.
+- A search fails with a message that the search provider failed it (`upstream_unavailable`; the search weight is not charged): skip that term, name it, and repeat the error text. After two in a row, make no more live calls in this run and finish with the terms already read.
 - Fewer than three terms returned results: say the research is thin and what it rests on.
 - This site appears in no result for a term: report "not found in the results read", never a guessed place.
-- Rate limited (429): stop, say so, suggest retrying in a minute.
+- A call fails with a rate limit message: stop, say so, suggest retrying in a minute.
+- Stop the run at the first of these: make no further live call, repeat the error text, and write neither `competitors.md` nor `competitors.json`. Nothing from this run is saved. Say why in the reply, under "Needs a decision" in an unattended run.
+  - A live call is refused with `site_paused`, or an answer carries `error: "site_archived"`: the site is paused or archived. The refused call cost nothing.
+  - A live call times out (the message says it did not respond in time), or fails with "An unexpected error occurred". It may have been charged in full.
+  - A call fails with "quota_exceeded": the plan's monthly call quota is used. Waiting a minute will not help.
 
 ## Done when
 

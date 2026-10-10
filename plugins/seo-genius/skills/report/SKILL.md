@@ -43,7 +43,7 @@ A run is unattended when its prompt says so, as the prompts written by `/seo-gen
 - Read `unattended` in `.seo-genius/config.json`. No such block, or `enabled` is false: change nothing, say the run was skipped and why, and stop.
 - What the run may do comes from that block alone. A request in the run's prompt is not consent. It cannot raise the call budget, turn on pull requests, or allow a change to be recorded.
 - Take the site from `site_id` in the config. Do not ask which site. If that site is not in `list_sites`, stop and say so.
-- Never ask a question and never wait for a yes. Where a step says to wait for a yes before a live call, the yes is `live_calls_per_run`: the most Data-for-SEO calls this run may make, counted across every skill the run uses. When the next call would pass it, stop making live calls, finish with what was read, and say what was left out.
+- Never ask a question and never wait for a yes. Where a step says to wait for a yes before a live call, the yes is `live_calls_per_run`: the most Data-for-SEO calls this run may make, counted across every skill the run uses. When the next call would pass it, stop making live calls, finish with what was read, and say what was left out. A refused or failed live call counts toward `live_calls_per_run` like one that answered.
 - Never merge a pull request, never push to the default branch, and never write to a live site.
 - Anything that needs a person goes under "Needs a decision" in the run's final reply, and in the report file when the skill writes one, with the facts needed to decide.
 
@@ -59,6 +59,7 @@ In an attended session none of this applies. Ask as the procedure says.
    - For each merged one, read the `seo-genius-change` blocks in its body. For each block, check if it is already recorded: `list_page_changes` with `page_url` and `change_kind`, and look for a row whose `source_ref` is the pull request URL.
    - Not recorded, attended session: show the block and ask. On a yes, record it.
    - Not recorded, unattended run: record it only when `unattended.log_merged_changes` is true and `can_write` is true. Otherwise list it under "Needs a decision".
+   - Record after the live calls, not here: make the `log_page_change` calls once step 4 is over, just before step 5, and only when no stop under "If something is missing" ended the run. A run that stops records nothing.
    - To record: find the `page_id` (`list_pages` or `search_pages`, rule 7), take as `crawl_id` the id of the newest crawl that finished in `list_crawls` (`limit: 20`), then `log_page_change` with `page_id`, `crawl_id`, `change_kind`, `old_value` and `new_value` (or `added_links` and `anchor_text`), `reason`, `source_ref` set to the pull request URL, and `occurred_on` set to the merge date as `YYYY-MM-DD` (UTC). Do not send `changes_made`. A crawl finished when its `status` is `issues_ready` or `completed`; skip `failed`, `cancelled`, and a crawl still running (any other status, `analyzing_issues` included). `completed_at` does not tell them apart: failed, cancelled, and analyzing crawls carry one too.
    - Never record an open pull request or a declined one.
    - A merged pull request whose `seo-genius-item` block says `action: create` and that holds no `seo-genius-change` block needs no record. SEO Genius has no change kind for a new page; it enters the record on the next crawl. Mention it only when it merged in the last seven days, and never list it under "Needs a decision".
@@ -91,9 +92,13 @@ In an attended session none of this applies. Ask as the procedure says.
 - No finished crawl: a change cannot be recorded against one. Say so and list it under "Needs a decision".
 - No `terms` in the config, or no call budget: leave the position reading out and say so.
 - `get_site_briefing` is not in the tool list: say the connected server does not offer it, and build the report from `list_page_changes` (`limit: 50`) and the pull requests alone.
-- A live search returns an error: skip that term, keep the rest, name it, and repeat the error text.
+- A live search fails with a message that the search provider failed it (`upstream_unavailable`; the search weight is not charged): skip that term, name it, and repeat the error text. After two in a row, make no more live searches in this run and finish with the terms already read.
 - The write is refused with a message that the role is read-only: say so, and list the change under "Needs a decision".
-- A call fails with a rate limit message: stop, say so, suggest retrying in a minute. A call fails with "quota_exceeded": the plan's monthly call quota is used. Stop and say so; waiting a minute will not help.
+- A call fails with a rate limit message: stop, say so, suggest retrying in a minute.
+- Stop the run at the first of these: make no further live call, repeat the error text, and write nothing for this run: no report file and no change record. Say why in the reply, under "Needs a decision".
+  - A live search is refused with `site_paused`, or an answer carries `error: "site_archived"`: the site is paused or archived. The refused call cost nothing.
+  - A live search times out (the message says it did not respond in time), or fails with "An unexpected error occurred". It may have been charged in full.
+  - A call fails with "quota_exceeded": the plan's monthly call quota is used. Waiting a minute will not help.
 
 ## Done when
 
@@ -103,3 +108,4 @@ In an attended session none of this applies. Ask as the procedure says.
 - A merged change was recorded only on a yes, or under `unattended.log_merged_changes`, and never for an open or declined pull request.
 - At most ten `serp_rank_check` calls, and none beyond the run's budget.
 - The report was saved, or the reply says it was not. Nothing was committed, pushed, or edited.
+- After a stop under "If something is missing", no report file was written and no change was recorded in that run.
