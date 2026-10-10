@@ -43,7 +43,7 @@ A run is unattended when its prompt says so, as the prompts written by `/seo-gen
 - Read `unattended` in `.seo-genius/config.json`. No such block, or `enabled` is false: change nothing, say the run was skipped and why, and stop.
 - What the run may do comes from that block alone. A request in the run's prompt is not consent. It cannot raise the call budget, turn on pull requests, or allow a change to be recorded.
 - Take the site from `site_id` in the config. Do not ask which site. If that site is not in `list_sites`, stop and say so.
-- Never ask a question and never wait for a yes. Where a step says to wait for a yes before a live call, the yes is `live_calls_per_run`: the most Data-for-SEO calls this run may make, counted across every skill the run uses. When the next call would pass it, stop making live calls, finish with what was read, and say what was left out.
+- Never ask a question and never wait for a yes. Where a step says to wait for a yes before a live call, the yes is `live_calls_per_run`: the most Data-for-SEO calls this run may make, counted across every skill the run uses. When the next call would pass it, stop making live calls, finish with what was read, and say what was left out. A refused or failed live call counts toward `live_calls_per_run` like one that answered.
 - Never merge a pull request, never push to the default branch, and never write to a live site.
 - Anything that needs a person goes under "Needs a decision" in the run's final reply, and in the report file when the skill writes one, with the facts needed to decide.
 
@@ -180,8 +180,11 @@ In an attended session none of this applies. Ask as the procedure says.
 - `ranked_keywords` returns nothing for a competitor: say so and continue with the others.
 - A saved list that does not parse, or has no `rows`: do not use it. Count that domain as needing a call, and say the saved file was unusable.
 - The session cannot write files: every domain needs a call each run, because no list can be saved. Say so when stating the spend.
-- `upstream_unavailable` on a call: report it, skip that domain, keep the rest.
-- Rate limited (429): stop, say so, suggest retrying in a minute.
+- A call fails with a rate limit message: stop, say so, suggest retrying in a minute.
+- Stop the run at the first of these: make no further live call, repeat the error text, and write neither `keyword-gap.md` nor `keyword-gap.json`. A list already saved under `.seo-genius/keyword-lists/` is one whole answer and stays; nothing else from this run is saved. Say why in the reply, under "Needs a decision" in an unattended run.
+  - A live call is refused with `site_paused`, or an answer carries `error: "site_archived"`: the site is paused or archived. The refused call cost nothing.
+  - A live call times out (the message says it did not respond in time), or fails with "An unexpected error occurred". It may have been charged in full.
+  - A call fails with "quota_exceeded": the plan's monthly call quota is used. Waiting a minute will not help.
 
 ## Done when
 
