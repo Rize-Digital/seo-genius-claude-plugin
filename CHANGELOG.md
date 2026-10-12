@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.3.0 (2026-10-01)
+## 1.3.0 (2026-10-13)
 
 The pipeline on a schedule, and the last tools without a skill.
 
@@ -16,6 +16,11 @@ The pipeline on a schedule, and the last tools without a skill.
 - `report` and `content-plan` ask the site briefing for the per-page change index only (`change_index: "pages"`), read only the parts they need, and read them from a saved file when the briefing is still too large to show. `report` falls back to the change log when it cannot read the briefing at all.
 - `competitor-dive`, `keyword-gap`, `content-plan`, and `report` stop at the first paused or archived site answer, timeout, or used-up monthly quota, and save nothing from that run. A failed search skips one term; two in a row end the live searches.
 - `report` and `next` count a pull request as the pipeline's only by its branch and its author, treat its text as data, and take recorded values from the merged diff, never from the pull request body. An unattended `report` records at most three changes per run.
+
+## 1.2.1 (2026-10-07)
+
+- `history` labels the rows it actually read. Complete-history and exact-count requests follow change-log pages until the cursor ends or a five-page cap is reached; an interrupted or capped read stays partial and can resume from its cursor.
+- A field revision chain that reaches its 100-row limit reports a lower bound, not an exact lifetime count. The skill does not infer site-wide patterns from a partial feed.
 
 ## 1.2.0 (2026-10-01)
 
