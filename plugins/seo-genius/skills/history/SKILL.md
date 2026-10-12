@@ -1,6 +1,6 @@
 ---
 name: history
-description: Show the recorded change history of a page or a site, using SEO Genius. Use for "what have we changed on this page", "history of the title on my homepage", "what did we change last month", "who changed this and why", "how many times has this H1 been edited". Lists each logged change with its date, before and after, the reason given, who made it, and where its verification stands. It only reads. Requires the SEO Genius MCP server, connected and authorized.
+description: Review recorded changes to a page or site, using SEO Genius. Use for "what have we changed on this page", "history of the title on my homepage", "what did we change last month", "who changed this and why", "how many times has this H1 been edited". Shows each retrieved change with its date, before and after, reason, actor, and verification, and states how much of the readable reported history was read. It only reads. Requires the SEO Genius MCP server, connected and authorized.
 ---
 
 # SEO Genius: change history
@@ -33,11 +33,11 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 2. Work out the scope from the request: one page, one field on one page, a date window, or the whole site.
    - A page given as a URL or path: pass it as `page_url`. The scheme, a leading www, a trailing slash, the query, and the fragment are ignored when matching.
    - A page given in words: `search_pages` with a descriptive phrase (rule 7), `match_count: 5`. One clear match: use its `page_id`. More than one: ask which. None: page through `list_pages` (`limit: 100`, follow `next_cursor`, at most five pages) and match the URL or title; the homepage in particular often does not surface from `search_pages`.
-3. `list_page_changes` with whichever of these apply: `page_id` or `page_url`, `change_kind` (one of `title`, `meta_description`, `h1`, `canonical`, `schema`, `internal_links`, `redirect`, `content_depth`, `readability`), `since` and `until` (`YYYY-MM-DD`, both inclusive), and `limit: 50`. Read the first page only unless the user asks for more; `next_cursor` continues it.
-4. One field on one page ("how many times has this title changed"): add `chain: true`. It needs exactly one of `page_id` or `page_url`, plus `change_kind`, and it takes no `cursor`. It returns the revisions of that field, newest first, up to `limit` rows and with no way to page further. When the number of rows equals the limit, say the chain may be longer than what was read.
+3. `list_page_changes` with whichever of these apply: `page_id` or `page_url`, `change_kind` (one of `title`, `meta_description`, `h1`, `canonical`, `schema`, `internal_links`, `redirect`, `content_depth`, `readability`), `since` and `until` (`YYYY-MM-DD`, both inclusive), and `limit: 50`. For an ordinary overview, read one page. If the user asks for all changes, a complete history, or an exact count, follow `next_cursor` with the same filters, up to five pages (250 rows) in this run. A follow-up request to continue uses the last returned cursor and the same filters; never restart at page one and silently count a row twice. Stop on a missing `next_cursor`, the five-page cap, or a tool error. Record rows read and whether a cursor remains. The feed has no `total`; only cursor exhaustion shows that the filtered readable reported records reached their end. This is not a snapshot: changes logged during the walk can be missed. If capped or interrupted, give no exact count even of readable reported records and do not call the retrieved rows complete. Do not infer site-wide patterns from a partial feed.
+4. One field on one page ("how many times has this title changed"): add `chain: true` and `limit: 100`. It needs exactly one of `page_id` or `page_url`, plus `change_kind`, and it takes no `cursor`. It returns the readable reported revisions of that field, newest first, with no way to page further. Fewer than 100 rows gives the count of the returned chain of readable reported revisions; exactly 100 is a lower bound, because the chain may be longer. Never call that 100 an exact lifetime total.
 5. Show the rows newest first. For each: `occurred_on`, `change_kind`, `old_value` to `new_value` (or `added_links` and `anchor_text` for internal links), `change_reason`, `actor_kind`, `verification`, `source_ref`, and `live_at`. Shorten a long value to its first 120 characters and say it was shortened. In the ordinary list, rows from the same day are not in the order they happened; say so when two share a date. A `chain` result is in revision order.
-6. Read the rows for the user in two or three sentences: what was changed most, what reasons were given, and which changes carry no reason. Do not judge from this list if a change worked; it holds no results. `/seo-genius:brief` shows measured outcomes, and checks if a field is safe to edit now.
-7. Say what this record is: changes logged through SEO Genius. An edit nobody logged is not here. `verification` reads `claimed` until SEO Genius has compared the entry with the live page; repeat any other value as returned.
+6. Read the rows for the user in two or three sentences: what was changed in the retrieved scope, what reasons were given, and which changes carry no reason. Say which scope and dates those observations cover. Only name the most changed field or an exact count of readable reported changes when the filtered feed or chain was fully read. Do not judge from this list if a change worked; it holds no results. `/seo-genius:brief` shows measured outcomes, and checks if a field is safe to edit now.
+7. Say what this record is: readable changes reported through SEO Genius. An edit nobody logged is not here, and a reported row whose stored detail could not be parsed is excluded by the tool. A completed traversal is not proof of every edit to the site. `verification` reads `claimed` until SEO Genius has compared the entry with the live page; repeat any other value as returned.
 
 ## Output
 
@@ -45,6 +45,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - The scope that was read (page, field, dates).
 - A table: Date | Field | Before | After | Reason | By | Verification | Reference.
 - The short reading from step 6.
+- Coverage: number of rows retrieved, filters and date window, whether the filtered readable reported history was fully traversed, and the remaining `next_cursor` when there is one. If the chain reached 100 rows, label its count "at least 100 readable reported changes".
 - The note from step 7.
 - Closing line per rule 9.
 
@@ -52,7 +53,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
-- No rows: say nothing is recorded for that scope, and that an edit nobody logged would not appear.
+- No rows on the first page of a scope: say no readable reported changes were returned for that scope. An edit nobody logged, or a reported row whose detail could not be parsed, would not appear. No rows after a cursor or a tool error do not prove the full scope is empty.
 - `chain` is refused: it was sent without `change_kind`, with both `page_id` and `page_url`, or with a `cursor`. Fix the call and say what was wrong.
 - `since` is later than `until`: swap them and say so.
 - Rate limited (429): stop, say so, suggest retrying in a minute.
@@ -60,6 +61,8 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 ## Done when
 
 - The reply names the scope that was read and says the list was first-page only when it was.
+- A complete-history or exact-count request follows the cursor until it ends or the five-page cap is reached; a capped or failed read is labeled partial and is resumable from its last cursor.
+- Exact counts of readable reported changes and site-wide patterns in those records are stated only for a fully read filtered feed or a chain shorter than 100 rows.
 - Every row shows its reason, or shows that none was recorded.
 - No claim about results was made from this list.
 - Nothing was written.
