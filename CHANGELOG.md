@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1 (2026-10-07)
+
+- `history` labels the rows it actually read. Complete-history and exact-count requests follow change-log pages until the cursor ends or a five-page cap is reached; an interrupted or capped read stays partial and can resume from its cursor.
+- A field revision chain that reaches its 100-row limit reports a lower bound, not an exact lifetime count. The skill does not infer site-wide patterns from a partial feed.
+
 ## 1.2.0 (2026-10-01)
 
 The research pipeline: four skills that run in order and hand their results to each other through files in a `.seo-genius/` folder.
