@@ -6,9 +6,10 @@
 3. Prompt 1 in a session with no GitHub tool.
 4. An unattended run with `log_merged_changes` false and one merged, unrecorded pull request.
 5. An unattended run with `live_calls_per_run` set to 3 and ten terms in the config.
+6. Prompt 1 when the weekly rank check searched some of the terms, at the same location, within the last six days.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000) -> [list this pipeline's pull requests: branch prefix claude/seo-genius-, or a seo-genius-item block in the body] -> list_page_changes (page_url, change_kind; look for source_ref) -> [on a yes or when allowed: list_pages or search_pages, list_crawls, log_page_change with source_ref and occurred_on] -> [state the spend, wait for a yes] -> serp_rank_check (one per term, depth 20, ten at most) -> write .seo-genius/reports/<date>.md
+get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000) -> [list this pipeline's pull requests: branch prefix claude/seo-genius-, or a seo-genius-item block in the body] -> list_page_changes (page_url, change_kind; look for source_ref) -> [on a yes or when allowed: list_pages or search_pages, list_crawls, log_page_change with source_ref and occurred_on] -> [state the spend, wait for a yes] -> get_serp_snapshots (keywords: the terms, since six days ago, limit 25) -> serp_rank_check (one per term without a stored reading, depth 20, ten at most) -> write .seo-genius/reports/<date>.md
 
 ## Pass conditions
 - [ ] The report has its parts in order: What changed, What moved, Waiting, Needs a decision, Next, Research age.
@@ -20,6 +21,7 @@ get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000) -> [list this
 - [ ] Prompt 3: the report says pull requests were not checked.
 - [ ] Prompt 4: nothing is recorded, and the change is listed under "Needs a decision".
 - [ ] Prompt 5: three live searches at most, and the report says which terms were left out.
+- [ ] Prompt 6: get_serp_snapshots is read before any serp_rank_check; terms with a stored `ok` entry at the same location get no live search, and their readings carry the stored date and the place among organic entries only; the spend stated covers only the other terms.
 - [ ] An open or declined pull request is never recorded.
 - [ ] A merged pull request that only adds a page, with no seo-genius-change block, is not listed as needing a record, and is mentioned only in the week it merged.
 - [ ] A declined pull request is listed only when it closed in the last seven days.
