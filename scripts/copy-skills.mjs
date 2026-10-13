@@ -55,6 +55,21 @@ const manifest = {
 };
 const manifestText = JSON.stringify(manifest, null, 2) + "\n";
 
+// The skills an earlier copy wrote, from its manifest. Only these are ever
+// removed: a seo-genius-* folder the repository owner made is not ours.
+function previouslyCopied() {
+  if (!existsSync(manifestPath)) return [];
+  try {
+    const m = JSON.parse(readFileSync(manifestPath, "utf8"));
+    return Object.keys(m.files ?? {})
+      .map((f) => f.split("/")[0])
+      .filter((d) => d.startsWith(PREFIX) && /^[a-z0-9-]+$/.test(d));
+  } catch {
+    return [];
+  }
+}
+const retired = previouslyCopied().filter((d) => !(`${d}/SKILL.md` in files));
+
 if (flag === "--check") {
   const problems = [];
   const have = existsSync(manifestPath) ? readFileSync(manifestPath, "utf8").replace(/\r\n/g, "\n") : null;
@@ -65,8 +80,8 @@ if (flag === "--check") {
     if (!existsSync(f)) problems.push(`missing ${p}`);
     else if (readFileSync(f, "utf8").replace(/\r\n/g, "\n") !== c) problems.push(`changed ${p}`);
   }
-  for (const d of existsSync(skillsRoot) ? readdirSync(skillsRoot) : []) {
-    if (d.startsWith(PREFIX) && !(`${d}/SKILL.md` in files)) problems.push(`stale ${d}`);
+  for (const d of retired) {
+    if (existsSync(join(skillsRoot, d))) problems.push(`stale ${d}`);
   }
   if (problems.length) {
     console.log(`SEO Genius skills are out of date in ${skillsRoot}:\n  ${problems.join("\n  ")}`);
@@ -78,9 +93,9 @@ if (flag === "--check") {
 }
 
 mkdirSync(skillsRoot, { recursive: true });
-// A skill removed from the plugin is removed from the copy.
-for (const d of readdirSync(skillsRoot)) {
-  if (d.startsWith(PREFIX) && !(`${d}/SKILL.md` in files) && statSync(join(skillsRoot, d)).isDirectory()) {
+// A skill removed from the plugin is removed from the copy, and nothing else.
+for (const d of retired) {
+  if (existsSync(join(skillsRoot, d)) && statSync(join(skillsRoot, d)).isDirectory()) {
     rmSync(join(skillsRoot, d), { recursive: true });
   }
 }
