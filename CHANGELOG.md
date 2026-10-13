@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Codex support. `codex/` holds the setup guide, an `AGENTS.md` block, and an MCP-only `config.toml` entry. `.codex-plugin/` lets Codex install the same twelve skills from this marketplace, with its own MCP entry (`?client=codex-plugin`) so its calls are not recorded as Claude Code.
+
 ## 1.2.1 (2026-10-07)
 
 - `history` labels the rows it actually read. Complete-history and exact-count requests follow change-log pages until the cursor ends or a five-page cap is reached; an interrupted or capped read stays partial and can resume from its cursor.
