@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Codex support. `codex/` holds the setup guide, an `AGENTS.md` block, and an MCP-only `config.toml` entry. `.codex-plugin/` lets Codex install the same twelve skills from this marketplace, with its own MCP entry (`?client=codex-plugin`) so its calls are not recorded as Claude Code.
+- Cloud sessions and routines. `scripts/copy-skills.mjs` copies the skills into a site repository's `.claude/skills/` (cloud sessions load those, not plugins), with a version file and a `--check` mode. See `docs/cloud-routines.md`.
 
 ## 1.2.1 (2026-10-07)
 
