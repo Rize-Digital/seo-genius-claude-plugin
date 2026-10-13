@@ -9,7 +9,7 @@
 6. Prompt 1 when the weekly rank check searched some of the terms, at the same location, within the last six days.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000) -> [list this pipeline's pull requests: branch prefix claude/seo-genius-, or a seo-genius-item block in the body] -> list_page_changes (page_url, change_kind; look for source_ref) -> [on a yes or when allowed: list_pages or search_pages, list_crawls, log_page_change with source_ref and occurred_on] -> [state the spend, wait for a yes] -> get_serp_snapshots (keywords: the terms, since six days ago, limit 25) -> serp_rank_check (one per term without a stored reading, depth 20, ten at most) -> write .seo-genius/reports/<date>.md
+get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000) -> [list this pipeline's pull requests: branch prefix claude/seo-genius-, or a seo-genius-item block in the body] -> list_page_changes (page_url, change_kind; look for source_ref) -> [on a yes or when allowed: list_pages or search_pages, list_crawls, log_page_change with source_ref and occurred_on] -> get_serp_snapshots (keywords: the terms, since six days ago, limit 25) -> [state the spend for the terms without a stored reading, wait for a yes] -> serp_rank_check (one per term without a stored reading, depth 20, ten at most) -> write .seo-genius/reports/<date>.md
 
 ## Pass conditions
 - [ ] The report has its parts in order: What changed, What moved, Waiting, Needs a decision, Next, Research age.
