@@ -155,9 +155,20 @@ if (cmcp) {
 }
 const codexDir = join(ROOT, "codex");
 const toml = existsSync(join(codexDir, "config.toml")) ? readFileSync(join(codexDir, "config.toml"), "utf8") : "";
-check(toml.includes("[mcp_servers.seo-genius]") && toml.includes(`url = "${CODEX_MCP_URL}"`), "codex/config.toml declares the same server and url");
+// No TOML parser (no dependencies): every line that is not a comment or blank
+// must be exactly one of these two, so stray text cannot slip in.
+const tomlLines = toml.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+check(
+  JSON.stringify(tomlLines) === JSON.stringify(["[mcp_servers.seo-genius]", `url = "${CODEX_MCP_URL}"`]),
+  "codex/config.toml is exactly the seo-genius server and its url",
+);
 const agents = existsSync(join(codexDir, "AGENTS.md")) ? readFileSync(join(codexDir, "AGENTS.md"), "utf8") : "";
-check(/<!-- seo-genius:begin -->[\s\S]*<!-- seo-genius:end -->/.test(agents), "codex/AGENTS.md is one marked block");
+const begins = agents.split("<!-- seo-genius:begin -->").length - 1;
+const ends = agents.split("<!-- seo-genius:end -->").length - 1;
+check(
+  begins === 1 && ends === 1 && agents.indexOf("<!-- seo-genius:begin -->") < agents.indexOf("<!-- seo-genius:end -->"),
+  "codex/AGENTS.md is one marked block",
+);
 for (const tool of ["get_site_briefing", "check_change", "log_page_change"]) {
   check(agents.includes(`\`${tool}\``), `codex/AGENTS.md names ${tool}`);
 }
