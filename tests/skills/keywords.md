@@ -10,6 +10,7 @@ get_my_tenant -> list_sites -> get_business_context -> list_keywords (limit 100)
 
 ## Pass conditions
 - [ ] Exactly one keyword_research call, with every candidate in its keywords array (200 at most).
+- [ ] Before the call the reply says it spends quota and waits for a yes; without a yes no keyword_research call is made.
 - [ ] The reply says the call spent quota, before the table.
 - [ ] The reply states the country code used and that locality came from geo-modified terms.
 - [ ] Every volume, CPC, and competition number matches a keyword_research row.

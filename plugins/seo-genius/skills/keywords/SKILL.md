@@ -34,7 +34,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 3. `list_keywords` with `limit: 100`. These are free to read and already tracked.
 4. Build the candidate list, 200 at most, in this order: the user's terms; tracked terms that match the user's topic; for each generic term, one local variant "<term> <city>"; for each service in the business context without a tracked term, "<service> <city>". Remove duplicates and brand terms.
 5. Pick the location: the customer's country code (`2840` for the United States). A city code returns nothing on this tool, so locality comes from the geo-modified variants in step 4. Write down which country code was used.
-6. One call: `keyword_research` with `keywords: [<candidates>]`, `location_code: <country code>`, `language_code: "en"`. Tell the user before the call that it spends their quota.
+6. One call: `keyword_research` with `keywords: [<candidates>]`, `location_code: <country code>`, `language_code: "en"`. Before the call, say that it spends their quota (one call, and how many terms) and wait for a yes. Without one, show the candidate list and stop; no quota was spent.
 7. Rank by search volume descending, break ties by lower competition. Mark intent when the tool returns it.
 8. Shortlist five: highest volume terms with competition below the median of the set, one sentence each on where they fit (existing page, new page, or FAQ).
 
@@ -59,5 +59,5 @@ Competition is a 0 to 1 score from the tool, not true keyword difficulty. Say so
 
 - Exactly one `keyword_research` call.
 - Every number in the table traces to a returned row.
-- The location used and the quota spend are stated.
+- The location used and the quota spend are stated, and the user said yes before the call.
 - Five-term shortlist with a reason each.
