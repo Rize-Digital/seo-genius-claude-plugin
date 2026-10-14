@@ -4,9 +4,10 @@
 1. `/seo-genius:keyword-gap` in a repository that has `.seo-genius/competitors.json` with three competitors.
 2. "What keywords do my competitors rank for that I don't?" naming two competitor domains, in a folder with no research files.
 3. `/seo-genius:keyword-gap` in a folder with no research files and no domains named.
-4. `/seo-genius:keyword-gap` again within seven days of prompt 1, after one competitor in `competitors.json` was replaced by a new domain.
+4. `/seo-genius:keyword-gap` again within seven days of a run whose four saved lists are all reusable under step 3 (in particular each carries a `pulled_on` date, because it came from a fresh pull or from this site's own earlier pull), after one competitor in `competitors.json` was replaced by a new domain.
 5. "Run the keyword gap again with a fresh pull", within seven days of prompt 1.
 6. A `ranked_keywords` answer to an ordinary call (no `fresh`) has no `cached_at`.
+7. `/seo-genius:keyword-gap` again within seven days of prompt 1, where prompt 1 was the first pull for every domain and asked for no fresh pull.
 
 ## Expected tool sequence
 get_my_tenant -> list_sites -> [read competitors.json and config, or get_business_context] -> [read .seo-genius/keyword-lists/ and sort each domain into on file or needs a call] -> [state the spend, wait for a yes when any call is needed] -> ranked_keywords (country, limit 200) only for the domains that need a call, each saved to keyword-lists/<domain>.json as it answers -> [keyword_research once, only for local terms that appear in no list and are not on file] -> write .seo-genius/keyword-gap.md and keyword-gap.json
@@ -16,13 +17,15 @@ get_my_tenant -> list_sites -> [read competitors.json and config, or get_busines
 - [ ] At most one ranked_keywords call per domain, four domains at most, each at country level with limit 200, and none for a domain whose saved list was reused.
 - [ ] Before the spend is stated, each domain is named as on file with its date or as needing a call.
 - [ ] A saved list is reused only when it parses, is for that domain, was pulled seven days ago or less, was pulled with the same location, language and limit, and has rows. A file that fails any of these gets a fresh call.
-- [ ] Every list pulled in the run is saved to .seo-genius/keyword-lists/<domain>.json with its pulled_on date and every row in the order returned, as one array per row under columns (keyword, url, position, search_volume, intent).
+- [ ] Every list pulled in the run is saved to .seo-genius/keyword-lists/<domain>.json with its pulled_on (a date, or null when the date is unknown) and every row in the order returned, as one array per row under columns (keyword, url, position, search_volume, intent).
 - [ ] For every saved row the five values equal the tool result. With url_base set, url_base followed by the row's value is the returned URL; with rows on more than one host, url_base is empty and each URL is whole.
 - [ ] A file saved by an earlier version, with one object per row and no columns, is still reused.
 - [ ] The reply names each list as pulled in this run or reused, gives the date of each reused list, and says its positions and volumes are as of that date.
 - [ ] Prompt 4: exactly one ranked_keywords call, for the new domain; the other three lists are reused; keyword rows from reused lists still carry intent.
 - [ ] Prompt 5: one ranked_keywords call per domain, and no saved file is reused.
 - [ ] Prompt 6: that list is saved with `pulled_on` null, the reply says its date is unknown, and the next run does not reuse it.
+- [ ] Prompt 7: every list from prompt 1 that has `pulled_on` null needs a call again, and the stated spend counts it. The reply does not claim a rerun costs one call.
+- [ ] A first pull is sent without `fresh` unless the user asked for a fresh pull.
 - [ ] With every list on file and no local term to look up, the run makes no live call and does not wait for a yes.
 - [ ] One keyword_research call at most, with the whole batch in it.
 - [ ] The reply gives the count of rows removed as brand, out of area, and unrelated.
@@ -42,6 +45,7 @@ get_my_tenant -> list_sites -> [read competitors.json and config, or get_busines
 - A live call before the user agreed to the spend.
 - A city or state passed to ranked_keywords or keyword_research.
 - A second ranked_keywords call for the same domain.
+- `fresh: true` sent when the user did not ask for a fresh pull.
 - A ranked_keywords call for a domain whose saved list was reusable, when no fresh pull was asked for.
 - A list older than seven days, or pulled with a different location, language or limit, reused.
 - A reused list shown with no date, or its figures presented as today's.
