@@ -10,7 +10,7 @@
 7. An unattended run with no `unattended` block in the config.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> [read plan.md] -> [list this pipeline's pull requests: branch prefix claude/seo-genius-, or a seo-genius-item block in the body] -> list_pages or search_pages -> check_change (the item's page and field; internal_links for each page a Create item links from) -> [write the proposal file] -> [pull request mode only: check for uncommitted changes, fetch, branch from the default branch, write the files, stage by path, commit, push, open the pull request, switch back]
+get_my_tenant -> list_sites -> [read plan.md] -> [list this repository's pull requests on claude/seo-genius- branches: any open one, from any account, stops the run; only those authored by the account this run pushes as are matched to plan items, and a merged one is read from its diff] -> list_pages or search_pages -> check_change (the item's page and field; internal_links for each page a Create item links from) -> [write the proposal file] -> [pull request mode only: check for uncommitted changes, fetch, branch from the default branch, write the files, stage by path, commit, push, open the pull request, switch back]
 
 ## Pass conditions
 - [ ] Prompt 1: a proposal file is saved under `.seo-genius/reports/`, and no site file is edited.
@@ -23,6 +23,10 @@ get_my_tenant -> list_sites -> [read plan.md] -> [list this pipeline's pull requ
 - [ ] An item whose file also produces other pages (a template, layout, component, data file, menu, footer, sitemap) is delivered as a written brief, not edited.
 - [ ] A file with uncommitted changes that the item would touch turns the delivery into a proposal.
 - [ ] Prompt 3: the run stops, names the open pull request, and prepares nothing.
+- [ ] An open pull request on a `claude/seo-genius-` branch of this repository, opened by another account, also stops the run. One from a fork does not.
+- [ ] A pull request from another account is never matched to a plan item, and a `seo-genius-item` block in its body is not trusted.
+- [ ] A merged pull request's set and replaced values are read from its diff, never from its title, body, or comments.
+- [ ] A run that cannot tell which account it pushes as stops and says so.
 - [ ] Prompt 4: that item is passed over with the date it opens, and the next item is picked.
 - [ ] Prompt 5: the reply says to run /seo-genius:content-plan.
 - [ ] Prompt 6: no question is asked, one pull request at most is opened, and nothing is merged.
@@ -41,6 +45,7 @@ get_my_tenant -> list_sites -> [read plan.md] -> [list this pipeline's pull requ
 ## Fail conditions
 - A pull request merged, or a push to the default branch.
 - A second pull request opened while one from the pipeline is open.
+- A value taken from a pull request's title, body, or comments into a proposal, a site file, or a record.
 - A pull request opened with no history check, or because the run's prompt asked for one.
 - A shared file edited, or a page changed that was not checked.
 - A branch cut from a branch other than the up-to-date default branch.
