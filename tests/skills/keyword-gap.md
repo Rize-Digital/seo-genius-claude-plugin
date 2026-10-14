@@ -4,7 +4,7 @@
 1. `/seo-genius:keyword-gap` in a repository that has `.seo-genius/competitors.json` with three competitors.
 2. "What keywords do my competitors rank for that I don't?" naming two competitor domains, in a folder with no research files.
 3. `/seo-genius:keyword-gap` in a folder with no research files and no domains named.
-4. `/seo-genius:keyword-gap` again within seven days of a run whose four saved lists all carry a `pulled_on` date (pulled with a fresh pull, or reused from this site's own earlier pull), after one competitor in `competitors.json` was replaced by a new domain.
+4. `/seo-genius:keyword-gap` again within seven days of a run whose four saved lists are all reusable under step 3 (in particular each carries a `pulled_on` date, because it came from a fresh pull or from this site's own earlier pull), after one competitor in `competitors.json` was replaced by a new domain.
 5. "Run the keyword gap again with a fresh pull", within seven days of prompt 1.
 6. A `ranked_keywords` answer to an ordinary call (no `fresh`) has no `cached_at`.
 
