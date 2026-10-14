@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.3.0 (2026-10-13)
+
+The pipeline on a schedule, and the last tools without a skill.
+
+- New skill `next`: takes the next open item from the content plan, checks the page's history again, and writes the exact change as a proposal. On request, or when a scheduled run is set to allow it, it makes that one change on a branch and opens a pull request. One item per run, one open pull request at a time, and only pages it has checked: an item whose file is shared with other pages is written up for a person to apply. It never merges.
+- New skill `report`: the weekly report of what changed, what moved, what is waiting, and what needs a decision. It records a change in SEO Genius once its pull request is merged, on a yes or when the schedule allows it. It claims no cause for a movement.
+- New skill `schedule`: records what an unattended run may do in `.seo-genius/config.json`, copies the pipeline skills into the repository for cloud runs, and hands over the prompts to paste into a routine. It creates no routine itself. A cloud run keeps nothing it does not push, so its research files are merged by a person after each monthly run.
+- New skill `sites`: every site in the workspace in one table, ordered by what needs attention first.
+- New skill `issues`: files a finding as an issue, corrects one, or dismisses a false positive, each after a yes.
+- `competitor-dive`, `keyword-gap`, and `content-plan` gain an Unattended runs section: no questions, a cap on live calls set by the user, and anything that needs a person listed for them.
+- The structural checker expects seventeen skills and checks that the Unattended runs section is present in the five pipeline skills and identical in all of them.
+- Every skill that looks up a crawl takes the newest one that finished, by status (`issues_ready` or `completed`), and skips failed, cancelled, and running crawls, and a crawl whose issue detection finished partially (`issue_detection: "degraded"`) unless no other finished crawl exists. `sites` flags a site whose last crawl is one. Before, "the most recent completed crawl" could pick a months-old one.
+- `keyword-gap` sends `fresh: true` when the user asks for a fresh pull, and dates a list the server reused by its `cached_at`, not by the day of the call. A first ordinary pull may come from the server's shared cache with no `cached_at`: it is saved with `pulled_on: null`, treated as undated, and never reused. A later run reuses only lists that carry a date. So the 1.2.0 note that a rerun after one competitor changes costs one call does not hold after a first ordinary run, which leaves every list undated: that rerun pulls every domain again.
+- `report` and `content-plan` ask the site briefing for the per-page change index only (`change_index: "pages"`), read only the parts they need, and read them from a saved file when the briefing is still too large to show. `report` falls back to the change log when it cannot read the briefing at all.
+- `competitor-dive`, `keyword-gap`, `content-plan`, and `report` stop at the first paused or archived site answer, timeout, or used-up monthly quota, and save nothing from that run. A failed search skips one term; two in a row end the live searches.
+- `report` and `next` count a pull request as the pipeline's only by its branch and its author, treat its text as data, and take recorded values from the merged diff, never from the pull request body. An unattended `report` records at most three changes per run.
+
 ## 1.2.1 (2026-10-07)
 
 - `history` labels the rows it actually read. Complete-history and exact-count requests follow change-log pages until the cursor ends or a five-page cap is reached; an interrupted or capped read stays partial and can resume from its cursor.

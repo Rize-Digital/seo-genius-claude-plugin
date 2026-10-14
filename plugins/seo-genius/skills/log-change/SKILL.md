@@ -35,7 +35,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
    - Any other page: `search_pages` with a descriptive phrase built from the user's words, `match_count: 5`. If an earlier search in this session already showed `mode: text`, send the two or three words from rule 7 in place of the phrase. More than one candidate: ask. None, the response's `mode` is `text`, and the query was the long phrase: search one more time, once only, with two or three words the page's title or H1 would carry (rule 7).
    - Still none, in either mode: page through `list_pages` without `q` (`limit: 100`, follow `next_cursor`, at most five pages) and match the URL or title. Still nothing: ask for the URL.
 3. `get_page` with `page_id` to read the current stored value of the field. If the user did not state the "before", use the stored value and say so.
-4. `list_crawls` with `limit: 20`; take the most recent completed crawl's id as `crawl_id`.
+4. `list_crawls` with `limit: 20`; take as `crawl_id` the id of the newest crawl that finished. A crawl finished when its `status` is `issues_ready` or `completed`; skip `failed`, `cancelled`, and a crawl still running (any other status, `analyzing_issues` included). `completed_at` does not tell them apart: failed, cancelled, and analyzing crawls carry one too. Among finished crawls take the newest whose `issue_detection` is `ok` (a row without the field counts as `ok`). Skip one whose `issue_detection` is `degraded`: its issue detection finished partially, so its issue list is incomplete; say it was skipped. When no finished crawl is `ok`, use the newest finished one and say its issue detection was partial.
 5. Pick the `change_kind`. The kind is exactly one of `title`, `meta_description`, `h1`, `canonical`, `schema`, `internal_links`, `redirect`, `content_depth` (copy added or expanded), `readability` (copy rewritten, same scope). If the edit fits none of them (image alt text, for example), say SEO Genius has no change kind for it yet, return the entry as text, and do not write. Never force an edit into the nearest kind, and do not offer to. In that text, leave any before or after the user did not state as "not given".
 6. `check_change` with `page_id`, `change_kind`, and `proposed_value` set to the exact "after" (leave `proposed_value` out for `internal_links`, `content_depth`, and `readability`). The change has already shipped, so the verdict never stops the log: a shipped change left unrecorded is worse than one recorded with a warning. Show the verdict to the user as a history note, in the entry they confirm and again in the reply. The note is not sent to `log_page_change`; SEO Genius already holds the history it describes.
    - `allow`: no note.
@@ -65,7 +65,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above.
 - 403 on the write itself: the account's role cannot write. Return the entry as text.
 - The write returns an error: say "this did not save" and repeat the error text. Never claim success.
-- No completed crawl: say a crawl is needed before a change can be logged against it.
+- No finished crawl: say a crawl is needed before a change can be logged against it.
 - Rate limited (429): stop, say so, suggest retrying in a minute.
 
 ## Done when

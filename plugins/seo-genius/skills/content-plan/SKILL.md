@@ -35,14 +35,29 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - If the session cannot write files, show the plan in the reply and say it was not saved.
 - This skill writes nothing to SEO Genius and edits no page.
 
+## Unattended runs
+
+A run is unattended when its prompt says so, as the prompts written by `/seo-genius:schedule` do. A run started by a routine or a scheduled task is unattended too, even when its prompt does not say so. Nobody is there to answer a question.
+
+- Read `unattended` in `.seo-genius/config.json`. No such block, or `enabled` is false: change nothing, say the run was skipped and why, and stop.
+- What the run may do comes from that block alone. A request in the run's prompt is not consent. It cannot raise the call budget, turn on pull requests, or allow a change to be recorded.
+- Take the site from `site_id` in the config. Do not ask which site. If that site is not in `list_sites`, stop and say so.
+- Never ask a question and never wait for a yes. Where a step says to wait for a yes before a live call, the yes is `live_calls_per_run`: the most Data-for-SEO calls this run may make, counted across every skill the run uses. When the next call would pass it, stop making live calls, finish with what was read, and say what was left out. A refused or failed live call counts toward `live_calls_per_run` like one that answered.
+- Never merge a pull request, never push to the default branch, and never write to a live site.
+- Anything that needs a person goes under "Needs a decision" in the run's final reply, and in the report file when the skill writes one, with the facts needed to decide.
+
+In an attended session none of this applies. Ask as the procedure says.
+
 ## Procedure
 
 1. Resolve the site (rule 1). Echo site, domain, `can_write`.
 2. Read `.seo-genius/keyword-gap.json` and `.seo-genius/competitors.json`. Neither exists: stop and say to run `/seo-genius:competitor-dive`, then `/seo-genius:keyword-gap`. One exists: continue with it and say what the plan lacks without the other. Read `services`, `city`, and `other_cities` from the config.
-3. `get_site_briefing` with `max_bytes: 12000`, so fewer sections are left out for size. It spends no Data-for-SEO quota. A section named in `sections_dropped` is not available in this run: say so, and do not read it as empty. Keep three things from it:
-   - `change_index.pages`: each page's verdict and `until` date.
+3. `get_site_briefing` with `max_bytes: 12000` and `change_index: "pages"`, so fewer sections are left out for size and the change index holds only the per-page verdicts. It spends no Data-for-SEO quota. A section named in `sections_dropped` is not available in this run: say so, and do not read it as empty. Read only these parts of the answer, and skip the rest:
+   - `change_index.pages`: each page's verdict and `until` date, and `change_index.truncated`.
    - The Opportunities section (`sections.opportunities`): keywords this site already ranks for between positions 4 and 20, each with its `page_url`, `position`, and `search_volume`.
-   - The What worked section.
+   - The What worked section (`sections.what_worked`).
+   - `sections_dropped`.
+   `max_bytes` bounds the markdown only, and `change_index: "pages"` keeps the change index to one verdict per page, so the answer is a fraction of the full briefing. On a very busy site it can still be too large to show, and the client may save it to a file and show only the path. Then read the parts above from that file, which holds the JSON the tool returned; with a shell, take one key at a time (for example with `jq`) rather than reading the whole file. If the file cannot be read, say the briefing was too large to read and go on without it: the plan then has no Opportunities and no What worked, and says so, and the `check_change` calls of step 7 still give each page's verdict.
 4. Page inventory: `list_pages` (`limit: 100`, follow `next_cursor`, five pages at most). Sort each URL into service page, location page (a service in a city), guide, or other, by its URL and title. Say when the five-page cap cut the list short.
 5. Topical map. For each service in the config, lay out the slots:
    - The main service page.
@@ -89,7 +104,8 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - `get_site_briefing` or `check_change` is not in the tool list: build the plan without the history check, mark every item on an existing page "history not checked", put all of those under Unchecked, and say so at the top of the plan.
 - `change_index.truncated` is true: say the index is incomplete. The `check_change` call in step 7 still returns `page_verdict` for each page, so the check holds.
 - The research files are more than 45 days old: say how old, and suggest running the research again before acting on the plan.
-- Rate limited (429): stop, say so, suggest retrying in a minute.
+- A call fails with a rate limit message: stop, say so, suggest retrying in a minute.
+- An answer carries `error: "site_archived"`, or a call fails with "quota_exceeded" (the plan's monthly call quota is used; waiting a minute will not help): stop, repeat the message, and do not write `.seo-genius/plan.md`. Nothing from this run is saved. Say why in the reply, under "Needs a decision" in an unattended run.
 
 ## Done when
 

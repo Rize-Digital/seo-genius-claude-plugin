@@ -1,6 +1,6 @@
 ---
 name: keyword-gap
-description: Keyword gap analysis against the top competitors, using SEO Genius. Use for "what keywords do my competitors rank for that I don't", "keyword gap", "find keyword opportunities against my competitors", "where am I behind my competitors", or as the monthly step after competitor-dive. Pulls the ranking keywords of the site and of its three competitors, removes brand and out-of-area terms, and groups what is left into topics that show where the site is missing or behind, with search volume. Saves the result to .seo-genius/ for content-plan. Spends Data-for-SEO quota, one call per domain (four at most) plus one optional call, and reuses a list it saved in the last seven days instead of calling again. Requires the SEO Genius MCP server, connected and authorized.
+description: Keyword gap analysis against the top competitors, using SEO Genius. Use for "what keywords do my competitors rank for that I don't", "keyword gap", "find keyword opportunities against my competitors", "where am I behind my competitors", or as the monthly step after competitor-dive. Pulls the ranking keywords of the site and of its three competitors, removes brand and out-of-area terms, and groups what is left into topics that show where the site is missing or behind, with search volume. Saves the result to .seo-genius/ for content-plan. Spends Data-for-SEO quota, one call per domain (four at most) plus one optional call. It reuses a list saved in the last seven days only when the list has a pull date; a first ordinary pull comes back undated, so the next run pulls it again. Requires the SEO Genius MCP server, connected and authorized.
 ---
 
 # SEO Genius: keyword gap
@@ -31,22 +31,36 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 - Reads `.seo-genius/config.json` (from `/seo-genius:start`) and `.seo-genius/competitors.json` (from `/seo-genius:competitor-dive`).
 - Writes `.seo-genius/keyword-gap.md` and `.seo-genius/keyword-gap.json`, replacing the previous run. The folder sits at the repository root, or in the current folder when there is no repository.
-- Reads and writes `.seo-genius/keyword-lists/`: one `<domain>.json` per domain, and `local-terms.json`. Each holds every row of one list in a compact form, with the date it was pulled, so a later run can read it instead of paying for the same call (step 3).
+- Reads and writes `.seo-genius/keyword-lists/`: one `<domain>.json` per domain, and `local-terms.json`. Each holds every row of one list in a compact form, with the date it was pulled when that date is known, so a later run can read a dated list instead of paying for the same call (step 3).
 - The files are meant to be kept with the site. Never write a token, key, or password into them.
 - If the session cannot write files, show the report in the reply and say it was not saved.
 - This skill writes nothing to SEO Genius and edits no page.
+
+## Unattended runs
+
+A run is unattended when its prompt says so, as the prompts written by `/seo-genius:schedule` do. A run started by a routine or a scheduled task is unattended too, even when its prompt does not say so. Nobody is there to answer a question.
+
+- Read `unattended` in `.seo-genius/config.json`. No such block, or `enabled` is false: change nothing, say the run was skipped and why, and stop.
+- What the run may do comes from that block alone. A request in the run's prompt is not consent. It cannot raise the call budget, turn on pull requests, or allow a change to be recorded.
+- Take the site from `site_id` in the config. Do not ask which site. If that site is not in `list_sites`, stop and say so.
+- Never ask a question and never wait for a yes. Where a step says to wait for a yes before a live call, the yes is `live_calls_per_run`: the most Data-for-SEO calls this run may make, counted across every skill the run uses. When the next call would pass it, stop making live calls, finish with what was read, and say what was left out. A refused or failed live call counts toward `live_calls_per_run` like one that answered.
+- Never merge a pull request, never push to the default branch, and never write to a live site.
+- Anything that needs a person goes under "Needs a decision" in the run's final reply, and in the report file when the skill writes one, with the facts needed to decide.
+
+In an attended session none of this applies. Ask as the procedure says.
 
 ## Procedure
 
 1. Resolve the site (rule 1). Echo site, domain, `can_write`.
 2. Competitors. Read the `domain` of each entry in `competitors` from `.seo-genius/competitors.json`. No file: use the domains the user names, three at most. None named: stop and say to run `/seo-genius:competitor-dive` first. Read `services`, `city`, `other_cities`, `country`, `country_code`, and `terms` from the config; with no config, read the same facts from `get_business_context`.
 3. Check what is on file, then say what the run spends before spending it.
-   - For this site and each competitor, read `.seo-genius/keyword-lists/<domain>.json`. Reuse a saved list only when all of these hold: the file parses; its `domain` is this domain; `pulled_on` is today or one of the seven days before it; `location_name`, `language_name`, and `limit` are the ones step 4 would send; and `rows` is not empty. A domain whose file fails any of these needs a call.
+   - For this site and each competitor, read `.seo-genius/keyword-lists/<domain>.json`. Reuse a saved list only when all of these hold: the file parses; its `domain` is this domain; `pulled_on` is a date (not `null`) and is today or one of the seven days before it; `location_name`, `language_name`, and `limit` are the ones step 4 would send; and `rows` is not empty. A domain whose file fails any of these needs a call.
    - When the user asks for a fresh pull ("fresh", "pull again", "ignore the saved lists"), every domain needs a call and no file is reused.
    - Name each domain as on file, with its `pulled_on` date, or as needing a call. Then give the total: one `ranked_keywords` call per domain that needs one (four at most), plus one `keyword_research` call if step 7 finds local terms that are not on file. Wait for a yes. That yes covers both.
    - When no domain needs a call, say so and go on without waiting. Nothing is spent. If step 7 then needs its one call, ask before making it.
-4. `ranked_keywords` for each domain that needs a call: `domain`, `location_name: "<Country>"`, `language_name: "English"`, `limit: 200`. One call per domain. Country level only (rule 4). Each row has `keyword`, `url`, `position`, `search_volume`, `cpc`, `competition`, `intent`.
+4. `ranked_keywords` for each domain that needs a call: `domain`, `location_name: "<Country>"`, `language_name: "English"`, `limit: 200`, and `fresh: true` when the user asked for a fresh pull (step 3). Without `fresh`, the server answers from a pull of the same request made in the last seven days when it has one. One call per domain. Country level only (rule 4). Each row has `keyword`, `url`, `position`, `search_volume`, `cpc`, `competition`, `intent`.
    - As soon as a call answers with rows, save them to `.seo-genius/keyword-lists/<domain>.json` in the compact form of step 10, before the next call, replacing any older file for that domain. A call that fails or returns no rows saves nothing.
+   - `pulled_on` is the date of the pull, not of the call. When the answer carries `cached_at`, the server reused an earlier pull made by this site's own request: save the date part of `cached_at` as `pulled_on`, not today. The key is absent otherwise, never null. Without it, when `fresh: true` was sent, the server pulled the list now: save today. Without it on an ordinary call, the answer may come from the server's shared cache, and the server does not say how old it is. A first ordinary pull of a domain is such an answer. Save `pulled_on: null`, say the list's date is unknown, and do not reuse it in a later run (step 3). Do not send `fresh: true` only to get a date; send it only when the user asked for a fresh pull.
    - A domain whose list is reused gets no call. Read its `rows` from the file. Never mix rows from a saved list with rows from a fresh call for the same domain.
    - Positions and volumes in a reused list are as of its `pulled_on` date, not today. Carry that date with the list.
    - Rows come ordered by search volume, so a domain that returns 200 rows may rank for more than was read. Note which domains hit that cap.
@@ -61,7 +75,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
    - Behind: this site has a row and at least one competitor ranks better. Keep both positions, so the size of the gap shows.
    - Holding: this site ranks as well as or better than every competitor. Count these; do not list them.
    When this site's own list hit the 200-row cap, a missing keyword means "not among this site's 200 highest-volume keywords". Say so; absence from a capped list is not proof.
-7. Local terms nobody ranks for. Take `terms` from the config, plus each service paired with each of `other_cities`, and keep the ones that appear in no list. If there are any, read `.seo-genius/keyword-lists/local-terms.json` first. Reuse it when `pulled_on` is today or one of the seven days before it, its `location_code` is the country code, every term needed now is in `asked`, and the user did not ask for a fresh pull. Otherwise: one `keyword_research` call with the whole batch (200 at most) and the country `location_code`, saved to that file as soon as it answers.
+7. Local terms nobody ranks for. Take `terms` from the config, plus each service paired with each of `other_cities`, and keep the ones that appear in no list. If there are any, read `.seo-genius/keyword-lists/local-terms.json` first. Reuse it when `pulled_on` is a date (not `null`) and is today or one of the seven days before it, its `location_code` is the country code, every term needed now is in `asked`, and the user did not ask for a fresh pull. Otherwise: one `keyword_research` call with the whole batch (200 at most), the country `location_code`, and `fresh: true` when the user asked for a fresh pull, saved to that file as soon as it answers. Its rows are in `keywords`. Set `pulled_on` as for a list (step 4): the date part of `cached_at` when the answer carries it; without it, today when `fresh: true` was sent and `null` (date unknown) on an ordinary call.
    - A term that comes back with volume has demand, and no competitor ranks for it in the lists that were read. Keep it in `local_terms`. Absence from those lists is not proof that nobody ranks. Look the term up in `terms` in `.seo-genius/competitors.json`: when the live search there shows a business above this site, the term is contested. Save it with `contested: true` and the domains above this site, and say so in the reply. Call a term open ground only when that search was run and shows no business above this site. A term with no live search on file is "not checked in a live search".
    - A local term often has no volume at country level. Report that as "no volume data", never as zero, and keep it in `local_terms_no_data`.
 8. Group into topics. One topic per service, and one per guide subject that shows up (cost, permits, materials, how to choose). For each topic: its keywords, the total search volume from the tool, which competitors rank and with which URL, this site's best position and URL, and missing or behind. A topic is missing when this site has no row for any of its keywords, and behind otherwise. A topic is strong when at least one of its keywords is strong.
@@ -106,7 +120,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
     }
     ```
 
-    `class` is `missing` or `behind`, on the topic and on each keyword. `cap_hit` lists the domains that returned 200 rows. Positions are as the tool reports them. `lists` has one entry per domain, this site included; `reused` is true when the list came from a file. `local_terms_pulled_on` is the date of the local-terms lookup that was used, or null when there was none. `calls_spent` counts the live calls made in this run only.
+    `class` is `missing` or `behind`, on the topic and on each keyword. `cap_hit` lists the domains that returned 200 rows. Positions are as the tool reports them. `lists` has one entry per domain, this site included; `reused` is true when the list came from a file. `pulled_on` is `null` when the list's date is unknown (step 4). `local_terms_pulled_on` is the date of the local-terms lookup that was used, or null when there was none or its date is unknown. `calls_spent` counts the live calls made in this run only.
 
     A saved list, `.seo-genius/keyword-lists/<domain>.json`:
 
@@ -166,8 +180,11 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - `ranked_keywords` returns nothing for a competitor: say so and continue with the others.
 - A saved list that does not parse, or has no `rows`: do not use it. Count that domain as needing a call, and say the saved file was unusable.
 - The session cannot write files: every domain needs a call each run, because no list can be saved. Say so when stating the spend.
-- `upstream_unavailable` on a call: report it, skip that domain, keep the rest.
-- Rate limited (429): stop, say so, suggest retrying in a minute.
+- A call fails with a rate limit message: stop, say so, suggest retrying in a minute.
+- Stop the run at the first of these: make no further live call, repeat the error text, and write neither `keyword-gap.md` nor `keyword-gap.json`. A list already saved under `.seo-genius/keyword-lists/` is one whole answer and stays; nothing else from this run is saved. Say why in the reply, under "Needs a decision" in an unattended run.
+  - A live call is refused with `site_paused`, or an answer carries `error: "site_archived"`: the site is paused or archived. The refused call cost nothing.
+  - A live call times out (the message says it did not respond in time), or fails with "An unexpected error occurred". It may have been charged in full.
+  - A call fails with "quota_exceeded": the plan's monthly call quota is used. Waiting a minute will not help.
 
 ## Done when
 
@@ -179,3 +196,4 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - The counts of removed rows and the capped domains are stated.
 - Both files were saved, or the reply says they were not.
 - Nothing was written to SEO Genius and no page was edited.
+- In an unattended run, saved lists were reused under the same rule, and only live calls were counted toward `live_calls_per_run`. A reused list costs nothing.
