@@ -41,7 +41,13 @@ If you want the tools without the skills, skip the two `codex plugin` commands a
 codex mcp list
 ```
 
-`seo-genius` should show as enabled and logged in. Then ask Codex to call `get_my_tenant`; it returns your workspace, plan, and whether this connection can write.
+`seo-genius` should show `enabled`, with `OAuth` in the Auth column. `Not logged in` there means the login did not finish: run `codex mcp login seo-genius` again. Then ask Codex to call `get_my_tenant`; it returns your workspace, plan, and whether this connection can write.
+
+## Approvals and unattended runs
+
+Codex asks before it calls an MCP tool unless the server marks that tool read-only. Tools that change data in SEO Genius (`log_page_change`, `mark_issue_fixed`, `create_issue`, `save_research`, `update_issue`, `reject_issue`, `update_business_context`, `trigger_crawl`) and tools that spend search-data quota always ask.
+
+`codex exec` has nobody to answer, so it refuses every call that would ask, with `MCP tool call requires approval, but approval policy is never`. In a non-interactive run, use the read-only skills (`brief`, `audit`, `page-check`, `history`), and run anything that writes or spends in an interactive session.
 
 ## Updates
 
