@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0 (2026-10-15)
+
+Stored ranks before live searches, a source stamp on every section, and open issues in the content plan.
+
+- `competitor-dive` and `report` read `list_tracked_keywords` and `get_serp_snapshots` before any `serp_rank_check`. A term with a reading from the last seven days is read from the stored data (place, ranking URL, and map pack place) and costs no live call; only the terms with no fresh reading are searched live. A server that answers that stored search pages are not set up falls back to the earlier behaviour, and the reply says so. A term read from a stored page shows its map pack place, so "map results not seen" now applies only to the terms searched live.
+- `start` reads `list_tracked_keywords` after the terms are agreed and says which of them the server tracks, at which locations. No MCP tool adds a term to the rank tracker, so the skill tells the user to add the rest in the SEO Genius dashboard, at the metro location, rather than inventing a call.
+- Standing rule 10, in every skill: every section of a reply or saved file names where its numbers came from, "Stored, as of <date>" or "Live, <n> calls, <date>", and the closing line totals stored reads and live calls. `report` applies it to each part of `reports/<date>.md`, and `brief` to the briefing and the single-edit verdict.
+- `content-plan` reads the open issues once (`list_issues`, `status: open`, `limit: 100`, first page only), grouped by page. An Improve or Create item on a page with an open critical or high issue names that issue beside it, and an open critical issue whose type maps to one of the nine change kinds becomes its own Improve item, checked with `check_change` like any other. The plan header says that issues were read and how many pages had one.
+
 ## 1.3.0 (2026-10-13)
 
 The pipeline on a schedule, and the last tools without a skill.

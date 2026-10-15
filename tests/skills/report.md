@@ -8,12 +8,14 @@
 5. An unattended run with `live_calls_per_run` set to 3 and ten terms in the config.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000, change_index pages) -> [list this pipeline's pull requests: branch starts with claude/seo-genius- and the author is the account this run pushes as] -> [read each merged one's diff] -> list_pages or search_pages -> [confirm the page: get_page, or the edited file serves its URL path] -> list_page_changes (page_url, change_kind, limit 100; look for source_ref) -> [state the spend, wait for a yes] -> serp_rank_check (one per term, depth 20, ten at most) -> [after the live calls, only when no stop ended the run, on a yes or when allowed: list_crawls, log_page_change with source_ref and occurred_on] -> write .seo-genius/reports/<date>.md
+get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000, change_index pages) -> list_tracked_keywords -> get_serp_snapshots (keywords set to the terms) -> [list this pipeline's pull requests: branch starts with claude/seo-genius- and the author is the account this run pushes as] -> [read each merged one's diff] -> list_pages or search_pages -> [confirm the page: get_page, or the edited file serves its URL path] -> list_page_changes (page_url, change_kind, limit 100; look for source_ref) -> [state the spend for the terms with no reading from the last seven days, wait for a yes] -> serp_rank_check (one per such term, depth 20, ten at most) -> [after the live calls, only when no stop ended the run, on a yes or when allowed: list_crawls, log_page_change with source_ref and occurred_on] -> write .seo-genius/reports/<date>.md
 
 ## Pass conditions
 - [ ] The report has its parts in order: What changed, What moved, Waiting, Needs a decision, Next, Research age.
 - [ ] Every change shown carries its state as the briefing returned it.
-- [ ] Every position reading shows its date and location, beside the earlier reading and its date, and is called a reading.
+- [ ] Every position reading shows its source (stored or live), its date and location, beside the earlier reading and its date, and is called a reading.
+- [ ] A term with a stored reading from the last seven days is not searched live; its stored place, URL, and map pack place are used.
+- [ ] Every part of the report opens with a source stamp (Stored, as of a date, or Live, with the call count), and the closing line counts stored reads and live calls.
 - [ ] A search that comes back empty with no error is named as failed, gets no reading, and is not sent again in the same run.
 - [ ] No sentence says a change caused a movement.
 - [ ] Prompt 2: the reply shows the change as read from the merged diff and asks before recording; on a yes, log_page_change carries source_ref set to the pull request URL and occurred_on set to the merge date as YYYY-MM-DD.
@@ -40,6 +42,7 @@ get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000, change_index 
 - More than three changes recorded in one unattended run.
 - A report file or a change record written in a run that stopped.
 - A movement explained as the result of a change.
-- A position reading with no date or location.
+- A position reading with no date, location, or source.
+- A live search on a term that had a stored reading from the last seven days.
 - More live searches than the run's budget, or more than ten.
 - A write error reported as success.

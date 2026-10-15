@@ -26,6 +26,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
+10. Stamp every section. Every section of a reply or saved file names where its numbers came from: "Stored, as of <date>" for values read from SEO Genius, or "Live, <n> calls, <date>" for values a Data-for-SEO call fetched in this run. The closing line totals the stored reads and the live calls.
 
 ## Files
 
@@ -57,17 +58,20 @@ In an attended session none of this applies. Ask as the procedure says.
    - The Opportunities section (`sections.opportunities`): keywords this site already ranks for between positions 4 and 20, each with its `page_url`, `position`, and `search_volume`.
    - The What worked section (`sections.what_worked`).
    - `sections_dropped`.
-   `max_bytes` bounds the markdown only, and `change_index: "pages"` keeps the change index to one verdict per page, so the answer is a fraction of the full briefing. On a very busy site it can still be too large to show, and the client may save it to a file and show only the path. Then read the parts above from that file, which holds the JSON the tool returned; with a shell, take one key at a time (for example with `jq`) rather than reading the whole file. If the file cannot be read, say the briefing was too large to read and go on without it: the plan then has no Opportunities and no What worked, and says so, and the `check_change` calls of step 7 still give each page's verdict.
+   `max_bytes` bounds the markdown only, and `change_index: "pages"` keeps the change index to one verdict per page, so the answer is a fraction of the full briefing. On a very busy site it can still be too large to show, and the client may save it to a file and show only the path. Then read the parts above from that file, which holds the JSON the tool returned; with a shell, take one key at a time (for example with `jq`) rather than reading the whole file. If the file cannot be read, say the briefing was too large to read and go on without it: the plan then has no Opportunities and no What worked, and says so, and the `check_change` calls of step 8 still give each page's verdict.
 4. Page inventory: `list_pages` (`limit: 100`, follow `next_cursor`, five pages at most). Sort each URL into service page, location page (a service in a city), guide, or other, by its URL and title. Say when the five-page cap cut the list short.
-5. Topical map. For each service in the config, lay out the slots:
+5. Open issues: `list_issues` with `status: "open"` and `limit: 100`, first page only (rule 6). Group the rows by page URL and keep the critical and high ones. The first page's `total` says whether the page held every open issue; when it did not, say so and that pages past the first are not in the plan.
+   - Each Improve or Create item whose page has an open critical or high issue names that issue beside the item (its `type`, severity, and `recommendation` when the row carries one).
+   - Each open critical issue becomes its own Improve item on its page, with `change_kind` taken from the issue `type` when it maps to one of the nine kinds (`title`, `meta_description`, `h1`, `canonical`, `schema`, `internal_links`, `redirect`, `content_depth`, `readability`): an issue about a title maps to `title`, about a meta description to `meta_description`, and so on, by the field the issue names. Its evidence is the issue row. A critical issue that maps to no kind gets no item and is listed in the plan header as a critical issue the plan does not carry. These items go through step 8 like every other Improve item.
+6. Topical map. For each service in the config, lay out the slots:
    - The main service page.
    - A page for a city only where there is evidence for it: a gap keyword that names the city, a `local_terms` entry for it, or at least two competitors with location pages. Never one page per city by default; thin city pages help nobody.
    - The guides the keyword topics call for (cost, FAQ, how to choose, comparisons).
    Mark each slot covered (a page exists and its topic is not in the gap file; name the URL), thin (a page exists and its topic is missing or behind in the gap file), or empty (no page). Where `competitors.json` has `page_counts`, show how many pages of each kind each competitor has, and that those counts are approximate.
-6. Build the backlog: one item for each thin or empty slot, one for each `local_terms` entry no slot covers, and one for each entry in `moves` from `competitors.json` that no slot covers.
+7. Build the backlog: one item for each thin or empty slot, one for each open critical issue that maps to a change kind (step 5), one for each `local_terms` entry no slot covers, and one for each entry in `moves` from `competitors.json` that no slot covers.
    - Create: the page type, a working title, the main keyword and four supporting ones at most (from the gap file, with their volume), a URL path in the site's existing pattern, the sections to include (what the competitors' ranking pages share, from the fields the research read: FAQ, proof, and schema only where it was seen), and the existing pages that should link to it.
    - Improve: the existing URL, what to add, and the field it changes (`content_depth`, `title`, `h1`, `meta_description`, `schema`, or `internal_links`).
-7. Check history before giving any item a status. Call `check_change` with the page's `page_id` (from `list_pages`) and the `change_kind`, once for every Improve item, and once with `change_kind: internal_links` for every existing page a Create item would add a link on. When `list_pages` did not return the page, pass its full URL as `page_url` instead. Add `proposed_value` only when the item carries an exact new value. Read the result in this order:
+8. Check history before giving any item a status. Call `check_change` with the page's `page_id` (from `list_pages`) and the `change_kind`, once for every Improve item, and once with `change_kind: internal_links` for every existing page a Create item would add a link on. When `list_pages` did not return the page, pass its full URL as `page_url` instead. Add `proposed_value` only when the item carries an exact new value. Read the result in this order:
    - `coach_history_not_readable` is not empty: part of this site's change history could not be read, so the verdict may be missing a recent change. The item is unchecked, marked "history partly checked".
    - `page_verdict.verdict` is WAIT: waiting until `page_verdict.until`, whatever the field and whatever the `verdict`. The same holds for a page whose `change_index.pages` row says WAIT.
    - `block` with `would_revert`, alone or beside `frozen`: dropped, with that reason. It would undo an earlier change, and it is still a revert after any unfreeze date.
@@ -76,16 +80,16 @@ In an attended session none of this applies. Ask as the procedure says.
    - `warn` with only `recently_changed_other_kind`: open, with the reason shown.
    - `allow`: open.
    - A linking page that is waiting, dropped, or unchecked is left off the Create item's link list, with a note. The Create item itself stays open.
-8. Order the open items. First: Improve items on pages that already rank between 4 and 20 for a keyword in their topic, by `site_position` in the gap file or `position` in the briefing's Opportunities. Second: Create items for page types at least two competitors have. Third: guides. Inside each group, higher total search volume first. Where What worked shows a kind of change working on this site, prefer that kind and say that is the reason. Twenty items at most; the first five are "this month". An unchecked item is not an open item. It goes in neither "this month" nor "later".
-9. Save `.seo-genius/plan.md` (see Files) with these parts, in this order:
-   - A header: the date, the site, which research files the plan was built from, with their dates, and one line saying so when any item is unchecked.
+9. Order the open items. First: Improve items from open critical issues (step 5), the most severe page first. Then: Improve items on pages that already rank between 4 and 20 for a keyword in their topic, by `site_position` in the gap file or `position` in the briefing's Opportunities. Second: Create items for page types at least two competitors have. Third: guides. Inside each group, higher total search volume first. Where What worked shows a kind of change working on this site, prefer that kind and say that is the reason. Twenty items at most; the first five are "this month". An unchecked item is not an open item. It goes in neither "this month" nor "later".
+10. Save `.seo-genius/plan.md` (see Files) with these parts, in this order:
+   - A header: the date, the site, which research files the plan was built from, with their dates, a source stamp per rule 10 for each ("Stored, as of <date>" for the briefing, the page list, and the issue list; the research files carry their own dates), one line saying that open issues were read and how many pages had a critical or high one (and that the first page was capped, when it was), the critical issues the plan does not carry, and one line saying so when any item is unchecked.
    - This month: a table, # | Action | Page | Topic | Keywords | What to do | Evidence | Status.
    - Later: the same table for the remaining open items.
    - Waiting: each waiting item with the date it opens.
    - Dropped: each dropped item with its reason.
    - Unchecked: each item whose history was not checked, or only partly checked, saying which. These wait for a run that can read the history.
    - Topical map: Service | Slot | Covered, thin, or empty | URL | Competitors with this page.
-10. Close with how to act on an item: make the edit, check it with `/seo-genius:brief` first, and record it with `/seo-genius:log-change` after it ships. The plan orders the work. It does not promise a ranking.
+11. Close with how to act on an item: make the edit, check it with `/seo-genius:brief` first, and record it with `/seo-genius:log-change` after it ships. The plan orders the work. It does not promise a ranking.
 
 ## Output
 
@@ -94,22 +98,23 @@ In an attended session none of this applies. Ask as the procedure says.
 - This month, Later, Waiting, Dropped, and Unchecked, as saved.
 - What the plan could not use (a missing research file, a capped page list, an unchecked history).
 - Where the plan was saved, or that it was not.
-- Closing line per rule 9.
+- Closing line per rules 9 and 10: stored reads counted, live calls 0.
 
 ## If something is missing
 
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
+- `list_issues` fails or is not in the tool list: build the plan without the issue join, and say in the header that open issues were not read.
 - No config: read the services and cities from `get_business_context`, and suggest `/seo-genius:start`.
 - `get_site_briefing` or `check_change` is not in the tool list: build the plan without the history check, mark every item on an existing page "history not checked", put all of those under Unchecked, and say so at the top of the plan.
-- `change_index.truncated` is true: say the index is incomplete. The `check_change` call in step 7 still returns `page_verdict` for each page, so the check holds.
+- `change_index.truncated` is true: say the index is incomplete. The `check_change` call in step 8 still returns `page_verdict` for each page, so the check holds.
 - The research files are more than 45 days old: say how old, and suggest running the research again before acting on the plan.
 - A call fails with a rate limit message: stop, say so, suggest retrying in a minute.
 - An answer carries `error: "site_archived"`, or a call fails with "quota_exceeded" (the plan's monthly call quota is used; waiting a minute will not help): stop, repeat the message, and do not write `.seo-genius/plan.md`. Nothing from this run is saved. Say why in the reply, under "Needs a decision" in an unattended run.
 
 ## Done when
 
-- Every item names the research row it came from.
+- Every item names the research row or the issue row it came from, and the header says that open issues were read and how many pages had a critical or high one.
 - Every Improve item, and every page a Create item links from, was checked with `check_change`. An item whose history was not checked, or only partly checked, sits under Unchecked and in no open list.
 - No open item touches a frozen field, a page marked WAIT, or a field whose last change is still being measured.
 - Every keyword volume comes from the gap file or the briefing. No score, percentage, or forecast was invented.
