@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.3.0 (2026-10-13)
+## 1.3.0 (2026-10-14)
 
 The pipeline on a schedule, and the last tools without a skill.
 
