@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.3.1 (2026-10-13)
+## 1.3.1 (unreleased)
 
 - `competitors`, `keywords`, and `quick-wins` say what their Data-for-SEO calls spend and wait for a yes before the first one. Before, they said so and went ahead.
 - `report` reads the stored search pages (`get_serp_snapshots`) before any live search, and sends none for a term SEO Genius already searched at the same location in the last six days. A stored reading is placed among organic results only.
@@ -8,7 +8,7 @@
 - `schedule` gives the intervals to set (research monthly, report weekly) and says the call budget caps each run, not how often runs repeat.
 - `sites` says how standing rules 1 and 2 apply to a view of the whole workspace.
 
-## 1.3.0 (2026-10-13)
+## 1.3.0 (2026-10-14)
 
 The pipeline on a schedule, and the last tools without a skill.
 
