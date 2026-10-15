@@ -24,6 +24,7 @@ get_my_tenant -> list_sites -> [read config.json] -> [ask where to run, the mode
 - [ ] The cloud steps say how to add SEO Genius as a connector, to remove the connectors not needed, that competitor pages need the environment's network access opened, and that the research files have to be merged after each monthly run, on a branch outside the `claude/seo-genius-` prefix.
 - [ ] The local steps say to leave the isolated worktree option off and to check on the first run that the SEO Genius skills and tools were found.
 - [ ] The reply says that one call budget governs every scheduled run.
+- [ ] The reply gives the intervals (research monthly, report weekly) and says the call budget caps each run, not how often runs repeat.
 
 ## Fail conditions
 - A routine created by the skill.

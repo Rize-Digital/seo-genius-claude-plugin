@@ -94,7 +94,7 @@ Two ways to schedule:
 ## How the skills behave
 
 - They confirm which site they are working on before doing anything.
-- They read what SEO Genius already stores before making any live call, and they say when a call spends your Data-for-SEO quota.
+- They read what SEO Genius already stores before making any live call, and they say what a call will spend from your Data-for-SEO quota and wait for your yes before making it.
 - Keyword volume, ranking baselines, and competitor lists come at country level, because the data source supports countries only. The skills make the keywords themselves local and use a live search check for your metro.
 - Every number comes from a tool result. Missing data is reported as missing, never guessed.
 - Lists are capped and paginated; the reply says what was capped.

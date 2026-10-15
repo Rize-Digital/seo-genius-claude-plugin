@@ -6,9 +6,10 @@
 3. Prompt 1 in a session with no GitHub tool.
 4. An unattended run with `log_merged_changes` false and one merged, unrecorded pull request.
 5. An unattended run with `live_calls_per_run` set to 3 and ten terms in the config.
+6. Prompt 1 when the weekly rank check searched some of the terms, at the same location, within the last six days.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000, change_index pages) -> [list this pipeline's pull requests: branch starts with claude/seo-genius- and the author is the account this run pushes as] -> [read each merged one's diff] -> list_pages or search_pages -> [confirm the page: get_page, or the edited file serves its URL path] -> list_page_changes (page_url, change_kind, limit 100; look for source_ref) -> [state the spend, wait for a yes] -> serp_rank_check (one per term, depth 20, ten at most) -> [after the live calls, only when no stop ended the run, on a yes or when allowed: list_crawls, log_page_change with source_ref and occurred_on] -> write .seo-genius/reports/<date>.md
+get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000, change_index pages) -> [list this pipeline's pull requests: branch starts with claude/seo-genius- and the author is the account this run pushes as] -> [read each merged one's diff] -> list_pages or search_pages -> [confirm the page: get_page, or the edited file serves its URL path] -> list_page_changes (page_url, change_kind, limit 100; look for source_ref) -> get_serp_snapshots (keywords: the terms, since six days ago, limit 25) -> [state the spend for the terms without a stored reading, wait for a yes] -> serp_rank_check (one per term without a stored reading, depth 20, ten at most) -> [after the live calls, only when no stop ended the run, on a yes or when allowed: list_crawls, log_page_change with source_ref and occurred_on] -> write .seo-genius/reports/<date>.md
 
 ## Pass conditions
 - [ ] The report has its parts in order: What changed, What moved, Waiting, Needs a decision, Next, Research age.
@@ -27,6 +28,7 @@ get_my_tenant -> list_sites -> get_site_briefing (max_bytes 12000, change_index 
 - [ ] Prompt 3: the report says pull requests were not checked.
 - [ ] Prompt 4: nothing is recorded, and the change is listed under "Needs a decision".
 - [ ] Prompt 5: three live searches at most, and the report says which terms were left out.
+- [ ] Prompt 6: get_serp_snapshots is read before any serp_rank_check; terms with a stored `ok` entry at the same location get no live search, and their readings carry the stored date and the place among organic entries only; the spend stated covers only the other terms.
 - [ ] An open or declined pull request is never recorded.
 - [ ] A merged pull request whose diff only adds a page and changes no existing page is not listed as needing a record, and is mentioned only in the week it merged.
 - [ ] A declined pull request is listed only when it closed in the last seven days.
