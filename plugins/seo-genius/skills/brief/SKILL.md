@@ -26,6 +26,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
+10. Stamp every section. Every section of a reply or saved file names where its numbers came from: "Stored, as of <date>" for values read from SEO Genius, or "Live, <n> calls, <date>" for values a Data-for-SEO call fetched in this run. The closing line totals the stored reads and the live calls.
 
 ## Procedure
 
@@ -33,7 +34,7 @@ For "is it safe to change X on page Y" with no request for the full briefing, do
 
 1. Resolve the site (rule 1). Echo site, domain, `can_write`.
 2. `get_site_briefing`. It reads stored data only and spends no crawl and no Data-for-SEO quota, so the briefing already holds the business context and `get_business_context` is not needed here. Leave `max_bytes` at its default. Raise it (12000 at most) only when the user asks for the full briefing and `sections_dropped` is not empty.
-3. Show the returned `markdown` as it is. Do not reword its numbers, dates, or page verdicts. Then add, in plain words:
+3. Show the returned `markdown` as it is. Do not reword its numbers, dates, or page verdicts. Open it with its source stamp (rule 10): "Stored, as of <date>", the date the briefing carries (its generated date, or the crawl date it names); the briefing makes no live call. Then add, in plain words:
    - each section named in `sections_dropped`, as left out to fit the size limit;
    - each section whose `empty_reason` is set. Report the reason; never present a section that could not be read as a clean result. `no_scored_changes_yet` means no past change has finished measurement, so nothing is proven yet. `performance_not_available` means search performance data is not connected or not synced. `no_recent_changes` means nothing was logged in the window the section names; an edit nobody logged does not appear. `no_crawl_yet` means the site has not been crawled. `no_business_context` means no business profile is stored. `coach_history_not_readable` means part of the change history could not be read. `nothing_frozen`, `no_pages_need_attention`, `no_opportunities_found`, and `no_history` mean what they say;
    - if `coach_history_not_readable` lists anything, say that Recent changes, Frozen, and the Status board may be incomplete. Missing is not the same as empty.
@@ -58,10 +59,10 @@ For "is it safe to change X on page Y" with no request for the full briefing, do
 ## Output
 
 - One line: site, domain, `can_write`.
-- The briefing markdown as returned, then the notes on dropped and empty sections.
+- The briefing markdown as returned, under its "Stored, as of <date>" stamp, then the notes on dropped and empty sections.
 - "Next moves": three at most, each with the page, the field, and the briefing line it came from.
-- For a single-edit check: the verdict first (allow, warn, or block), then the reasons, the date it changes, and the page verdict.
-- Closing line per rule 9.
+- For a single-edit check: the verdict first (allow, warn, or block), then the reasons, the date it changes, and the page verdict, stamped "Stored, as of <date>" with the date of the newest change it rests on, or the day of the check when it names none.
+- Closing line per rules 9 and 10: stored reads counted, live calls 0.
 
 ## If something is missing
 
@@ -74,7 +75,7 @@ For "is it safe to change X on page Y" with no request for the full briefing, do
 
 ## Done when
 
-- The briefing was shown as returned, with dropped and empty sections named.
+- The briefing was shown as returned, with dropped and empty sections named, under a stored-as-of stamp, and the closing line counts the stored reads with zero live calls.
 - No next move touches a field that `change_index` shows as frozen, or revises a page marked WAIT.
 - Every single-edit check states the verdict, the reasons, and the date when there is one.
 - Nothing was written to SEO Genius, and this skill edited no page. A question about safety got an answer, not an edit.
