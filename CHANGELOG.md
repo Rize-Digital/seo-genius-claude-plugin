@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0 (2026-10-15)
+
+- New skill `citations`: a NAP check across the US business directories that the main listing services submit to. For each directory it reports if the business has a listing and if the listing shows the exact name, address and phone, with the value shown for every field that differs. It runs on the SEO Genius server through the new `citation_check` tool and returns one compact report, so no listing page is read into the conversation.
+- A directory whose search result names the business but whose page could not be read is reported as unverifiable, with the search result's title, and a directory the run did not reach as not reached. Neither is ever reported as a missing listing. Search results vary between runs, and the skill says so.
+- The skill confirms the name, address and phone to check against first, offers a saved report from the last 30 days before spending quota, and saves each new report to the research store when the account can write.
+- Needs a server that offers `citation_check`. Against one that does not, the skill says so and stops.
+- The structural checker expects eighteen skills.
+
 ## 1.3.0 (2026-10-13)
 
 The pipeline on a schedule, and the last tools without a skill.
