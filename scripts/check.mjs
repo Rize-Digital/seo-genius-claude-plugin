@@ -10,7 +10,7 @@ const PLUGIN = join(ROOT, "plugins", "seo-genius");
 const EXPECTED_SKILLS = [
   "audit", "brief", "page-check", "keywords", "quick-wins", "competitors", "log-change",
   "start", "competitor-dive", "keyword-gap", "content-plan", "history",
-  "next", "report", "schedule", "sites", "issues",
+  "next", "report", "schedule", "sites", "issues", "citations",
 ];
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const SEMVER = /^\d+\.\d+\.\d+$/;
