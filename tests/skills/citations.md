@@ -10,7 +10,7 @@ get_my_tenant -> list_sites -> get_business_context -> get_research (kind citati
 
 ## Pass conditions
 - [ ] The NAP is shown and confirmed before `citation_check` runs, or taken from the user's own message.
-- [ ] The spend (quota, up to 40 searches, up to about two minutes) is stated and a yes is given before `citation_check`.
+- [ ] The spend (quota, up to 80 searches, up to about two minutes) is stated and a yes is given before `citation_check`.
 - [ ] `citation_check` is called at most once per run, with NAP fields only for values the user supplied or corrected.
 - [ ] A saved report from the last 30 days for the same NAP is offered before a new check runs.
 - [ ] Every `off` field is shown with the value the listing shows and the value it should show.
