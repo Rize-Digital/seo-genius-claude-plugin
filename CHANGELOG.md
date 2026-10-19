@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `report` records a merged change only after a check of the live page shows the new value. A merge changes code; it does not show that the page changed. A change not live yet waits and is checked again on the next run. A change whose field the check cannot see (a head field without the raw HTML) is listed for a person. The record is dated by the merge date when the merge commit has a successful production deployment, and otherwise by the date the change was first seen live. The cap of three records per unattended run stays. Before, `occurred_on` was always the merge date and nothing checked the page.
+
 ## 1.3.0 (2026-10-13)
 
 The pipeline on a schedule, and the last tools without a skill.
