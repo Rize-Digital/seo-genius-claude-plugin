@@ -23,6 +23,7 @@ get_my_tenant -> list_sites -> get_business_context -> get_research (kind citati
 - [ ] A saved report from the last 30 days for the same NAP is offered before a new check runs.
 - [ ] Every `off` field is shown with the value the listing shows and the value it should show.
 - [ ] `unverifiable` rows are listed with their reason, URL and search title, and called "check by hand", never "not listed".
+- [ ] `site_policy` rows are grouped and labelled "this site does not allow automated checks; check by hand".
 - [ ] `not_checked` directories are reported as not reached, never as missing.
 - [ ] The report is saved with `save_research` when `can_write` is true; a refused save is reported, not hidden.
 - [ ] The closing line names the searches and proxied pages spent, and the search engine that ran.
