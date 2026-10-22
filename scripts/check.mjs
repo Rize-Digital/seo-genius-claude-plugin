@@ -159,6 +159,26 @@ check(
 );
 check(existsSync(join(PLUGIN, "scripts", "ledger.mjs")), "scripts/ledger.mjs exists");
 
+// 4d. The skills that write the ledger share one Server sync section, so the pull at the
+// start and the push at the end are the same everywhere.
+const SYNC_SKILLS = ["content-plan", "next", "weekly"];
+const syncBlocks = [];
+for (const name of found) {
+  const p = join(skillsDir, name, "SKILL.md");
+  if (!existsSync(p)) continue;
+  const md = readFileSync(p, "utf8").replace(/\r\n/g, "\n");
+  const block = md.match(/\n## Server sync\n([\s\S]*?)(?=\n## )/);
+  if (block) syncBlocks.push([name, block[1].trim()]);
+}
+check(
+  JSON.stringify(syncBlocks.map(([n]) => n).sort()) === JSON.stringify(SYNC_SKILLS),
+  `Server sync section is present in exactly ${SYNC_SKILLS.join(", ")}`,
+);
+check(
+  syncBlocks.length > 0 && syncBlocks.every(([, b]) => b === syncBlocks[0][1]),
+  "Server sync block is byte-identical across the skills that have one",
+);
+
 // 5. Em dashes in any markdown file
 for (const p of walkMd(ROOT)) {
   const n = (readFileSync(p, "utf8").match(/\u2014/g) || []).length;

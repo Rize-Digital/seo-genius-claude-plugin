@@ -47,6 +47,8 @@ Four more commands do the research a consultant does before touching a site. Run
 
 Where the folder is: inside the site's git repository it is `.seo-genius/` at the repository root. For a site with no repository (a WordPress site, say) it is `~/seo-genius/<domain>/` (or `$SEO_GENIUS_HOME/<domain>/`), one folder per site with its own git history, so two sites never share files and nothing is stored inside the site itself. Every skill finds it the same way, through `scripts/ledger.mjs`, which needs Node.js 18 or later.
 
+The plan's items are also indexed in SEO Genius (`save_plan_items`), so the dashboard and a run on another machine see the same ids and statuses. Each run reads the server's index first and sends what changed last. If SEO Genius cannot be reached, the run still finishes on your machine and the next one catches up; nothing is recorded twice. Only the index goes to the server (ids, statuses, pages, links, file hashes); the plan's text, research and changelog stay in the folder.
+
 | Step | Command | What it does | Live calls |
 |---|---|---|---|
 | 1 | `/seo-genius:start` | Once per site. Confirms the site, the services, the city, and up to ten search terms you have to win. Saves `config.json`. | none |
@@ -72,7 +74,7 @@ Three more commands turn the pipeline into something that runs on its own.
 | Command | What it does |
 |---|---|
 | `/seo-genius:schedule` | Sets up scheduled runs. Records what an unattended run may do, and gives you the prompts to paste into a routine. |
-| `/seo-genius:weekly` | The week-over-week update: compares this week's stored rankings and open issues with last week's, adds every recorded change to `changelog.md` (changes logged through SEO Genius and fixes applied from the dashboard), and updates plan items in place under the same ids. Stored data only, no live calls. |
+| `/seo-genius:weekly` | The week-over-week update: compares this week's stored rankings and open issues with last week's, adds every recorded change to `changelog.md` (changes logged through SEO Genius and fixes applied from the dashboard), updates plan items in place under the same ids, and syncs them with SEO Genius. Stored data only, no live calls. |
 | `/seo-genius:report` | The weekly report: what changed, what moved, what is waiting, and what needs a decision. |
 | `/seo-genius:next` | Takes the next item from the plan and writes the exact change as a proposal, or opens a pull request when you allow it. One item per run. |
 

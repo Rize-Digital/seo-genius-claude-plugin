@@ -34,7 +34,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - Writes `.seo-genius/plan.md` through the ledger script (step 9), which updates the plan in place: an item seen before keeps its id (P-001), and only a new item gets a new one.
 - The file is meant to be kept with the site. Never write a token, key, or password into it.
 - If the session cannot write files, show the plan in the reply and say it was not saved.
-- This skill writes nothing to SEO Genius and edits no page.
+- It writes to SEO Genius only the plan-item index, through Server sync, and edits no page.
 
 ## Unattended runs
 
@@ -48,6 +48,16 @@ A run is unattended when its prompt says so, as the prompts written by `/seo-gen
 - Anything that needs a person goes under "Needs a decision" in the run's final reply, and in the report file when the skill writes one, with the facts needed to decide.
 
 In an attended session none of this applies. Ask as the procedure says.
+
+## Server sync
+
+The site's local ledger and its plan-item index in SEO Genius are kept in step by the ledger script, at the start and at the end of the procedure.
+
+- Start, before any other ledger command that writes: call `list_plan_items` with `limit: 100`, following `next_cursor` until it is null. Pass every row of every page, the first page's `last_run`, and `complete` (true when every page answered) to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" pull --site <domain> --input -` on standard input, as `{ "items": [...], "last_run": ..., "complete": true }`. Say what it imported, adopted, kept, or renumbered. When it reports `restored_from_server`, the local ledger was unreadable or missing: say it was rebuilt from the server, and where the unreadable file was moved (`quarantined`). When `list_plan_items` fails or is not in the tool list, say the server could not be read, skip the pull, and go on locally.
+- End, after the last ledger command that writes: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" push-payload --site <domain>`. When it answers `nothing_to_send: true`, the server is up to date. Otherwise call `save_plan_items` with its `payload` exactly as given (this needs `can_write`), then pass that tool's whole answer to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" push-ack --site <domain> --input -`. When `save_plan_items` fails, is refused, or is not in the tool list, do not run `push-ack`: say the sync is pending. The next run sends the same items and runs again, and the server records each one once.
+- Say which items the server refused (`push-ack`'s `rejected`) and why. Never edit `ledger.json` to make a sync pass.
+- When any ledger command reports `hand_edited` or `missing`, name the file, and for a hand edit where the edited copy was saved before the file was written again.
+- When a ledger command answers `locked`, another run is working on this site: stop, write nothing, and say so.
 
 ## Procedure
 
@@ -78,12 +88,13 @@ In an attended session none of this applies. Ask as the procedure says.
    - `allow`: open.
    - A linking page that is waiting, dropped, or unchecked is left off the Create item's link list, with a note. The Create item itself stays open.
 8. Order the open items. First: Improve items on pages that already rank between 4 and 20 for a keyword in their topic, by `site_position` in the gap file or `position` in the briefing's Opportunities. Second: Create items for page types at least two competitors have. Third: guides. Inside each group, higher total search volume first. Where What worked shows a kind of change working on this site, prefer that kind and say that is the reason. Twenty items at most; the first five are "this month". An unchecked item is not an open item. It goes in neither "this month" nor "later".
-9. Save the plan through the ledger, so items keep their ids. Pass one JSON object to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" plan --site <domain> --input -` on standard input:
+9. Do the start of Server sync (the pull), so ids another run or machine already used are known. Then save the plan through the ledger, so items keep their ids. Pass one JSON object to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" plan --site <domain> --input -` on standard input:
    - `items`: every item in the order of step 8, open ones first, then waiting, dropped, and unchecked ones. Each: `action` (`improve` or `create`), `target_page` (the URL, or the URL path of a Create item), `change_kind`, `keyword` (the main keyword), `title`, `what_to_do`, `keywords`, `evidence`, `status` (`open`, `waiting`, `dropped`, or `unchecked`), `until` (the date a waiting item opens), `reason`, and `issue_id` when an open issue is the reason for the item.
    - `header`: the date, the site, which research files the plan was built from, with their dates, and one line saying so when any item is unchecked.
    - `appendix`: the topical map as markdown, `## Topical map` and a table Service | Slot | Covered, thin, or empty | URL | Competitors with this page.
    The script matches each item to the one already in the ledger by action, page, field, and keyword, and updates it in place. It gives a new id only to an item never seen before, never reopens an item that is done or dropped, and keeps the items this run did not propose. It writes `plan.md` with This month (the first five open items), Later, In progress, Waiting, Unchecked, Done, and Dropped, each row led by the item's id. Report the ids it created and the items it kept.
-10. Close with how to act on an item: make the edit, check it with `/seo-genius:brief` first, and record it with `/seo-genius:log-change` after it ships. The plan orders the work. It does not promise a ranking.
+10. Do the end of Server sync (the push).
+11. Close with how to act on an item: make the edit, check it with `/seo-genius:brief` first, and record it with `/seo-genius:log-change` after it ships. The plan orders the work. It does not promise a ranking.
 
 ## Output
 

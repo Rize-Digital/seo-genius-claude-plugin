@@ -34,7 +34,7 @@ Node.js 18 or later, for `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs"`. With
 - `.seo-genius/` means the site folder the resolver gives: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" resolve --site <domain>` and use the `dir` it prints. In a repository that is `.seo-genius/` at the repository root; with no repository it is `~/seo-genius/<domain>/`, one folder per site with its own history. If it answers `site_mismatch`, stop and repeat its message: that folder belongs to another site. Without Node.js, use `.seo-genius/` at the repository root, and with no repository say the folder could not be resolved and write nothing.
 - If the resolver prints a `legacy_dir`, say that older files for this site are there and were not moved.
 - Reads and writes, all through the script: `ledger.json` (the index: items with stable ids, their status history, the changes seen, one entry per run with file hashes), `plan.md`, `changelog.md`, `weekly/<date>.md`, `snapshots/<date>.json`. Every file carries a format version. Never edit `ledger.json` by hand.
-- Writes nothing to SEO Genius, edits no page, and never stores a file inside the site or its CMS (WordPress included).
+- Writes to SEO Genius only the plan-item index, through Server sync. Edits no page, and never stores a file inside the site or its CMS (WordPress included).
 
 ## Unattended runs
 
@@ -49,15 +49,26 @@ A run is unattended when its prompt says so, as the prompts written by `/seo-gen
 
 In an attended session none of this applies. Ask as the procedure says.
 
+## Server sync
+
+The site's local ledger and its plan-item index in SEO Genius are kept in step by the ledger script, at the start and at the end of the procedure.
+
+- Start, before any other ledger command that writes: call `list_plan_items` with `limit: 100`, following `next_cursor` until it is null. Pass every row of every page, the first page's `last_run`, and `complete` (true when every page answered) to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" pull --site <domain> --input -` on standard input, as `{ "items": [...], "last_run": ..., "complete": true }`. Say what it imported, adopted, kept, or renumbered. When it reports `restored_from_server`, the local ledger was unreadable or missing: say it was rebuilt from the server, and where the unreadable file was moved (`quarantined`). When `list_plan_items` fails or is not in the tool list, say the server could not be read, skip the pull, and go on locally.
+- End, after the last ledger command that writes: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" push-payload --site <domain>`. When it answers `nothing_to_send: true`, the server is up to date. Otherwise call `save_plan_items` with its `payload` exactly as given (this needs `can_write`), then pass that tool's whole answer to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" push-ack --site <domain> --input -`. When `save_plan_items` fails, is refused, or is not in the tool list, do not run `push-ack`: say the sync is pending. The next run sends the same items and runs again, and the server records each one once.
+- Say which items the server refused (`push-ack`'s `rejected`) and why. Never edit `ledger.json` to make a sync pass.
+- When any ledger command reports `hand_edited` or `missing`, name the file, and for a hand edit where the edited copy was saved before the file was written again.
+- When a ledger command answers `locked`, another run is working on this site: stop, write nothing, and say so.
+
 ## Procedure
 
 1. Resolve the site (rule 1). Echo site, domain, `can_write`. Run `resolve` (see Files) and say which folder is used, and if it is a repository folder or a site folder.
-2. Last run. `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" show --site <domain>`. It lists the items with their ids and statuses and how many runs there were. No items yet: say the plan is empty and that `/seo-genius:content-plan` fills it; continue, because the comparison and the changelog still work.
+2. Last run. Do the start of Server sync (the pull), then `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" show --site <domain>`. It lists the items with their ids, statuses, and whether each is synced, and how many runs there were and how many are not on the server yet. No items yet: say the plan is empty and that `/seo-genius:content-plan` fills it; continue, because the comparison and the changelog still work.
 3. Stored readings, no live search. All of these are reads that spend no Data-for-SEO quota:
    - `list_tracked_keywords` (`limit: 100`, follow `next_cursor`). One ranking per reading: `keyword`, `location`, `position`, `pack_position`, `change`, `url`, `checked_on`.
    - `list_issues` with `status: open`, `limit: 100`, first page only. One issue per row: `id`, `severity`, `issue_type`, `page_url`. When `total` is larger than the rows read, the list is capped: set `issues_complete: false` so no item is closed because its issue fell off the page.
    - `list_page_changes` with `since` set to the date of the last run (or 30 days back on a first run), `limit: 100`. Each row is a change with `source: "reported"`: `id`, `page_url`, `change_kind`, `old_value`, `new_value`, `on` (its `occurred_on`), `verification`.
-   - `get_site_briefing` with `max_bytes: 12000` and `change_index: "none"`. From its Recent changes section, take each change whose `source` is `coach_applied_fix`: a fix applied from the dashboard. Add it with `source: "coach_applied_fix"`, `page_url`, `change_kind`, `on` (its `occurred_on`), and its `outcome_state` as `state`. The briefing carries no row id and only the last 30 days; that is the only read path for these today.
+   - `list_applied_fixes` with `since` set the same way, `limit: 100`, following `next_cursor`: the fixes applied from the dashboard. Each row is a change with `source: "coach_applied_fix"`: `id`, `page_url`, `change_kind`, `old_value`, `new_value`, `on` (the date of `applied_at`, else of `created_at`), `status`. When the tool is not in the tool list, say the dashboard's fixes were not read this run and go on without them.
+   Every change needs its `id`: the changelog keeps one row per id, and refreshes its state (a fix verified or rolled back later) instead of adding a second row.
    Never call `serp_rank_check`, `keyword_research`, `ranked_keywords`, or `competitor_domains` in this skill.
 4. Verdicts for open items. For each item that is `open`, `waiting`, or `in_progress` and names a page and a field, call `check_change` with that page and `change_kind` (rule 7 to find the page). Twenty calls at most; say when items were left unchecked. Map the result as `/seo-genius:content-plan` step 7 does: WAIT, `frozen`, or `pending_measurement` is `waiting` with its date; `would_revert` is `dropped`; `allow` is `open`; a failed call leaves the item as it was.
 5. Write the week. Put the readings into one JSON object and pass it to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" week --site <domain> --input -` on standard input:
@@ -67,16 +78,21 @@ In an attended session none of this applies. Ask as the procedure says.
      "as_of": "YYYY-MM-DD",
      "site_id": "<id from list_sites>",
      "run_id": "<a new id for this run>",
+     "session_id": "<this session's id, when the client gives one>",
      "rankings": [{ "keyword": "", "location": "", "position": null, "pack_position": null, "change": null, "url": "", "checked_on": "" }],
      "issues": [{ "id": "", "severity": "", "issue_type": "", "page_url": "" }],
      "issues_complete": true,
-     "changes": [{ "source": "reported", "id": "", "page_url": "", "change_kind": "", "old_value": "", "new_value": "", "on": "", "verification": "" }],
+     "changes": [
+       { "source": "reported", "id": "", "page_url": "", "change_kind": "", "old_value": "", "new_value": "", "on": "", "verification": "" },
+       { "source": "coach_applied_fix", "id": "", "page_url": "", "change_kind": "", "old_value": "", "new_value": "", "on": "", "status": "" }
+     ],
      "verdicts": { "P-001": { "status": "waiting", "until": "YYYY-MM-DD", "reason": "" } }
    }
    ```
 
-   The script, not the model, decides: it keeps every item under its id, marks an item done when a change to its page and field was recorded after it was planned, or when its issue is no longer open on a complete list, records a status history row only when a status changes, adds new changes to `changelog.md` once, compares rankings and issues with the newest earlier snapshot, and writes `weekly/<date>.md`. In a site folder outside a repository it also commits the run to that folder's own git history. It never commits to a site repository.
-6. Show the result: the folder, the ranking moves and their basis (an earlier snapshot, or the change field the server recorded), issues opened and no longer open, items that changed status with the reason, changes added to the changelog by source, and what was left unchecked.
+   The script, not the model, decides: it keeps every item under its id, marks an item done when a change to its page and field went live after it was planned (a fix rolled back or failed, or a claim the reconcile did not observe, does not count), or when its issue is no longer open on a complete list, records a status history row only when a status changes, adds new changes to `changelog.md` once, compares rankings and issues with the newest earlier snapshot, and writes `weekly/<date>.md`. In a site folder outside a repository it also commits the run to that folder's own git history. It never commits to a site repository.
+6. Do the end of Server sync (the push).
+7. Show the result: the folder, the ranking moves and their basis (an earlier snapshot, or the change field the server recorded), issues opened and no longer open, items that changed status with the reason, changes added to the changelog by source, and what was left unchecked.
 
 ## Output
 
@@ -104,4 +120,5 @@ In an attended session none of this applies. Ask as the procedure says.
 - Rankings and issues came from stored reads, and no Data-for-SEO call was made.
 - The changelog holds both sources, or the reply says which one could not be read.
 - `ledger.json`, `plan.md`, `changelog.md`, and `weekly/<date>.md` were written by the script, or the reply says they were not.
-- Nothing was written to SEO Genius, to a page, or inside the site's CMS.
+- Nothing was written to SEO Genius but the plan-item index, and nothing to a page or inside the site's CMS.
+- The run ended with a push that the server acknowledged, or the reply says the sync is pending.
