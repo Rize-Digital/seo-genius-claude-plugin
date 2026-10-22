@@ -43,14 +43,16 @@ You can also just ask in plain words ("what's wrong with my homepage?") and Clau
 
 ## The research pipeline
 
-Four more commands do the research a consultant does before touching a site. Run them in order. Each one saves its result to a `.seo-genius/` folder, and the next one reads it.
+Four more commands do the research a consultant does before touching a site. Run them in order. Each one saves its result to the site's folder, and the next one reads it.
+
+Where the folder is: inside the site's git repository it is `.seo-genius/` at the repository root. For a site with no repository (a WordPress site, say) it is `~/seo-genius/<domain>/` (or `$SEO_GENIUS_HOME/<domain>/`), one folder per site with its own git history, so two sites never share files and nothing is stored inside the site itself. Every skill finds it the same way, through `scripts/ledger.mjs`, which needs Node.js 18 or later.
 
 | Step | Command | What it does | Live calls |
 |---|---|---|---|
 | 1 | `/seo-genius:start` | Once per site. Confirms the site, the services, the city, and up to ten search terms you have to win. Saves `config.json`. | none |
 | 2 | `/seo-genius:competitor-dive` | Finds the three local businesses that outrank you on your terms, starting with the terms you are losing, reads the pages that rank, reads your own pages the same way, and reports what can be seen of why they rank, what your site is missing, and what to add. Saves `competitors.md` and `competitors.json`. | one per term (ten at most), plus one if fewer than three businesses turn up |
 | 3 | `/seo-genius:keyword-gap` | Pulls what you and those three rank for, removes brand and out-of-area terms, and groups the rest into topics where you are missing or behind. Saves `keyword-gap.md` and `keyword-gap.json`, and keeps each list it pulls in `keyword-lists/`. | one per domain (four at most), plus one for local terms nobody ranks for. A first pull may come from the server's shared cache with no date, so it is not reused and the next run pulls it again. A run reuses only a list saved in the last seven days that has a date: one from a fresh pull you asked for, or one the server dated as your own earlier pull. Ask for a fresh pull to get lists dated today |
-| 4 | `/seo-genius:content-plan` | Turns the research into an ordered backlog: pages to create, pages to improve, and pages to leave alone until an earlier change has been measured. Saves `plan.md`. | none |
+| 4 | `/seo-genius:content-plan` | Turns the research into an ordered backlog: pages to create, pages to improve, and pages to leave alone until an earlier change has been measured. Saves `plan.md`. Each item has an id (P-001) that stays the same on every later run. | none |
 
 Run `/seo-genius:brief` before step 2 and before acting on the plan. Repeat steps 2 to 4 about once a month.
 
@@ -70,10 +72,11 @@ Three more commands turn the pipeline into something that runs on its own.
 | Command | What it does |
 |---|---|
 | `/seo-genius:schedule` | Sets up scheduled runs. Records what an unattended run may do, and gives you the prompts to paste into a routine. |
+| `/seo-genius:weekly` | The week-over-week update: compares this week's stored rankings and open issues with last week's, adds every recorded change to `changelog.md` (changes logged through SEO Genius and fixes applied from the dashboard), and updates plan items in place under the same ids. Stored data only, no live calls. |
 | `/seo-genius:report` | The weekly report: what changed, what moved, what is waiting, and what needs a decision. |
 | `/seo-genius:next` | Takes the next item from the plan and writes the exact change as a proposal, or opens a pull request when you allow it. One item per run. |
 
-A usual setup is two routines: the research once a month (`competitor-dive`, `keyword-gap`, `content-plan`), and `report` then `next` once a week.
+A usual setup is two routines: the research once a month (`competitor-dive`, `keyword-gap`, `content-plan`), and `weekly`, `report`, then `next` once a week.
 
 What an unattended run can and cannot do:
 

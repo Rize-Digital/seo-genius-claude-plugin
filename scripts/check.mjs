@@ -10,7 +10,7 @@ const PLUGIN = join(ROOT, "plugins", "seo-genius");
 const EXPECTED_SKILLS = [
   "audit", "brief", "page-check", "keywords", "quick-wins", "competitors", "log-change",
   "start", "competitor-dive", "keyword-gap", "content-plan", "history",
-  "next", "report", "schedule", "sites", "issues",
+  "next", "report", "schedule", "sites", "issues", "weekly",
 ];
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const SEMVER = /^\d+\.\d+\.\d+$/;
@@ -121,7 +121,7 @@ check(
 );
 
 // 4b. Skills that can run unattended share one Unattended runs block, and each of them has it.
-const UNATTENDED_SKILLS = ["competitor-dive", "keyword-gap", "content-plan", "next", "report"];
+const UNATTENDED_SKILLS = ["competitor-dive", "keyword-gap", "content-plan", "next", "report", "weekly"];
 const unattendedBlocks = [];
 for (const name of found) {
   const p = join(skillsDir, name, "SKILL.md");
@@ -138,6 +138,26 @@ check(
   unattendedBlocks.length > 0 && unattendedBlocks.every(([, b]) => b === unattendedBlocks[0][1]),
   `Unattended runs block is byte-identical across the skills that have one (${unattendedBlocks.map(([n]) => n).join(", ") || "none"})`,
 );
+
+// 4c. One folder resolver. Every skill that reads or writes .seo-genius/ carries the same
+// Files bullet pointing at scripts/ledger.mjs, so no skill falls back to its own rule and two
+// sites can never land in one folder.
+const resolverBullets = [];
+for (const name of found) {
+  const p = join(skillsDir, name, "SKILL.md");
+  if (!existsSync(p)) continue;
+  const md = readFileSync(p, "utf8").replace(/\r\n/g, "\n");
+  if (!md.includes(".seo-genius/")) continue;
+  const bullet = md.match(/\n(- `\.seo-genius\/` means the site folder the resolver gives:[^\n]*)/);
+  check(!!bullet, `${name}: uses the shared folder resolver`);
+  check(!/in the current folder when there is no repository/.test(md), `${name}: no current-folder fallback`);
+  if (bullet) resolverBullets.push(bullet[1]);
+}
+check(
+  resolverBullets.length > 0 && resolverBullets.every((b) => b === resolverBullets[0]),
+  "folder resolver bullet is byte-identical across the skills that use .seo-genius/",
+);
+check(existsSync(join(PLUGIN, "scripts", "ledger.mjs")), "scripts/ledger.mjs exists");
 
 // 5. Em dashes in any markdown file
 for (const p of walkMd(ROOT)) {
