@@ -5,7 +5,7 @@ description: Set up the SEO Genius pipeline to run on a schedule. Use for "sched
 
 # SEO Genius: run on a schedule
 
-Autonomous SEO is the pipeline on a schedule: research once a month, a report and one plan item each week. This skill records the limits an unattended run works inside, and hands over the prompts to schedule.
+Autonomous SEO is the pipeline on a schedule: research once a month, the weekly ledger update and one plan item each week. This skill records the limits an unattended run works inside, and hands over the prompts to schedule.
 
 ## When to use
 
@@ -29,11 +29,12 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 ## Files
 
-- `.seo-genius/` means the site folder the resolver gives. The files are kept by a Node.js script, so check Node first, before step 1 and before any other tool call: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/node-check.cjs"`. When the shell says `node` is not found, or the check answers `ok: false`, stop there: call no other tool, write no file, and tell the user to install Node.js 18 or later (the current LTS from https://nodejs.org; macOS `brew install node`; Windows `winget install OpenJS.NodeJS.LTS`), open a new terminal, restart Claude Code, and run the command again. Then run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" resolve --site <domain>` and use the `dir` it prints. In a repository that is `.seo-genius/` at the repository root; with no repository it is `~/seo-genius/<domain>/`, one folder per site with its own history. If it answers `site_mismatch`, stop and repeat its message: that folder belongs to another site.
+- `.seo-genius/` means the site folder the resolver gives. The files are kept by a Node.js script, so check Node first, before step 1 and before any other tool call: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/node-check.cjs"`. When the shell says `node` is not found, or the check answers `ok: false`, stop there: call no other tool, write no file, and tell the user to install Node.js 18 or later (the current LTS from https://nodejs.org; macOS `brew install node`; Windows `winget install OpenJS.NodeJS.LTS`), open a new terminal, restart Claude Code, and run the command again. Once the site is known (step 1), and before anything is written there, run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" prepare --site <domain>` and use the `dir` and `drafts_dir` it prints: it creates the folder, and outside a repository gives it its own git history. In a repository that is `.seo-genius/` at the repository root; with no repository it is `~/seo-genius/<domain>/`, one folder per site. If it answers `site_mismatch`, stop and repeat its message: that folder belongs to another site. If it answers `owner_unknown`, stop, write nothing, and repeat its message: only the user can say whose folder it is, with the `claim` command it names.
+- Every file this skill keeps in `.seo-genius/` is saved through the script, never written there directly. Write it first under `drafts_dir`, at the same path (`.seo-genius/reports/<date>.md` is drafted as `<drafts_dir>/reports/<date>.md`), then run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" save --site <domain> --file <path>`, with the paths of files that belong together joined by commas. The script puts them in place in one step and, outside a repository, commits them to the folder's history. `ledger.json`, `plan.md`, `changelog.md`, `weekly/`, and `snapshots/` are written only by their own ledger commands. When `save` answers an error, nothing was saved: say so and repeat its message.
 - Reads and updates `.seo-genius/config.json`: it adds or replaces the `unattended` block and nothing else.
-- For a cloud schedule it writes copies of the pipeline skills under `.claude/skills/` in the repository.
+- For a cloud schedule it writes copies of the pipeline skills, and the two scripts they run, under `.claude/skills/` in the repository.
 - It writes no token, key, or password anywhere.
-- It creates no routine, commits nothing, and pushes nothing. The user does those.
+- It creates no routine, commits nothing to a repository, and pushes nothing. The user does those.
 
 ## Procedure
 
@@ -45,9 +46,9 @@ This skill is for an attended session only. It asks, and it waits for answers.
    - In the cloud: a routine on the user's Claude account. It runs when the computer is off. Each run starts from a fresh copy of the repository's default branch, so only committed files carry over. A cloud run does not install plugins, so the pipeline skills have to be in the repository (step 5), and SEO Genius has to be a connector on the user's Claude account. A cloud run keeps nothing it does not push, and the research steps push nothing, so after each monthly run a person merges the research files (step 7).
 3. Ask what an unattended run may do, and say what each choice means:
    - Mode. `report`: `next` writes each change as a proposal and edits nothing. It proposes the same item on every run until a person applies it and records it with `/seo-genius:log-change`. `pr`: `next` makes one change on a branch and opens a pull request for a person to merge. Recommend `report` for the first runs.
-   - Live calls per run. The most Data-for-SEO calls one run may make. The monthly research can use up to 16 with ten terms (up to 11 for the competitor research, up to 5 for the keyword gap). The weekly report uses one per term. Zero means no live calls. One number governs every scheduled run: set it below 16 and the monthly research spends on the competitor searches first, and the keyword gap gets what is left.
-   - Record merged changes. Yes: `report` records a change in SEO Genius once its pull request is merged. No: it lists the change for the user to record.
-4. Show the block and write it to `.seo-genius/config.json` only on a yes. For a cloud schedule, set `skills_copied_from` to this plugin's version in the block that is shown, read from `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`, and show with it the five files step 5 will write. Steps 5 to 7 run only after that yes.
+   - Live calls per run. The most Data-for-SEO calls one run may make. The monthly research can use up to 16 with ten terms (up to 11 for the competitor research, up to 5 for the keyword gap). The weekly run (`weekly`, then `next`) reads stored data only and makes no live call. Zero means no live calls. One number governs every scheduled run: set it below 16 and the monthly research spends on the competitor searches first, and the keyword gap gets what is left.
+   - Record merged changes. Yes: `report` records a change in SEO Genius once its pull request is merged. No: it lists the change for the user to record. The scheduled weekly run does not run `report`, so this applies when `/seo-genius:report` is run by hand.
+4. Show the block and write it to `.seo-genius/config.json` through `save` (see Files) only on a yes: draft the whole config with only that block changed. For a cloud schedule, set `skills_copied_from` to this plugin's version in the block that is shown, read from `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`, and show with it the files step 5 will write. Steps 5 to 7 run only after that yes.
 
    ```json
    "unattended": {
@@ -62,7 +63,7 @@ This skill is for an attended session only. It asks, and it waits for answers.
    ```
 
    `where` is `local` or `cloud`. `mode` is `report` or `pr`. Setting `enabled` to false stops every unattended run at its first step.
-5. Cloud only: put the pipeline skills in the repository. For each of `competitor-dive`, `keyword-gap`, `content-plan`, `report`, and `next`, copy `${CLAUDE_PLUGIN_ROOT}/skills/<name>/SKILL.md` to `.claude/skills/seo-genius-<name>/SKILL.md` and change its `name:` line to `seo-genius-<name>`. Change nothing else in the copy. Then tell the user:
+5. Cloud only: put the pipeline skills in the repository. A cloud run has no plugin folder, so the scripts go with them. Copy `${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs` and `${CLAUDE_PLUGIN_ROOT}/scripts/node-check.cjs` to `.claude/skills/seo-genius-scripts/`. For each of `competitor-dive`, `keyword-gap`, `content-plan`, `weekly`, and `next`, copy `${CLAUDE_PLUGIN_ROOT}/skills/<name>/SKILL.md` to `.claude/skills/seo-genius-<name>/SKILL.md`, change its `name:` line to `seo-genius-<name>`, and replace every `${CLAUDE_PLUGIN_ROOT}/scripts/` with `.claude/skills/seo-genius-scripts/`. Change nothing else in the copy. Then tell the user:
    - The copies and `.seo-genius/` have to be on the repository's default branch before a cloud run can use them. The user commits them, or merges a pull request that holds them.
    - The copies do not update with the plugin. Run this skill again after a plugin update.
    - The copies also show up in local sessions on this repository, under the names `seo-genius-<name>`. In a local session use the plugin's own commands, which are always current.
@@ -77,7 +78,7 @@ This skill is for an attended session only. It asks, and it waits for answers.
    Weekly, local:
 
    ```text
-   Unattended run. Run /seo-genius:report, then /seo-genius:next. Then show the report and what next delivered.
+   Unattended run. Run /seo-genius:weekly, then /seo-genius:next. Then show what the weekly update found and what next delivered.
    ```
 
    Monthly research, cloud:
@@ -89,7 +90,7 @@ This skill is for an attended session only. It asks, and it waits for answers.
    Weekly, cloud:
 
    ```text
-   Unattended run. Use the skill seo-genius-report from this repository, then seo-genius-next. Then show the report and what next delivered.
+   Unattended run. Use the skill seo-genius-weekly from this repository, then seo-genius-next. Then show what the weekly update found and what next delivered.
    ```
 
 7. Say how to create the routines. The apps change; if a screen differs from this, follow the screen.
@@ -99,7 +100,7 @@ This skill is for an attended session only. It asks, and it waits for answers.
    - Cloud, keeping the research: a cloud run keeps nothing it does not push, and the research steps push nothing. After each monthly run, open its session, create a pull request with the `.seo-genius/` files, and merge it. Name that branch outside the `claude/seo-genius-` prefix, for example `claude/seo-research-<date>`, so the weekly run does not take it for a plan item. The weekly run reads only the default branch, so research that was not merged is never used.
    - Cloud, reading competitor pages: the default cloud environment allows only a fixed list of hosts. Competitor sites are not on it, so the competitor research marks their pages "not read" unless the environment's network access is set to allow them.
    - Cloud, pull requests: a run pushes to branches that start with `claude/`, and a pull request it opens carries the user's GitHub name.
-8. Close with what happens next: research on the monthly schedule, a report and one plan item on the weekly one, and nothing merged without a person.
+8. Close with what happens next: research on the monthly schedule, the weekly ledger update and one plan item on the weekly one, and nothing merged without a person.
 
 ## Output
 
@@ -123,6 +124,6 @@ This skill is for an attended session only. It asks, and it waits for answers.
 
 - The user chose where to run, the mode, the call budget, and the rule for recording merged changes, and confirmed the block before it was written.
 - Only the `unattended` block in the config changed.
-- For a cloud schedule, the five skill copies exist with their `name:` lines changed and nothing else.
+- For a cloud schedule, the five skill copies exist with their `name:` lines and script paths changed and nothing else, and the two scripts are beside them.
 - The reply holds the two prompts and the steps to create the routines.
-- No routine was created, nothing was committed or pushed, and nothing was written to SEO Genius.
+- No routine was created, nothing was committed to a repository or pushed, and nothing was written to SEO Genius.

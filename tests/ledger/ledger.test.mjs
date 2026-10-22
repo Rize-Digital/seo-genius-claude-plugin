@@ -2,7 +2,7 @@
 // Run: node --test tests/ledger/*.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSync, utimesSync } from "node:fs";
 import { join, win32, posix } from "node:path";
 import { tmpdir } from "node:os";
 import { spawn, spawnSync } from "node:child_process";
@@ -14,7 +14,7 @@ import {
   run,
   acquireLock,
   FORMAT_VERSION,
-  LOCK_FILE,
+  LOCK_PREFIX,
   LedgerError,
 } from "../../plugins/seo-genius/scripts/ledger.mjs";
 
@@ -325,8 +325,9 @@ test("pull: a status changed on the server is adopted; a change on both sides ke
         ],
       },
     });
-    assert.deepEqual(pulled.adopted, [{ id: "P-001", status: "done" }]);
-    assert.deepEqual(pulled.kept_local, [{ id: "P-002", local: "dropped", server: "waiting" }]);
+    assert.deepEqual(pulled.adopted, [{ id: "P-001", status: "done", fields: ["status", "status_reason"] }]);
+    // Both sides changed P-002's status: the local one stands with its own reason and date, and is sent.
+    assert.deepEqual(pulled.kept_local, [{ id: "P-002", local: "dropped", server: "waiting", fields: ["status", "status_reason", "until"], conflicts: ["status"] }]);
     assert.deepEqual(pulled.imported, ["P-007"]);
     const l = ledgerOf(s);
     assert.equal(l.next_ids.P, 8);
@@ -447,6 +448,8 @@ test("corrupt ledger.json: plan and week refuse; pull moves it aside and rebuild
   const s = scratch();
   try {
     run("plan", { ...base(s), today: "2026-10-12", input: PLAN });
+    // The folder's config still names its site, so whose folder it is stays known.
+    writeFileSync(join(dirOf(s), "config.json"), JSON.stringify({ site }));
     const full = readFileSync(join(dirOf(s), "ledger.json"), "utf8");
     writeFileSync(join(dirOf(s), "ledger.json"), full.slice(0, Math.floor(full.length / 2)));
     assert.throws(() => run("week", { ...base(s), today: "2026-10-19", input: { as_of: "2026-10-19" } }), (e) => e.code === "bad_ledger");
@@ -527,14 +530,17 @@ test("lock: a second command while one holds the site is refused; a stale lock i
   const s = scratch();
   try {
     mkdirSync(dirOf(s), { recursive: true });
-    const release = acquireLock(dirOf(s));
+    const lock = acquireLock(dirOf(s));
     assert.throws(() => run("plan", { ...base(s), today: "2026-10-12", input: PLAN }), (e) => e.code === "locked");
-    release();
+    lock.release();
     run("plan", { ...base(s), today: "2026-10-12", input: PLAN });
-    // A lock left by a crash an hour ago does not block the site.
-    writeFileSync(join(dirOf(s), LOCK_FILE), JSON.stringify({ pid: 999999, at: Date.now() - 60 * 60 * 1000, host: "elsewhere" }));
+    // A lock another machine left an hour ago, and never refreshed since, does not block the site.
+    const name = `${LOCK_PREFIX}00000000-0000-4000-8000-0000000000aa`;
+    writeFileSync(join(dirOf(s), name), JSON.stringify({ token: name.slice(LOCK_PREFIX.length), pid: 999999, host: "elsewhere", started: "2026-10-12T00:00:00Z" }));
+    const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    utimesSync(join(dirOf(s), name), hourAgo, hourAgo);
     run("plan", { ...base(s), today: "2026-10-13", input: PLAN });
-    assert.equal(existsSync(join(dirOf(s), LOCK_FILE)), false);
+    assert.deepEqual(readdirSync(dirOf(s)).filter((n) => n.startsWith(LOCK_PREFIX)), []);
   } finally {
     s.done();
   }

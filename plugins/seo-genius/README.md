@@ -49,7 +49,7 @@ You can also just ask in plain words ("what's wrong with my homepage?") and Clau
 
 Four more commands do the research a consultant does before touching a site. Run them in order. Each one saves its result to the site's folder, and the next one reads it.
 
-Where the folder is: inside the site's git repository it is `.seo-genius/` at the repository root. For a site with no repository (a WordPress site, say) it is `~/seo-genius/<domain>/` (or `$SEO_GENIUS_HOME/<domain>/`), one folder per site with its own git history, so two sites never share files and nothing is stored inside the site itself. Every skill finds it the same way, through `scripts/ledger.mjs`, which needs Node.js 18 or later.
+Where the folder is: inside the site's git repository it is `.seo-genius/` at the repository root. For a site with no repository (a WordPress site, say) it is `~/seo-genius/<domain>/` (or `$SEO_GENIUS_HOME/<domain>/`), one folder per site with its own git history, so two sites never share files and nothing is stored inside the site itself. Every skill finds it the same way, through `scripts/ledger.mjs`, which needs Node.js 18 or later. The script creates the folder (and its git history) before anything is written there, and every file goes in through it, so each save is one commit and a run that stops halfway leaves the last whole set of files. A folder whose owner cannot be read is left alone until you name its site with `ledger.mjs claim`.
 
 The plan's items are also indexed in SEO Genius (`save_plan_items`), so the dashboard and a run on another machine see the same ids and statuses. Each run reads the server's index first and sends what changed last. If SEO Genius cannot be reached, the run still finishes on your machine and the next one catches up; nothing is recorded twice. Only the index goes to the server (ids, statuses, pages, links, file hashes); the plan's text, research and changelog stay in the folder.
 
@@ -82,7 +82,7 @@ Three more commands turn the pipeline into something that runs on its own.
 | `/seo-genius:report` | The weekly report: what changed, what moved, what is waiting, and what needs a decision. |
 | `/seo-genius:next` | Takes the next item from the plan and writes the exact change as a proposal, or opens a pull request when you allow it. One item per run. |
 
-A usual setup is two routines: the research once a month (`competitor-dive`, `keyword-gap`, `content-plan`), and `weekly`, `report`, then `next` once a week.
+A usual setup is two routines: the research once a month (`competitor-dive`, `keyword-gap`, `content-plan`), and `weekly`, then `next` once a week. The weekly run reads stored data only and makes no live call; run `/seo-genius:report` by hand when you want the report.
 
 What an unattended run can and cannot do:
 
@@ -98,7 +98,7 @@ What an unattended run can and cannot do:
 Two ways to schedule:
 
 - On your machine: a local routine in the Claude desktop app. It should load this plugin like any session on your machine; check that on the first run. It runs while the app is open and the computer is awake.
-- In the cloud: a routine on your Claude account, which runs when your computer is off. A cloud run does not install plugins, so `/seo-genius:schedule` copies the pipeline skills into your repository's `.claude/skills/` folder for you to commit. Run it again after a plugin update. SEO Genius has to be a connector on your Claude account. The default cloud environment blocks most outside sites, so competitor pages are marked "not read" unless you open its network access. A cloud run keeps nothing it does not push, and the research steps push nothing: after each monthly run you merge its research files from the run's session, or the weekly run keeps working from the old plan.
+- In the cloud: a routine on your Claude account, which runs when your computer is off. A cloud run does not install plugins, so `/seo-genius:schedule` copies the pipeline skills, and the two scripts they run, into your repository's `.claude/skills/` folder for you to commit. Run it again after a plugin update. SEO Genius has to be a connector on your Claude account. The default cloud environment blocks most outside sites, so competitor pages are marked "not read" unless you open its network access. A cloud run keeps nothing it does not push, and the research steps push nothing: after each monthly run you merge its research files from the run's session, or the weekly run keeps working from the old plan.
 
 ## How the skills behave
 

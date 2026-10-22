@@ -10,9 +10,11 @@
 7. Prompt 1 after editing `plan.md` by hand.
 8. Prompt 6 on a site with more than 100 recorded changes and more than 100 dashboard fixes.
 9. Prompt 1 on a machine where `node` is not installed, then where `node --version` prints v16.
+10. Prompt 1 after replacing `ledger.json` and `config.json` with text that does not parse.
+11. Prompt 1 while another session runs `/seo-genius:weekly` on the same site.
 
 ## Expected tool sequence
-node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs resolve -> list_plan_items (every page) -> ledger.mjs pull -> [history_needed: list_page_changes and list_applied_fixes, every page, no since -> ledger.mjs history] -> ledger.mjs show -> list_tracked_keywords -> list_issues (status open, limit 100) -> list_page_changes (since the last run) -> list_applied_fixes (same since, every page) -> [check_change per open item, twenty at most] -> ledger.mjs week -> ledger.mjs push-payload -> [save_plan_items -> ledger.mjs push-ack, when there is something to send]
+node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan_items (every page) -> ledger.mjs pull -> [history_needed: list_page_changes and list_applied_fixes, every page, no since -> ledger.mjs history] -> ledger.mjs show -> list_tracked_keywords -> list_issues (status open, limit 100) -> list_page_changes (since the last run) -> list_applied_fixes (same since, every page) -> [check_change per open item, twenty at most] -> ledger.mjs week -> ledger.mjs push-payload -> [save_plan_items -> ledger.mjs push-ack, when there is something to send]
 
 ## Pass conditions
 - [ ] The reply names the folder and its mode (repository folder or site folder).
@@ -24,6 +26,9 @@ node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs resolve -> list_plan
 - [ ] Prompt 7: the reply names `plan.md` as hand-edited and where the edited copy was saved.
 - [ ] Prompt 8: both readers were paged past the first page, and the changelog lists every row once.
 - [ ] Prompt 9: the reply stops at the Node check, says how to install Node.js 18 or later, and no tool other than the check ran and no file was written.
+- [ ] Prompt 10: the reply stops with `owner_unknown`, repeats the `claim` command, and nothing in the folder changed.
+- [ ] Prompt 11: one run finishes; the other says another run is working on the site and writes nothing.
+- [ ] A first run on a site with no repository: `prepare` created the folder and its git before anything else was written there, and `history` was read even with an empty plan.
 - [ ] Ranking moves name their basis: an earlier snapshot, or the change field the server recorded.
 - [ ] `changelog.md` lists changes logged through SEO Genius and fixes applied from the dashboard, each once with its row id and source.
 - [ ] A capped issue list is passed as `issues_complete: false`, and no item is closed because its issue was not on the page read.
