@@ -148,8 +148,11 @@ for (const name of found) {
   if (!existsSync(p)) continue;
   const md = readFileSync(p, "utf8").replace(/\r\n/g, "\n");
   if (!md.includes(".seo-genius/")) continue;
-  const bullet = md.match(/\n(- `\.seo-genius\/` means the site folder the resolver gives:[^\n]*)/);
+  const bullet = md.match(/\n(- `\.seo-genius\/` means the site folder the resolver gives\.[^\n]*)/);
   check(!!bullet, `${name}: uses the shared folder resolver`);
+  // The Node.js check comes first in that line, so no skill writes a file or
+  // calls a tool before it knows the ledger script can run.
+  check(!!bullet && /node-check\.cjs/.test(bullet[1]) && bullet[1].indexOf("node-check.cjs") < bullet[1].indexOf("ledger.mjs"), `${name}: checks Node.js before the first ledger command`);
   check(!/in the current folder when there is no repository/.test(md), `${name}: no current-folder fallback`);
   if (bullet) resolverBullets.push(bullet[1]);
 }
@@ -158,6 +161,7 @@ check(
   "folder resolver bullet is byte-identical across the skills that use .seo-genius/",
 );
 check(existsSync(join(PLUGIN, "scripts", "ledger.mjs")), "scripts/ledger.mjs exists");
+check(existsSync(join(PLUGIN, "scripts", "node-check.cjs")), "scripts/node-check.cjs exists");
 
 // 4d. The skills that write the ledger share one Server sync section, so the pull at the
 // start and the push at the end are the same everywhere.
