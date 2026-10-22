@@ -8,8 +8,12 @@ SEO audit, keyword research, rankings, competitor analysis, and quick wins for y
 - Claude Code with the `/plugin` command.
 - Context cost: about 642 tokens added to every session for the six skill descriptions in 1.0.0, plus roughly 1.1k to 1.4k tokens when a skill runs (measured with `claude plugin details` on 1.0.0). The eleven skills added since 1.0.0 add eleven more descriptions and have not been measured yet.
 - For the research pipeline: a folder Claude can write to, ideally your site's repository, and a web fetch tool in the session so competitor pages can be read.
+- Node.js 18 or later, for every command that keeps files (`start`, `competitor-dive`, `keyword-gap`, `content-plan`, `weekly`, `report`, `next`, `schedule`). Claude Code itself does not provide it: the native installer, Homebrew, WinGet and the Linux packages install a standalone `claude` binary, and even the npm package runs that binary rather than Node. Those commands check Node first and stop, with nothing written, when it is missing or older than 18. The read-only commands (`audit`, `brief`, `page-check`, `keywords`, `quick-wins`, `competitors`, `log-change`, `history`, `issues`, `sites`) do not need it.
 
 ## Install
+
+1. Check Node.js in a terminal: `node --version` should print `v18` or later. If it prints nothing, "not found", or a lower version, install the current LTS from https://nodejs.org (macOS: `brew install node`; Windows: `winget install OpenJS.NodeJS.LTS`; Linux: your package manager or nvm), then open a new terminal and restart Claude Code so it is on the PATH.
+2. Add the plugin:
 
 ```text
 /plugin marketplace add Rize-Digital/seo-genius-claude-plugin

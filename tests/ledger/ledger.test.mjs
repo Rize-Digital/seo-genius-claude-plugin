@@ -353,6 +353,94 @@ test("pull: two machines handed out the same id offline: the server's stands, th
   }
 });
 
+// ---------------------------------------------------------------- history rebuild
+
+/** A site's whole change history as the two server readers return it: newest first, `n` rows each. */
+function serverHistory(nReported, nFixes) {
+  const reported = Array.from({ length: nReported }, (_, i) => ({
+    source: "reported",
+    origin: i % 7 === 0 ? "crawl" : "mcp_agent",
+    id: U(1000 + i),
+    page_url: `https://bomannfencing.com/p/${i % 13}`,
+    change_kind: ["title", "meta_description", "h1"][i % 3],
+    old_value: `old ${i}`,
+    new_value: `new ${i}`,
+    on: `2026-${String(1 + (i % 9)).padStart(2, "0")}-${String(1 + (i % 27)).padStart(2, "0")}`,
+    verification: i % 5 === 0 ? "verified" : "claimed",
+  }));
+  const fixes = Array.from({ length: nFixes }, (_, i) => ({
+    source: "coach_applied_fix",
+    id: U(5000 + i),
+    page_url: `https://bomannfencing.com/f/${i % 11}`,
+    change_kind: "meta_description",
+    old_value: `was ${i}`,
+    new_value: `now ${i}`,
+    on: `2026-${String(1 + (i % 9)).padStart(2, "0")}-${String(2 + (i % 26)).padStart(2, "0")}`,
+    status: i % 4 === 0 ? "rolled_back" : "applied",
+  }));
+  return [...reported, ...fixes];
+}
+
+const withoutDate = (text) => text.replace(/^Updated \d{4}-\d{2}-\d{2}\. /m, "Updated <date>. ");
+
+test("history: after deleting the ledger, the rebuilt changelog equals the one before, past the first page, from overlapping out-of-order pages", () => {
+  const s = scratch();
+  try {
+    const all = serverHistory(160, 130);
+    run("plan", { ...base(s), today: "2026-10-01", input: PLAN });
+    const p = run("push-payload", { ...base(s), today: "2026-10-01" });
+    run("push-ack", { ...base(s), today: "2026-10-01", input: { data: p.payload.items.map((i) => ({ item_key: i.item_key, result: "created" })), runs: [] } });
+    // Built week by week before the loss: three weekly windows that together hold every row.
+    run("week", { ...base(s), today: "2026-10-05", input: { as_of: "2026-10-05", changes: all.slice(0, 100) } });
+    run("week", { ...base(s), today: "2026-10-12", input: { as_of: "2026-10-12", changes: all.slice(100, 200) } });
+    run("week", { ...base(s), today: "2026-10-19", input: { as_of: "2026-10-19", changes: all.slice(200) } });
+    const before = withoutDate(readFileSync(join(dirOf(s), "changelog.md"), "utf8"));
+    assert.equal((before.match(/^\| 2026-/gm) ?? []).length, 290);
+
+    rmSync(join(dirOf(s), "ledger.json"));
+    const restored = run("pull", { ...base(s), today: "2026-10-26", input: { complete: true, last_run: null, items: p.payload.items.map((i) => ({ ...i, status_until: null, issue_id: null })) } });
+    assert.equal(restored.restored_from_server, true);
+    assert.equal(restored.history_needed, true);
+
+    // A read that lost a page is refused and changes nothing; the next pull still asks.
+    assert.throws(() => run("history", { ...base(s), today: "2026-10-26", input: { complete: false, changes: all.slice(0, 100) } }), (e) => e.code === "bad_input");
+    assert.equal(run("pull", { ...base(s), today: "2026-10-26", input: { complete: true, last_run: null, items: [] } }).history_needed, true);
+
+    // Pages of 100, newest first, as the readers return them; one row repeats across a page boundary, and the fix pages come first.
+    const pages = [all.slice(160, 260), all.slice(259), all.slice(0, 100), all.slice(99, 160)];
+    const h = run("history", { ...base(s), today: "2026-10-26", input: { complete: true, changes: pages.flat() } });
+    assert.equal(h.changes_total, 290);
+    assert.equal(h.changes_added, 290);
+    const after = withoutDate(readFileSync(join(dirOf(s), "changelog.md"), "utf8"));
+    assert.equal(after, before);
+    assert.equal(run("pull", { ...base(s), today: "2026-10-27", input: { complete: true, last_run: null, items: [] } }).history_needed, undefined);
+  } finally {
+    s.done();
+  }
+});
+
+test("history: a change the daily monitor detected is labelled as detected, not as an MCP log entry", () => {
+  const s = scratch();
+  try {
+    run("week", {
+      ...base(s),
+      today: "2026-10-19",
+      input: {
+        as_of: "2026-10-19",
+        changes: [
+          { source: "reported", origin: "crawl", id: U(1), page_url: "/a", change_kind: "canonical", on: "2026-10-18", verification: "observed" },
+          { source: "reported", origin: "mcp_agent", id: U(2), page_url: "/b", change_kind: "title", on: "2026-10-17", verification: "claimed" },
+        ],
+      },
+    });
+    const log = readFileSync(join(dirOf(s), "changelog.md"), "utf8");
+    assert.match(log, new RegExp(`\\| Detected on the live page \\| ${U(1)} \\|`));
+    assert.match(log, new RegExp(`\\| MCP log \\| ${U(2)} \\|`));
+  } finally {
+    s.done();
+  }
+});
+
 // ---------------------------------------------------------------- broken files
 
 test("corrupt ledger.json: plan and week refuse; pull moves it aside and rebuilds from the server's complete list", () => {

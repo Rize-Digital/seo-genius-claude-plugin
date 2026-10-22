@@ -659,6 +659,10 @@ export function applyPlan(ledger, input, today) {
 // ---------------------------------------------------------------------------
 
 const CHANGE_SOURCES = { reported: "MCP log", coach_applied_fix: "Dashboard apply-fix" };
+
+function sourceLabel(c) {
+  return c.source === "reported" && c.origin === "crawl" ? "Detected on the live page" : CHANGE_SOURCES[c.source];
+}
 // A change that did not reach the live page does not close an item.
 const NOT_LIVE = new Set(["not_observed", "failed", "rolled_back", "pending"]);
 
@@ -730,12 +734,15 @@ export function compareWeeks(prev, now) {
  * sources are merged into the changelog by their row id, never removed; a
  * change's state is refreshed when it moves (verified, rolled back).
  */
-export function applyWeek(ledger, input, prev, today) {
-  const asOf = input.as_of ?? today;
-  const out = { status_changes: [], changes_added: 0, changes_updated: 0 };
-
+/**
+ * Merges change rows into the changelog: one row per (source, row id), never
+ * removed, its state refreshed when it moves. The same rows in any order, or
+ * repeated across two pages, give the same changelog.
+ */
+function mergeChanges(ledger, changes) {
+  const out = { added: 0, updated: 0 };
   const known = new Map(ledger.changes.map((c) => [c.key, c]));
-  for (const ch of input.changes ?? []) {
+  for (const ch of changes ?? []) {
     if (!CHANGE_SOURCES[ch.source]) throw new LedgerError("bad_input", `change source must be reported or coach_applied_fix, got ${ch.source}`);
     if (!ch.id) throw new LedgerError("bad_input", `every change needs its row id (list_page_changes or list_applied_fixes): ${JSON.stringify(ch).slice(0, 120)}`);
     const key = changeKey(ch);
@@ -744,15 +751,52 @@ export function applyWeek(ledger, input, prev, today) {
     if (have) {
       if ((have.state ?? null) !== state) {
         have.state = state;
-        out.changes_updated += 1;
+        out.updated += 1;
       }
       continue;
     }
-    const row = { key, source: ch.source, id: ch.id, page_url: ch.page_url, page: pageKey(ch.page_url), change_kind: ch.change_kind, old_value: ch.old_value ?? null, new_value: ch.new_value ?? null, on: ch.on ?? null, state };
+    const row = {
+      key,
+      source: ch.source,
+      // list_page_changes' own `source`: mcp_agent for an edit logged through the
+      // MCP, crawl for one the daily monitor detected on the live page.
+      origin: ch.origin ?? null,
+      id: ch.id,
+      page_url: ch.page_url,
+      page: pageKey(ch.page_url),
+      change_kind: ch.change_kind,
+      old_value: ch.old_value ?? null,
+      new_value: ch.new_value ?? null,
+      on: ch.on ?? null,
+      state,
+    };
     ledger.changes.push(row);
     known.set(key, row);
-    out.changes_added += 1;
+    out.added += 1;
   }
+  return out;
+}
+
+/**
+ * Rebuilds the changelog from the server's whole history (every page of
+ * list_page_changes and list_applied_fixes, no date window), after the ledger
+ * was lost or rebuilt. Only a complete read marks the history whole; a partial
+ * one is refused, so the next run tries again instead of keeping a gap.
+ */
+export function applyHistory(ledger, input) {
+  if (input.complete !== true) {
+    throw new LedgerError("bad_input", "history needs every page of list_page_changes and list_applied_fixes, with complete: true; nothing was changed, and the next run reads the history again");
+  }
+  if (!Array.isArray(input.changes)) throw new LedgerError("bad_input", "history input needs changes[]");
+  const merged = mergeChanges(ledger, input.changes);
+  ledger.history_complete = true;
+  return { changes_added: merged.added, changes_updated: merged.updated, changes_total: ledger.changes.length };
+}
+
+export function applyWeek(ledger, input, prev, today) {
+  const asOf = input.as_of ?? today;
+  const merged = mergeChanges(ledger, input.changes);
+  const out = { status_changes: [], changes_added: merged.added, changes_updated: merged.updated };
 
   const openIssues = new Set((input.issues ?? []).map((i) => i.id));
   const issuesRead = Array.isArray(input.issues) && input.issues_complete !== false;
@@ -766,7 +810,7 @@ export function applyWeek(ledger, input, prev, today) {
       : null;
     if (done) {
       it.links.change = done.key;
-      setStatus(it, "done", asOf, `change recorded ${done.on} (${CHANGE_SOURCES[done.source]})`);
+      setStatus(it, "done", asOf, `change recorded ${done.on} (${sourceLabel(done)})`);
     } else if (it.links.issue_id && issuesRead && !openIssues.has(it.links.issue_id)) {
       setStatus(it, "done", asOf, "the issue it was planned for is no longer open");
     } else if (input.verdicts?.[it.id]) {
@@ -835,7 +879,7 @@ export function renderChangelog(ledger, today) {
   } else {
     lines.push("| Date | Source | Row id | Page | Field | Old | New | State |", "|---|---|---|---|---|---|---|---|");
     for (const c of rows) {
-      lines.push(`| ${cell(c.on)} | ${CHANGE_SOURCES[c.source]} | ${cell(c.id)} | ${cell(c.page_url)} | ${cell(c.change_kind)} | ${cell(c.old_value)} | ${cell(c.new_value)} | ${cell(c.state)} |`);
+      lines.push(`| ${cell(c.on)} | ${sourceLabel(c)} | ${cell(c.id)} | ${cell(c.page_url)} | ${cell(c.change_kind)} | ${cell(c.old_value)} | ${cell(c.new_value)} | ${cell(c.state)} |`);
     }
   }
   return `${lines.join("\n")}\n`;
@@ -897,7 +941,14 @@ function readInput(arg) {
 // One command
 // ---------------------------------------------------------------------------
 
-const WRITES = new Set(["pull", "plan", "week", "set-status", "push-payload", "push-ack"]);
+const WRITES = new Set(["pull", "plan", "week", "history", "set-status", "push-payload", "push-ack"]);
+
+/** The Node.js this script needs. Checked before anything is read or written. */
+export const NODE_MIN_MAJOR = 18;
+export function nodeTooOld(version = process.versions.node) {
+  const major = Number(String(version).split(".")[0]);
+  return !(major >= NODE_MIN_MAJOR);
+}
 
 /** Runs one command against a site folder and returns the JSON the CLI prints. */
 export function run(cmd, opts) {
@@ -956,6 +1007,9 @@ export function run(cmd, opts) {
     if (!ledger) {
       ledger = emptyLedger(site, today);
       restored = cmd === "pull" && (input?.items?.length ?? 0) > 0;
+      // A ledger rebuilt from the server has the plan but not the changelog:
+      // the next step reads the whole history (history command) before trusting it.
+      if (restored) ledger.history_complete = false;
     }
     if (input?.site_id && !ledger.site_id) ledger.site_id = input.site_id;
 
@@ -991,6 +1045,9 @@ export function run(cmd, opts) {
       write("changelog.md", renderChangelog(ledger, today));
       write("plan.md", renderPlan(ledger, today));
       runEntry = { kind: "week", ran_on: asOf };
+    } else if (cmd === "history") {
+      result = applyHistory(ledger, input);
+      write("changelog.md", renderChangelog(ledger, today));
     } else if (cmd === "set-status") {
       const it = ledger.items.find((x) => x.id === opts.id);
       if (!it) throw new LedgerError("bad_input", `no item ${opts.id} in this ledger`);
@@ -1027,6 +1084,8 @@ export function run(cmd, opts) {
       commit,
       ...(quarantined ? { quarantined } : {}),
       ...(restored ? { restored_from_server: true } : {}),
+      // Until a complete history read, the changelog is missing older rows.
+      ...(ledger.history_complete === false ? { history_needed: true } : {}),
       ...(guarded.hand_edited.length ? { hand_edited: guarded.hand_edited } : {}),
       ...(guarded.missing.length ? { missing: guarded.missing } : {}),
       ...result,
@@ -1053,6 +1112,20 @@ function parseArgs(argv) {
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolvePath(process.argv[1])).href;
 if (isMain) {
+  // Before anything is read or written. SEO_GENIUS_TEST_NODE_VERSION exists so a
+  // test can stand in an old version on a machine that only has a new one.
+  const nodeVersion = process.env.SEO_GENIUS_TEST_NODE_VERSION || process.versions.node;
+  if (nodeTooOld(nodeVersion)) {
+    process.stdout.write(
+      `${JSON.stringify({
+        error: "node_too_old",
+        node: nodeVersion,
+        required: `${NODE_MIN_MAJOR} or later`,
+        message: `The SEO Genius ledger needs Node.js ${NODE_MIN_MAJOR} or later; this is ${nodeVersion}. Nothing was read or written. Install the current LTS from https://nodejs.org (or: brew install node, winget install OpenJS.NodeJS.LTS), open a new terminal, restart Claude Code, and run the command again.`,
+      })}\n`,
+    );
+    process.exit(2);
+  }
   try {
     const a = parseArgs(process.argv.slice(2));
     const out = run(a.cmd, {
