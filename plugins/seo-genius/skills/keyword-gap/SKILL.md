@@ -29,8 +29,9 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 ## Files
 
+- `.seo-genius/` means the site folder the resolver gives: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" resolve --site <domain>` and use the `dir` it prints. In a repository that is `.seo-genius/` at the repository root; with no repository it is `~/seo-genius/<domain>/`, one folder per site with its own history. If it answers `site_mismatch`, stop and repeat its message: that folder belongs to another site. Without Node.js, use `.seo-genius/` at the repository root, and with no repository say the folder could not be resolved and write nothing.
 - Reads `.seo-genius/config.json` (from `/seo-genius:start`) and `.seo-genius/competitors.json` (from `/seo-genius:competitor-dive`).
-- Writes `.seo-genius/keyword-gap.md` and `.seo-genius/keyword-gap.json`, replacing the previous run. The folder sits at the repository root, or in the current folder when there is no repository.
+- Writes `.seo-genius/keyword-gap.md` and `.seo-genius/keyword-gap.json`, replacing the previous run.
 - Reads and writes `.seo-genius/keyword-lists/`: one `<domain>.json` per domain, and `local-terms.json`. Each holds every row of one list in a compact form, with the date it was pulled when that date is known, so a later run can read a dated list instead of paying for the same call (step 3).
 - The files are meant to be kept with the site. Never write a token, key, or password into them.
 - If the session cannot write files, show the report in the reply and say it was not saved.

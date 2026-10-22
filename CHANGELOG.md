@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+A local ledger, so the plan and research carry over from week to week instead of being rebuilt.
+
+- One folder resolver for every skill, `scripts/ledger.mjs resolve`. Inside a git repository the folder is `.seo-genius/` at the repository root, as before. With no repository it is now `~/seo-genius/<domain>/` (or `$SEO_GENIUS_HOME/<domain>/`), one folder per site with its own `git init` and one commit per ledger run, instead of whatever folder the session was started in. A folder that already holds another site's files is refused, so two sites can no longer overwrite each other. Nothing is stored inside the site or its CMS. An old current-folder `.seo-genius/` is reported, not moved.
+- `ledger.json`: the local index the plan and changelog are rendered from. Plan items get stable ids (P-001) matched by action, page, field, and keyword, so a rerun updates them in place: a status history row only when the status changes, a done or dropped item is never reopened, and an item a later plan did not propose is kept. Every ledger file carries `format_version`, and a ledger written by a newer version is refused.
+- New skill `weekly`: reads last run's files, compares this week's stored rankings (`list_tracked_keywords`) and open issues with last week's snapshot, adds changes logged through SEO Genius (`list_page_changes`) and fixes applied from the dashboard (the briefing's Recent changes) to `changelog.md`, and updates item statuses from `check_change`, recorded changes, and closed issues. It makes no Data-for-SEO call.
+- `content-plan` saves the plan through the ledger, so item ids survive a rebuild. `plan.md` keeps its header and topical map, and its rows now lead with the id.
+- `next` no longer says the plan is renumbered on every rebuild.
+- The structural checker expects eighteen skills, `weekly` among the Unattended runs skills, and the same folder-resolver line in every skill that uses `.seo-genius/`. Ledger tests: `node --test tests/ledger/*.test.mjs`.
+
 ## 1.3.0 (2026-10-13)
 
 The pipeline on a schedule, and the last tools without a skill.

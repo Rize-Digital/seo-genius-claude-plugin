@@ -29,7 +29,8 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 ## Files
 
-- Writes `.seo-genius/config.json`. The folder sits at the repository root, or in the current folder when there is no repository.
+- `.seo-genius/` means the site folder the resolver gives: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" resolve --site <domain>` and use the `dir` it prints. In a repository that is `.seo-genius/` at the repository root; with no repository it is `~/seo-genius/<domain>/`, one folder per site with its own history. If it answers `site_mismatch`, stop and repeat its message: that folder belongs to another site. Without Node.js, use `.seo-genius/` at the repository root, and with no repository say the folder could not be resolved and write nothing.
+- Writes `.seo-genius/config.json`.
 - The file is meant to be kept with the site, so a later session or a scheduled run finds it. It holds no token, key, or password. Never write one into it.
 - If the session cannot write files, show the config in the reply and say it was not saved.
 

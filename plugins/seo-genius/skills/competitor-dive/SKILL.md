@@ -31,8 +31,9 @@ A web fetch tool in the session (WebFetch in Claude Code) to read pages. Without
 
 ## Files
 
+- `.seo-genius/` means the site folder the resolver gives: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" resolve --site <domain>` and use the `dir` it prints. In a repository that is `.seo-genius/` at the repository root; with no repository it is `~/seo-genius/<domain>/`, one folder per site with its own history. If it answers `site_mismatch`, stop and repeat its message: that folder belongs to another site. Without Node.js, use `.seo-genius/` at the repository root, and with no repository say the folder could not be resolved and write nothing.
 - Reads `.seo-genius/config.json`, written by `/seo-genius:start`.
-- Writes `.seo-genius/competitors.md` and `.seo-genius/competitors.json`, replacing the previous run. The folder sits at the repository root, or in the current folder when there is no repository.
+- Writes `.seo-genius/competitors.md` and `.seo-genius/competitors.json`, replacing the previous run.
 - The files are meant to be kept with the site so the next step or a scheduled run finds them. Never write a token, key, or password into them.
 - If the session cannot write files, show the report in the reply and say it was not saved.
 - This skill writes nothing to SEO Genius and edits no page.

@@ -31,6 +31,7 @@ A GitHub tool in the session (the `gh` command or a GitHub connector) to check p
 
 ## Files
 
+- `.seo-genius/` means the site folder the resolver gives: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" resolve --site <domain>` and use the `dir` it prints. In a repository that is `.seo-genius/` at the repository root; with no repository it is `~/seo-genius/<domain>/`, one folder per site with its own history. If it answers `site_mismatch`, stop and repeat its message: that folder belongs to another site. Without Node.js, use `.seo-genius/` at the repository root, and with no repository say the folder could not be resolved and write nothing.
 - Reads `.seo-genius/config.json`, `.seo-genius/plan.md`, and `.seo-genius/competitors.json`.
 - Writes `.seo-genius/reports/<date>.md`.
 - The one thing it can write to SEO Genius is the record of a change whose pull request was merged (step 3), and only on a yes or when the config allows it.

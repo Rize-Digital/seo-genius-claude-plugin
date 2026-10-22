@@ -29,8 +29,9 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 ## Files
 
+- `.seo-genius/` means the site folder the resolver gives: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" resolve --site <domain>` and use the `dir` it prints. In a repository that is `.seo-genius/` at the repository root; with no repository it is `~/seo-genius/<domain>/`, one folder per site with its own history. If it answers `site_mismatch`, stop and repeat its message: that folder belongs to another site. Without Node.js, use `.seo-genius/` at the repository root, and with no repository say the folder could not be resolved and write nothing.
 - Reads `.seo-genius/config.json`, `.seo-genius/competitors.json`, and `.seo-genius/keyword-gap.json`.
-- Writes `.seo-genius/plan.md`, replacing the previous plan. The folder sits at the repository root, or in the current folder when there is no repository.
+- Writes `.seo-genius/plan.md` through the ledger script (step 9), which updates the plan in place: an item seen before keeps its id (P-001), and only a new item gets a new one.
 - The file is meant to be kept with the site. Never write a token, key, or password into it.
 - If the session cannot write files, show the plan in the reply and say it was not saved.
 - This skill writes nothing to SEO Genius and edits no page.
@@ -77,14 +78,11 @@ In an attended session none of this applies. Ask as the procedure says.
    - `allow`: open.
    - A linking page that is waiting, dropped, or unchecked is left off the Create item's link list, with a note. The Create item itself stays open.
 8. Order the open items. First: Improve items on pages that already rank between 4 and 20 for a keyword in their topic, by `site_position` in the gap file or `position` in the briefing's Opportunities. Second: Create items for page types at least two competitors have. Third: guides. Inside each group, higher total search volume first. Where What worked shows a kind of change working on this site, prefer that kind and say that is the reason. Twenty items at most; the first five are "this month". An unchecked item is not an open item. It goes in neither "this month" nor "later".
-9. Save `.seo-genius/plan.md` (see Files) with these parts, in this order:
-   - A header: the date, the site, which research files the plan was built from, with their dates, and one line saying so when any item is unchecked.
-   - This month: a table, # | Action | Page | Topic | Keywords | What to do | Evidence | Status.
-   - Later: the same table for the remaining open items.
-   - Waiting: each waiting item with the date it opens.
-   - Dropped: each dropped item with its reason.
-   - Unchecked: each item whose history was not checked, or only partly checked, saying which. These wait for a run that can read the history.
-   - Topical map: Service | Slot | Covered, thin, or empty | URL | Competitors with this page.
+9. Save the plan through the ledger, so items keep their ids. Pass one JSON object to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" plan --site <domain> --input -` on standard input:
+   - `items`: every item in the order of step 8, open ones first, then waiting, dropped, and unchecked ones. Each: `action` (`improve` or `create`), `target_page` (the URL, or the URL path of a Create item), `change_kind`, `keyword` (the main keyword), `title`, `what_to_do`, `keywords`, `evidence`, `status` (`open`, `waiting`, `dropped`, or `unchecked`), `until` (the date a waiting item opens), `reason`, and `issue_id` when an open issue is the reason for the item.
+   - `header`: the date, the site, which research files the plan was built from, with their dates, and one line saying so when any item is unchecked.
+   - `appendix`: the topical map as markdown, `## Topical map` and a table Service | Slot | Covered, thin, or empty | URL | Competitors with this page.
+   The script matches each item to the one already in the ledger by action, page, field, and keyword, and updates it in place. It gives a new id only to an item never seen before, never reopens an item that is done or dropped, and keeps the items this run did not propose. It writes `plan.md` with This month (the first five open items), Later, In progress, Waiting, Unchecked, Done, and Dropped, each row led by the item's id. Report the ids it created and the items it kept.
 10. Close with how to act on an item: make the edit, check it with `/seo-genius:brief` first, and record it with `/seo-genius:log-change` after it ships. The plan orders the work. It does not promise a ranking.
 
 ## Output
