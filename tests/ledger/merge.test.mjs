@@ -2,7 +2,7 @@
 // last sync. Run: node --test tests/ledger/merge.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -120,9 +120,87 @@ test("merge: the rule itself, field by field", () => {
   assert.deepEqual(mergeItemState(base, { ...base }, { ...base, change_id: null }).merged, { ...base, change_id: null });
   // Local set a reason, the server set an issue clear: both.
   assert.deepEqual(mergeItemState(base, { ...base, status_reason: "note" }, { ...base, issue_id: null }).merged, { ...base, status_reason: "note", issue_id: null });
-  // The server moved the status to waiting with its date; the date comes with it.
+  // The server moved the status to waiting with a date and a reason; the ledger changed
+  // only the reason. Status and date are the server's; the reason, changed on both
+  // sides, is the ledger's and reported. Nothing follows the status.
   const m = mergeItemState(base, { ...base, status_reason: "local note" }, { ...base, status: "waiting", until: "2026-11-01", status_reason: "frozen" });
-  assert.deepEqual([m.merged.status, m.merged.until, m.merged.status_reason], ["waiting", "2026-11-01", "frozen"]);
+  assert.deepEqual([m.merged.status, m.merged.until, m.merged.status_reason], ["waiting", "2026-11-01", "local note"]);
+  assert.deepEqual(m.adopted, ["status", "until"]);
+  assert.deepEqual(m.conflicts, ["status_reason"]);
   // No base: the local item stands.
   assert.deepEqual(mergeItemState(null, { ...base, status: "done" }, { ...base }).merged.status, "done");
+});
+
+test("merge: the reported case: local changed only the status, the server cleared only the reason", () => {
+  const base = { status: "waiting", status_reason: "frozen", until: null, change_id: null, issue_id: null };
+  const m = mergeItemState(base, { ...base, status: "in_progress" }, { ...base, status_reason: null });
+  assert.deepEqual(m.merged, { ...base, status: "in_progress", status_reason: null });
+  assert.deepEqual(m.adopted, ["status_reason"]);
+  assert.deepEqual(m.conflicts, []);
+  assert.deepEqual(m.normalized, []);
+});
+
+test("merge: end to end, a reason the server cleared stays cleared while the local status change is sent", () => {
+  const t = synced();
+  try {
+    // The base: waiting, frozen, no date. Then the ledger changes only the status.
+    t.pull({ status_until: null });
+    const p = join(t.o.home, site, "ledger.json");
+    const l = JSON.parse(readFileSync(p, "utf8"));
+    const it = l.items.find((i) => i.id === "P-001");
+    assert.deepEqual([it.status, it.status_reason, it.until], ["waiting", "frozen", null]);
+    it.status = "in_progress";
+    writeFileSync(p, JSON.stringify(l));
+    const r = t.pull({ status_until: null, status_reason: null });
+    assert.deepEqual(r.adopted, [{ id: "P-001", status: "in_progress", fields: ["status_reason"] }]);
+    assert.deepEqual(r.kept_local, [{ id: "P-001", local: "in_progress", server: "waiting", fields: ["status"] }]);
+    assert.deepEqual([t.item().status, t.item().status_reason], ["in_progress", null]);
+    const sent = t.push().payload.items;
+    assert.equal(sent.length, 1);
+    assert.deepEqual([sent[0].status, sent[0].status_reason, sent[0].status_until], ["in_progress", null, null], "the clear is not sent back");
+  } finally {
+    t.done();
+  }
+});
+
+test("merge: each side changed one part of the status independently; neither overwrites the other", () => {
+  const base = { status: "open", status_reason: "planned", until: null, change_id: null, issue_id: null };
+  // Server changed the status, the ledger changed the reason.
+  let m = mergeItemState(base, { ...base, status_reason: "local note" }, { ...base, status: "in_progress" });
+  assert.deepEqual([m.merged.status, m.merged.status_reason, m.conflicts], ["in_progress", "local note", []]);
+  // The ledger changed the status, the server changed the reason.
+  m = mergeItemState(base, { ...base, status: "dropped" }, { ...base, status_reason: "server note" });
+  assert.deepEqual([m.merged.status, m.merged.status_reason, m.conflicts], ["dropped", "server note", []]);
+  // The ledger changed the status to waiting, the server set the date: both.
+  m = mergeItemState(base, { ...base, status: "waiting" }, { ...base, until: "2026-11-09" });
+  assert.deepEqual([m.merged.status, m.merged.until, m.normalized], ["waiting", "2026-11-09", []]);
+});
+
+test("merge: an invalid combination follows the until_needs_waiting rule, reported, never a silent pick", () => {
+  // Base waiting until a date; the ledger opened the item, the server kept the date.
+  const base = { status: "waiting", status_reason: null, until: "2026-11-02", change_id: null, issue_id: null };
+  const m = mergeItemState(base, { ...base, status: "open" }, { ...base });
+  assert.deepEqual([m.merged.status, m.merged.until], ["open", null]);
+  assert.deepEqual(m.normalized, [{ field: "until", rule: "until_needs_waiting" }]);
+  assert.deepEqual(m.adopted, []);
+  // The server moved a date onto an item the ledger dropped: the date is not adopted.
+  const n = mergeItemState({ ...base, status: "open", until: null }, { ...base, status: "dropped", until: null }, { ...base, status: "open", until: "2026-12-01" });
+  assert.deepEqual([n.merged.status, n.merged.until, n.adopted, n.normalized.length], ["dropped", null, [], 1]);
+  // A waiting item with no date is valid: nothing is invented for it.
+  const w = mergeItemState({ ...base, until: null }, { ...base, until: null }, { ...base, until: null, status_reason: "would revert" });
+  assert.deepEqual([w.merged.status, w.merged.until, w.normalized], ["waiting", null, []]);
+  // End to end: the clear is sent, and the pull names the rule.
+  const t = synced();
+  try {
+    const p = join(t.o.home, site, "ledger.json");
+    const l = JSON.parse(readFileSync(p, "utf8"));
+    l.items[0].status = "open";
+    writeFileSync(p, JSON.stringify(l));
+    const r = t.pull({});
+    assert.deepEqual(r.kept_local[0].normalized, [{ field: "until", rule: "until_needs_waiting" }]);
+    assert.equal(t.item().until, null);
+    assert.equal(t.push().payload.items[0].status_until, null);
+  } finally {
+    t.done();
+  }
 });

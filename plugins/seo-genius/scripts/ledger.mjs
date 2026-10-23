@@ -4,7 +4,7 @@
 // Node 18+, no dependencies, no network calls: the skill makes the MCP calls and
 // passes their answers in.
 //
-//   node ledger.mjs resolve      --site <domain> [--cwd <dir>] [--home <dir>]   where the files go (reads only)
+//   node ledger.mjs resolve      --site <domain> [--cwd <dir>] [--home <dir>]   where the files go (writes nothing new)
 //   node ledger.mjs prepare      --site <domain>                    create the folder (and its git) before any write
 //   node ledger.mjs show         --site <domain>
 //   node ledger.mjs pull         --site <domain> --input <file|->   list_plan_items pages -> local
@@ -32,8 +32,10 @@
 // a skill keeps there (config, research, reports) goes through `save`, so it is
 // written the same way and committed. A folder already holding another site's
 // files is refused, and so is one whose ledger.json and config.json cannot be
-// read: only `claim`, naming the domain, takes such a folder over. Nothing is
-// ever written to the site itself (no WordPress storage).
+// read: only `claim`, naming the domain, takes such a folder over. One of the
+// two that exists but does not parse, or names no site, is enough to refuse,
+// even when the other names this site. Nothing is ever written to the site
+// itself (no WordPress storage).
 //
 // ONE GENERATION AT A TIME. A command writes several files (a week writes the
 // snapshot, the weekly page, the changelog, the plan and ledger.json). It stages
@@ -46,7 +48,10 @@
 // finishes a committed transaction or throws away one that never reached its
 // commit point, so a crash at any step leaves the old generation whole (before
 // the commit point) or brings the new one in whole (after it), and git only ever
-// records whole generations.
+// records whole generations. The order is fixed for every command, `resolve`
+// and `show` included: take the lock, finish or discard a pending transaction,
+// and only then read ledger.json and config.json to learn whose folder it is.
+// So a command never judges a folder by a generation that is half moved in.
 //
 // LOCAL AND SERVER. ledger.json is the local index the markdown is rendered
 // from. The server keeps a smaller index (save_plan_items / list_plan_items):
@@ -63,7 +68,11 @@
 // (pid, host, start) already in it, and then looks for any other live owner: if
 // there is one it withdraws, so of two that start together at most one goes on.
 // A lock is stale when its process on this machine has ended, or when it has not
-// been refreshed for ten minutes (a live owner refreshes it at every step). A
+// been refreshed for ten minutes. The refresh is per step, not continuous: a
+// live owner touches its lock when it takes it, at each file it moves into
+// place, and just before its commit point. Ten minutes is far longer than any
+// one step takes (the longest is a git commit), so a live run is never judged
+// stale; a run hung inside one step for ten minutes is, on another machine. A
 // stale lock is removed by its own name, which no later owner can have, so a new
 // owner's lock is never removed. A markdown file edited by hand since the ledger
 // wrote it is copied aside before it is rewritten, never lost. A ledger.json that
@@ -105,6 +114,12 @@ const THIS_MONTH = 5;
 const ID_RE = /^[A-Z]{1,3}-[0-9]{3,6}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const LOCK_PREFIX = ".ledger.lock.";
+// A lock not refreshed for this long is stale. The refresh is per step, not on a
+// timer: lock.touch() runs after each file a transaction moves into place and in
+// assertHeld() just before the commit point, and a lock is new when it is taken.
+// No single step comes near ten minutes, so only a hung or vanished owner
+// reaches it. On this machine a dead pid makes a lock stale at once, whatever
+// its age.
 export const LOCK_STALE_MS = 10 * 60 * 1000;
 // How long a run waits for another that started at the same moment to withdraw.
 const LOCK_WAIT_MS = 1500;
@@ -233,7 +248,9 @@ function siteInFolder(dir) {
 /**
  * Which site a folder's files name. `unreadable` lists ledger.json or config.json
  * when one is there but names no site (it does not parse, or has no usable
- * `site`); `sites` lists every site a readable one names.
+ * `site`); `sites` lists every site a readable one names. `site` is known only
+ * when every owner file there reads and they agree: one unreadable file is
+ * enough to make it unknown, since it may be the one that says whose folder this is.
  */
 export function folderOwner(dir) {
   const sites = [];
@@ -248,16 +265,25 @@ export function folderOwner(dir) {
     }
   }
   const distinct = [...new Set(sites)];
-  return { site: distinct.length === 1 ? distinct[0] : null, sites: distinct, unreadable };
+  return { site: distinct.length === 1 && unreadable.length === 0 ? distinct[0] : null, sites: distinct, unreadable };
 }
 
 /**
  * Where this site's files live. Repository: `<root>/.seo-genius`. No repository:
  * `<home>/<domain>`. Refuses a folder that already belongs to another site.
  * `io` swaps the file system and path rules, so Windows and macOS layouts can be
- * tested on either.
+ * tested on either. run() calls the two halves apart: locateSiteDir, then the
+ * lock and a pending transaction finished, then checkSiteOwner.
  */
-export function resolveSiteDir({ site, cwd = process.cwd(), home, env = process.env, io = realIo, claim = false } = {}) {
+export function resolveSiteDir(opts = {}) {
+  const where = locateSiteDir(opts);
+  const owner = checkSiteOwner(where, opts);
+  delete where.cwd;
+  return { ...where, ...owner };
+}
+
+/** The folder's path, from the paths alone: no file in it is read. */
+export function locateSiteDir({ site, cwd = process.cwd(), home, env = process.env, io = realIo } = {}) {
   const p = io.path;
   const domain = normalizeDomain(site);
   const root = findGitRoot(cwd, io);
@@ -271,6 +297,16 @@ export function resolveSiteDir({ site, cwd = process.cwd(), home, env = process.
     const base = home || env.SEO_GENIUS_HOME || p.join(io.homedir(), "seo-genius");
     dir = p.join(p.resolve(base), domain);
   }
+  return { site: domain, mode, dir, git_root: root, cwd };
+}
+
+/**
+ * Whose folder it is, from its ledger.json and config.json. Refuses another
+ * site's folder, and one whose owner cannot be read (unless claiming it). Returns
+ * the rest of the answer: whether it exists, and a pre-ledger folder to report.
+ */
+export function checkSiteOwner({ site: domain, mode, dir, cwd }, { io = realIo, claim = false } = {}) {
+  const p = io.path;
   const found = io.exists(dir) ? (io.ownerOf ? io.ownerOf(dir) : { site: io.siteOf(dir), sites: [], unreadable: [] }) : { site: null, sites: [], unreadable: [] };
   const other = found.sites.find((s) => s !== domain);
   if (other) {
@@ -294,7 +330,7 @@ export function resolveSiteDir({ site, cwd = process.cwd(), home, env = process.
     const old = p.join(p.resolve(cwd), ".seo-genius");
     if (io.exists(old) && io.siteOf(old) === domain) legacy = old;
   }
-  return { site: domain, mode, dir, git_root: root, exists: io.exists(dir), legacy_dir: legacy };
+  return { exists: io.exists(dir), legacy_dir: legacy };
 }
 
 // ---------------------------------------------------------------------------
@@ -673,11 +709,6 @@ function recoverTransactions(dir, opts) {
   return out;
 }
 
-function pendingTransactions(dir) {
-  const root = join(dir, TXN_DIR);
-  return existsSync(root) && readdirSync(root).length > 0;
-}
-
 /** The writes that move an unreadable ledger.json aside: a copy beside it, and the original gone. */
 function quarantineWrites(dir) {
   const rel = `ledger.corrupt-${stamp()}.json`;
@@ -744,8 +775,6 @@ function changeUuid(it) {
 
 /** The fields the server stores for an item, which a pull merges one by one. */
 export const SYNC_FIELDS = ["status", "status_reason", "until", "change_id", "issue_id"];
-// A status carries its reason and its until date: they come from the side whose status is kept.
-const STATUS_PARTS = ["status_reason", "until"];
 
 /** The synced fields as the server stores them. */
 function statusState(it) {
@@ -775,11 +804,24 @@ function serverRowState(s) {
 
 /**
  * A field-level three-way merge of one item: `base` is what both sides held at
- * the last sync, `mine` the ledger now, `theirs` the server now. A field only one
- * side changed takes that side's value, a clear (null) included. A field both
- * changed differently keeps the local value, which the push then sends, and is
- * reported as a conflict. With no base (never acknowledged) the local item stands.
- * The reason and the until date follow the side whose status was kept.
+ * the last sync, `mine` the ledger now, `theirs` the server now. Every field is
+ * merged on its own, against its own base value; no field follows another:
+ *   - both sides hold the same value: kept;
+ *   - only the server changed it: the server's value, a clear (null) included;
+ *   - only the ledger changed it: the ledger's value, which the push then sends;
+ *   - both changed it, differently: the ledger's value is kept and the field is
+ *     reported in `conflicts`, so the caller names it; the push sends it.
+ * With no base (never acknowledged) every field that differs is a conflict and
+ * the local value stands.
+ *
+ * One combination is invalid whichever sides it came from: an until date on a
+ * status other than waiting. `until` is the day a waiting item opens; on any
+ * other status it opens nothing and would show a stale date. Rule
+ * `until_needs_waiting`: the date is cleared, the field is reported in
+ * `normalized`, and the push sends the clear. A waiting item with no until is
+ * valid (a would_revert block has no date to wait for), so nothing is invented
+ * for it. No other combination of the five fields is invalid: the server stores
+ * each one independently.
  */
 export function mergeItemState(base, mine, theirs) {
   const merged = {};
@@ -794,17 +836,16 @@ export function mergeItemState(base, mine, theirs) {
     else side[f] = "conflict";
     merged[f] = side[f] === "server" ? r : l;
   }
-  if (side.status === "server" || side.status === "local" || side.status === "conflict") {
-    const from = side.status === "server" ? theirs : mine;
-    for (const f of STATUS_PARTS) {
-      merged[f] = from[f] ?? null;
-      side[f] = side.status === "server" ? ((mine[f] ?? null) === merged[f] ? "same" : "server") : side[f] === "server" ? "local" : side[f];
-    }
+  const normalized = [];
+  if (merged.until !== null && merged.status !== "waiting") {
+    merged.until = null;
+    normalized.push({ field: "until", rule: "until_needs_waiting" });
   }
   return {
     merged,
-    adopted: SYNC_FIELDS.filter((f) => side[f] === "server"),
+    adopted: SYNC_FIELDS.filter((f) => side[f] === "server" && merged[f] === (theirs[f] ?? null)),
     conflicts: SYNC_FIELDS.filter((f) => side[f] === "conflict"),
+    normalized,
   };
 }
 
@@ -906,12 +947,21 @@ export function applyPull(ledger, input, today) {
       out.in_sync += 1;
       continue;
     }
-    const { merged, adopted, conflicts } = mergeItemState(local.synced ?? null, statusState(local), server);
+    const { merged, adopted, conflicts, normalized } = mergeItemState(local.synced ?? null, statusState(local), server);
     applyItemState(local, merged, today, "changed on the server");
     local.synced = server;
     if (adopted.length) out.adopted.push({ id: local.id, status: local.status, fields: adopted });
     const pending = SYNC_FIELDS.filter((f) => (merged[f] ?? null) !== (server[f] ?? null));
-    if (pending.length) out.kept_local.push({ id: local.id, local: local.status, server: s.status, fields: pending, ...(conflicts.length ? { conflicts } : {}) });
+    if (pending.length) {
+      out.kept_local.push({
+        id: local.id,
+        local: local.status,
+        server: s.status,
+        fields: pending,
+        ...(conflicts.length ? { conflicts } : {}),
+        ...(normalized.length ? { normalized } : {}),
+      });
+    }
   }
   return out;
 }
@@ -1443,24 +1493,6 @@ function saveWrites(dir, site, list) {
   });
 }
 
-/** `show` finishes an interrupted command first when the site is free; when another run holds it, the last whole ledger.json is read. */
-function finishInterrupted(dir, mode, env) {
-  let lock;
-  try {
-    lock = acquireLock(dir, { waitMs: 0 });
-  } catch (e) {
-    if (e.code === "locked") return [];
-    throw e;
-  }
-  try {
-    const ready = mode === "workspace" ? ensureWorkspaceGit(dir, env) : false;
-    ensureGitignore(dir);
-    return recoverTransactions(dir, { gitReady: ready, env, lock });
-  } finally {
-    lock.release();
-  }
-}
-
 function historyLabel(mode, gitReady) {
   return mode === "repo" ? "the site repository (not committed by the ledger)" : gitReady ? "git" : "unavailable: git was not found, files written without history";
 }
@@ -1480,13 +1512,52 @@ export function run(cmd, opts) {
       throw new LedgerError("bad_input", "claim takes over a folder only with --confirm naming the same domain as --site");
     }
   }
-  const where = resolveSiteDir({ ...opts, env, claim: cmd === "claim" });
-  const drafts_dir = join(where.dir, DRAFTS_DIR);
-  if (cmd === "resolve") return { ...where, drafts_dir };
-  const { dir, site, mode } = where;
+  if (cmd !== "resolve" && cmd !== "show" && !WRITES.has(cmd)) throw new LedgerError("bad_command", `unknown command ${cmd}`);
+  const located = locateSiteDir({ ...opts, env });
+  const { dir } = located;
+  const drafts_dir = join(dir, DRAFTS_DIR);
+  // A command that writes creates the folder; resolve and show leave a missing one missing.
+  if (WRITES.has(cmd)) mkdirSync(dir, { recursive: true });
+  if (!existsSync(dir)) {
+    const where = ownerAnswer(cmd, located);
+    if (cmd === "resolve") return { ...where, drafts_dir };
+    return { ...where, format_version: FORMAT_VERSION, items: [], runs: 0, runs_not_synced: 0, push_pending: false };
+  }
+  // Every command, in this order: the lock, then a pending transaction finished or
+  // thrown away, then whose folder it is. Owner files half moved in are never read.
+  const lock = acquireLock(dir);
+  try {
+    return runLocked(cmd, opts, { located, lock, today, env, drafts_dir });
+  } finally {
+    lock.release();
+  }
+}
+
+/** The resolver's answer once the owner files are read. */
+function ownerAnswer(cmd, located) {
+  const { cwd, ...where } = located;
+  return { ...where, ...checkSiteOwner(located, { claim: cmd === "claim" }) };
+}
+
+function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
+  const { dir, site, mode } = located;
+  if (opts.holdMs) {
+    // Tests only: keep the lock for a while, refreshed, so a second process meets it.
+    const until = Date.now() + Number(opts.holdMs);
+    while (Date.now() < until) {
+      lock.touch();
+      sleep(100);
+    }
+  }
+  // Recovery commits only into a git history that is already there: a folder gets
+  // one only once it is known to be this site's.
+  const recoverGit = mode === "workspace" && existsSync(join(dir, ".git"));
+  const recovered = recoverTransactions(dir, { gitReady: recoverGit, env, lock });
+  step("owner:check");
+  const where = ownerAnswer(cmd, located);
+  if (cmd === "resolve") return { ...where, drafts_dir, ...(recovered.length ? { recovered } : {}) };
 
   if (cmd === "show") {
-    const recovered = existsSync(dir) && pendingTransactions(dir) ? finishInterrupted(dir, mode, env) : [];
     const ledger = loadLedger(dir, site, today) ?? emptyLedger(site, today);
     return {
       ...where,
@@ -1507,167 +1578,155 @@ export function run(cmd, opts) {
       push_pending: !!ledger.pending_push,
     };
   }
-  if (!WRITES.has(cmd)) throw new LedgerError("bad_command", `unknown command ${cmd}`);
+  // In a site folder its git exists before anything is written into it.
+  const gitReady = mode === "workspace" ? ensureWorkspaceGit(dir, env) : false;
+  ensureGitignore(dir);
+  mkdirSync(drafts_dir, { recursive: true });
+  const base = {
+    ...where,
+    command: cmd,
+    drafts_dir,
+    history: historyLabel(mode, gitReady),
+    ...(recovered.length ? { recovered } : {}),
+  };
+  if (cmd === "prepare") {
+    const commit = gitReady ? commitWorkspace(dir, `ledger: set up the site folder ${today}`, env) : null;
+    return { ...base, commit };
+  }
 
-  // The folder, and in a site folder its git, exist before anything is written into it.
-  mkdirSync(dir, { recursive: true });
-  const lock = acquireLock(dir);
-  try {
-    if (opts.holdMs) {
-      // Tests only: keep the lock for a while, refreshed, so a second process meets it.
-      const until = Date.now() + Number(opts.holdMs);
-      while (Date.now() < until) {
-        lock.touch();
-        sleep(100);
-      }
-    }
-    const gitReady = mode === "workspace" ? ensureWorkspaceGit(dir, env) : false;
-    ensureGitignore(dir);
-    mkdirSync(drafts_dir, { recursive: true });
-    const recovered = recoverTransactions(dir, { gitReady, env, lock });
-    const base = {
-      ...where,
-      command: cmd,
-      drafts_dir,
-      history: historyLabel(mode, gitReady),
-      ...(recovered.length ? { recovered } : {}),
-    };
-    if (cmd === "prepare") {
-      const commit = gitReady ? commitWorkspace(dir, `ledger: set up the site folder ${today}`, env) : null;
-      return { ...base, commit };
-    }
-
-    const input = ["push-payload", "set-status", "save", "claim"].includes(cmd) ? null : opts.input ?? readInput(opts.inputPath);
-    const writes = [];
-    let ledger = null;
-    let quarantined = null;
-    let restored = false;
-    let claimed = null;
-    if (cmd === "claim") {
-      const found = folderOwner(dir);
-      if (found.site === site) {
-        claimed = [];
-      } else {
-        claimed = found.unreadable.map((name) => {
-          const rel = name.replace(/\.json$/, `.unreadable-${stamp()}.json`);
-          writes.push({ rel, data: readFileSync(join(dir, name)) }, { rel: name, remove: true });
-          return { file: name, saved_as: rel };
-        });
-      }
-    }
-    if (cmd !== "claim" || claimed.length === 0) {
-      try {
-        ledger = loadLedger(dir, site, today);
-      } catch (e) {
-        if (e.code !== "bad_ledger" || cmd !== "pull") throw e;
-        if (input?.complete === false) {
-          throw new LedgerError("bad_ledger", `${e.message} The server's item list was capped, so it cannot be rebuilt from it this run.`);
-        }
-        const q = quarantineWrites(dir);
-        writes.push(...q.writes);
-        quarantined = join(dir, q.rel);
-      }
-    }
-    if (!ledger) {
-      ledger = emptyLedger(site, today);
-      restored = cmd === "pull" && (input?.items?.length ?? 0) > 0;
-      // A new or rebuilt ledger has no changelog yet, whatever its plan holds: the
-      // next step reads the whole history. A site with none answers an empty read,
-      // which marks it whole.
-      ledger.history_complete = false;
-    }
-    if (input?.site_id && !ledger.site_id) ledger.site_id = input.site_id;
-
-    // A file the ledger wrote and someone edited since is kept before anything is rewritten.
-    let recorded = ledger.files;
-    if (restored && input?.last_run?.file_hashes) recorded = input.last_run.file_hashes;
-    const guarded = guardFiles(dir, recorded);
-    writes.push(...guarded.writes);
-
-    const files = {};
-    const write = (rel, data) => {
-      writes.push({ rel, data });
-      files[rel] = sha256(data);
-      ledger.files[rel] = files[rel];
-    };
-
-    let result = {};
-    let runEntry = null;
-    let drafts = [];
-    if (cmd === "pull") {
-      result = applyPull(ledger, input, today);
-      write("plan.md", renderPlan(ledger, today));
-    } else if (cmd === "plan") {
-      result = applyPlan(ledger, input, today);
-      write("plan.md", renderPlan(ledger, today));
-      runEntry = { kind: "plan" };
-    } else if (cmd === "week") {
-      const asOf = input.as_of ?? today;
-      const prev = previousSnapshot(dir, asOf);
-      result = applyWeek(ledger, input, prev, today);
-      const snap = { format_version: FORMAT_VERSION, rankings: input.rankings ?? [], issues: (input.issues ?? []).map(({ id, severity, issue_type, page_url }) => ({ id, severity, issue_type, page_url })) };
-      write(`snapshots/${asOf}.json`, `${JSON.stringify(snap, null, 1)}\n`);
-      write(`weekly/${asOf}.md`, renderWeek(ledger, result, asOf));
-      write("changelog.md", renderChangelog(ledger, today));
-      write("plan.md", renderPlan(ledger, today));
-      runEntry = { kind: "week", ran_on: asOf };
-    } else if (cmd === "history") {
-      result = applyHistory(ledger, input);
-      write("changelog.md", renderChangelog(ledger, today));
-    } else if (cmd === "set-status") {
-      const it = ledger.items.find((x) => x.id === opts.id);
-      if (!it) throw new LedgerError("bad_input", `no item ${opts.id} in this ledger`);
-      const before = it.status;
-      setStatus(it, opts.status, today, opts.reason ?? null, opts.until ?? null);
-      result = { id: it.id, from: before, to: it.status };
-      write("plan.md", renderPlan(ledger, today));
-    } else if (cmd === "save") {
-      drafts = saveWrites(dir, site, opts.file);
-      for (const d of drafts) write(d.rel, d.data);
-      result = { saved: drafts.map((d) => d.rel) };
-    } else if (cmd === "claim") {
-      result = { claimed: claimed.length > 0, moved_aside: claimed };
-    } else if (cmd === "push-payload") {
-      result = pushPayload(ledger);
+  const input = ["push-payload", "set-status", "save", "claim"].includes(cmd) ? null : opts.input ?? readInput(opts.inputPath);
+  const writes = [];
+  let ledger = null;
+  let quarantined = null;
+  let restored = false;
+  let claimed = null;
+  if (cmd === "claim") {
+    const found = folderOwner(dir);
+    if (found.site === site) {
+      claimed = [];
     } else {
-      result = applyPushAck(ledger, input);
-    }
-
-    if (runEntry) {
-      ledger.runs.push({
-        run_id: (input?.run_id && String(input.run_id)) || randomUUID(),
-        session_id: input?.session_id ?? null,
-        kind: runEntry.kind,
-        on: today,
-        ran_on: runEntry.ran_on ?? today,
-        files,
-        items_total: ledger.items.length,
-        synced: false,
+      claimed = found.unreadable.map((name) => {
+        const rel = name.replace(/\.json$/, `.unreadable-${stamp()}.json`);
+        writes.push({ rel, data: readFileSync(join(dir, name)) }, { rel: name, remove: true });
+        return { file: name, saved_as: rel };
       });
     }
-    writes.push({ rel: "ledger.json", data: `${JSON.stringify(ledger, null, 1)}\n` });
-    const runId = runEntry ? ledger.runs[ledger.runs.length - 1].run_id : null;
-    const message = `ledger: ${cmd} ${today}${runId ? ` run ${runId}` : ""}${cmd === "save" ? ` ${drafts.map((d) => d.rel).join(", ")}` : ""}`;
-    const commit = finishTransaction(dir, stageTransaction(dir, writes, message, lock), { gitReady, env, lock });
-    // The drafts are in the folder's history now.
-    for (const d of drafts) rmSync(d.draft, { force: true });
-    step("lock:before-release");
-    return {
-      ...base,
-      ...(runId ? { run_id: runId } : {}),
-      files,
-      commit,
-      ...(quarantined ? { quarantined } : {}),
-      ...(restored ? { restored_from_server: true } : {}),
-      // Until a complete history read, the changelog is missing older rows.
-      ...(ledger.history_complete === false ? { history_needed: true } : {}),
-      ...(guarded.hand_edited.length ? { hand_edited: guarded.hand_edited } : {}),
-      ...(guarded.missing.length ? { missing: guarded.missing } : {}),
-      ...result,
-    };
-  } finally {
-    lock.release();
   }
+  // A claim that moved ledger.json aside leaves it missing, so the next pull rebuilds
+  // it from the server the same way as a lost one: restored, history read, and the
+  // markdown guarded by the hashes of the last run the server recorded. One that
+  // moved only config.json aside keeps the ledger as it is.
+  const movedLedger = cmd === "claim" && claimed.some((c) => c.file === "ledger.json");
+  if (!movedLedger) {
+    try {
+      ledger = loadLedger(dir, site, today);
+    } catch (e) {
+      if (e.code !== "bad_ledger" || cmd !== "pull") throw e;
+      if (input?.complete === false) {
+        throw new LedgerError("bad_ledger", `${e.message} The server's item list was capped, so it cannot be rebuilt from it this run.`);
+      }
+      const q = quarantineWrites(dir);
+      writes.push(...q.writes);
+      quarantined = join(dir, q.rel);
+    }
+  }
+  if (!ledger) {
+    ledger = emptyLedger(site, today);
+    restored = cmd === "pull" && (input?.items?.length ?? 0) > 0;
+    // A new or rebuilt ledger has no changelog yet, whatever its plan holds: the
+    // next step reads the whole history. A site with none answers an empty read,
+    // which marks it whole.
+    ledger.history_complete = false;
+  }
+  if (input?.site_id && !ledger.site_id) ledger.site_id = input.site_id;
+
+  // A file the ledger wrote and someone edited since is kept before anything is rewritten.
+  let recorded = ledger.files;
+  if (restored && input?.last_run?.file_hashes) recorded = input.last_run.file_hashes;
+  const guarded = guardFiles(dir, recorded);
+  writes.push(...guarded.writes);
+
+  const files = {};
+  const write = (rel, data) => {
+    writes.push({ rel, data });
+    files[rel] = sha256(data);
+    ledger.files[rel] = files[rel];
+  };
+
+  let result = {};
+  let runEntry = null;
+  let drafts = [];
+  if (cmd === "pull") {
+    result = applyPull(ledger, input, today);
+    write("plan.md", renderPlan(ledger, today));
+  } else if (cmd === "plan") {
+    result = applyPlan(ledger, input, today);
+    write("plan.md", renderPlan(ledger, today));
+    runEntry = { kind: "plan" };
+  } else if (cmd === "week") {
+    const asOf = input.as_of ?? today;
+    const prev = previousSnapshot(dir, asOf);
+    result = applyWeek(ledger, input, prev, today);
+    const snap = { format_version: FORMAT_VERSION, rankings: input.rankings ?? [], issues: (input.issues ?? []).map(({ id, severity, issue_type, page_url }) => ({ id, severity, issue_type, page_url })) };
+    write(`snapshots/${asOf}.json`, `${JSON.stringify(snap, null, 1)}\n`);
+    write(`weekly/${asOf}.md`, renderWeek(ledger, result, asOf));
+    write("changelog.md", renderChangelog(ledger, today));
+    write("plan.md", renderPlan(ledger, today));
+    runEntry = { kind: "week", ran_on: asOf };
+  } else if (cmd === "history") {
+    result = applyHistory(ledger, input);
+    write("changelog.md", renderChangelog(ledger, today));
+  } else if (cmd === "set-status") {
+    const it = ledger.items.find((x) => x.id === opts.id);
+    if (!it) throw new LedgerError("bad_input", `no item ${opts.id} in this ledger`);
+    const before = it.status;
+    setStatus(it, opts.status, today, opts.reason ?? null, opts.until ?? null);
+    result = { id: it.id, from: before, to: it.status };
+    write("plan.md", renderPlan(ledger, today));
+  } else if (cmd === "save") {
+    drafts = saveWrites(dir, site, opts.file);
+    for (const d of drafts) write(d.rel, d.data);
+    result = { saved: drafts.map((d) => d.rel) };
+  } else if (cmd === "claim") {
+    result = { claimed: claimed.length > 0, moved_aside: claimed };
+  } else if (cmd === "push-payload") {
+    result = pushPayload(ledger);
+  } else {
+    result = applyPushAck(ledger, input);
+  }
+
+  if (runEntry) {
+    ledger.runs.push({
+      run_id: (input?.run_id && String(input.run_id)) || randomUUID(),
+      session_id: input?.session_id ?? null,
+      kind: runEntry.kind,
+      on: today,
+      ran_on: runEntry.ran_on ?? today,
+      files,
+      items_total: ledger.items.length,
+      synced: false,
+    });
+  }
+  if (!movedLedger) writes.push({ rel: "ledger.json", data: `${JSON.stringify(ledger, null, 1)}\n` });
+  const runId = runEntry ? ledger.runs[ledger.runs.length - 1].run_id : null;
+  const message = `ledger: ${cmd} ${today}${runId ? ` run ${runId}` : ""}${cmd === "save" ? ` ${drafts.map((d) => d.rel).join(", ")}` : ""}`;
+  const commit = finishTransaction(dir, stageTransaction(dir, writes, message, lock), { gitReady, env, lock });
+  // The drafts are in the folder's history now.
+  for (const d of drafts) rmSync(d.draft, { force: true });
+  step("lock:before-release");
+  return {
+    ...base,
+    ...(runId ? { run_id: runId } : {}),
+    files,
+    commit,
+    ...(quarantined ? { quarantined } : {}),
+    ...(restored ? { restored_from_server: true } : {}),
+    // Until a complete history read, the changelog is missing older rows.
+    ...(ledger.history_complete === false ? { history_needed: true } : {}),
+    ...(guarded.hand_edited.length ? { hand_edited: guarded.hand_edited } : {}),
+    ...(guarded.missing.length ? { missing: guarded.missing } : {}),
+    ...result,
+  };
 }
 
 // ---------------------------------------------------------------------------
