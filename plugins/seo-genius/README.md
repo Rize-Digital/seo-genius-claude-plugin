@@ -35,7 +35,7 @@ Choose `plugin:seo-genius:seo-genius`, then Authenticate. Your browser opens the
 | `/seo-genius:quick-wins` | Three single-field fixes with paste-ready values, and the keywords within reach of page one. |
 | `/seo-genius:competitors <terms>` | Your local ranking baseline, your organic rivals, and a live position check for named terms. |
 | `/seo-genius:log-change <what you changed>` | Records a change you shipped, with the reason, so SEO Genius can measure it on the next crawl. |
-| `/seo-genius:citations` | Checks the US business directories the big listing services submit to: if you have a listing on each, and if it shows your exact name, address and phone. Wrong fields come back with what the listing shows. Spends SEO Genius quota. |
+| `/seo-genius:citations` | Checks your Google Business Profile, then what search results show of you on the US business directories the big listing services submit to, and if the name, address and phone shown match. Opens no directory page; every directory comes with a link to check it yourself. Spends SEO Genius quota. |
 | `/seo-genius:history <page>` | Readable reported changes to a page or site, with dates, before and after, reasons, actors, and an explicit coverage limit. |
 | `/seo-genius:sites` | Every site in the workspace in one table, ordered by what needs attention first. |
 | `/seo-genius:issues <what to record or dismiss>` | Files a finding as an issue, corrects one, or dismisses a false positive, each after you confirm. |
