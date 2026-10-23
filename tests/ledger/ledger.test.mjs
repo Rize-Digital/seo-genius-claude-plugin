@@ -326,8 +326,9 @@ test("pull: a status changed on the server is adopted; a change on both sides ke
       },
     });
     assert.deepEqual(pulled.adopted, [{ id: "P-001", status: "done", fields: ["status", "status_reason"] }]);
-    // Both sides changed P-002's status: the local one stands with its own reason and date, and is sent.
-    assert.deepEqual(pulled.kept_local, [{ id: "P-002", local: "dropped", server: "waiting", fields: ["status", "status_reason", "until"], conflicts: ["status"] }]);
+    // Both sides changed P-002's status: the local one stands and is sent. The server's new until date
+    // is merged on its own, but a date on a dropped item opens nothing, so the rule clears it.
+    assert.deepEqual(pulled.kept_local, [{ id: "P-002", local: "dropped", server: "waiting", fields: ["status", "status_reason", "until"], conflicts: ["status"], normalized: [{ field: "until", rule: "until_needs_waiting" }] }]);
     assert.deepEqual(pulled.imported, ["P-007"]);
     const l = ledgerOf(s);
     assert.equal(l.next_ids.P, 8);
@@ -444,20 +445,25 @@ test("history: a change the daily monitor detected is labelled as detected, not 
 
 // ---------------------------------------------------------------- broken files
 
-test("corrupt ledger.json: plan and week refuse; pull moves it aside and rebuilds from the server's complete list", () => {
+test("corrupt ledger.json: every command refuses even with a valid config; claim moves it aside and pull rebuilds from the server's complete list", () => {
   const s = scratch();
   try {
     run("plan", { ...base(s), today: "2026-10-12", input: PLAN });
-    // The folder's config still names its site, so whose folder it is stays known.
+    // config.json names the site, but the ledger may be the file that says otherwise.
     writeFileSync(join(dirOf(s), "config.json"), JSON.stringify({ site }));
     const full = readFileSync(join(dirOf(s), "ledger.json"), "utf8");
-    writeFileSync(join(dirOf(s), "ledger.json"), full.slice(0, Math.floor(full.length / 2)));
-    assert.throws(() => run("week", { ...base(s), today: "2026-10-19", input: { as_of: "2026-10-19" } }), (e) => e.code === "bad_ledger");
-    assert.throws(() => run("pull", { ...base(s), today: "2026-10-19", input: { complete: false, items: [serverRow({})] } }), (e) => e.code === "bad_ledger");
+    const half = full.slice(0, Math.floor(full.length / 2));
+    writeFileSync(join(dirOf(s), "ledger.json"), half);
+    assert.throws(() => run("week", { ...base(s), today: "2026-10-19", input: { as_of: "2026-10-19" } }), (e) => e.code === "owner_unknown");
+    assert.throws(() => run("pull", { ...base(s), today: "2026-10-19", input: { complete: true, items: [serverRow({})] } }), (e) => e.code === "owner_unknown");
+    const c = run("claim", { ...base(s), today: "2026-10-19", confirm: site });
+    assert.deepEqual(c.moved_aside.map((m) => m.file), ["ledger.json"]);
+    assert.equal(readFileSync(join(dirOf(s), c.moved_aside[0].saved_as), "utf8"), half);
+    assert.equal(existsSync(join(dirOf(s), "ledger.json")), false, "the claim leaves the ledger to be rebuilt");
+    assert.deepEqual(JSON.parse(readFileSync(join(dirOf(s), "config.json"), "utf8")), { site }, "the readable config stays");
     const r = run("pull", { ...base(s), today: "2026-10-19", input: { complete: true, last_run: null, items: [serverRow({}), serverRow({ item_key: "P-003", kind: "create", target_page: "/services/goat-fencing", change_kind: null, status: "in_progress" })] } });
-    assert.match(r.quarantined, /ledger\.corrupt-.*\.json$/);
     assert.equal(r.restored_from_server, true);
-    assert.ok(existsSync(r.quarantined));
+    assert.equal(r.history_needed, true);
     const l = ledgerOf(s);
     assert.deepEqual(l.items.map((i) => [i.id, i.status]), [["P-001", "open"], ["P-003", "in_progress"]]);
     assert.equal(l.next_ids.P, 4);
@@ -475,8 +481,14 @@ test("partial ledger.json (valid JSON, items missing fields) is treated as corru
     writeFileSync(join(dirOf(s), "ledger.json"), JSON.stringify(l));
     assert.throws(() => run("plan", { ...base(s), today: "2026-10-13", input: PLAN }), (e) => e.code === "bad_ledger" && /item 1 \(P-002\) is incomplete/.test(e.message));
     const noItems = { ...l, items: undefined };
-    writeFileSync(join(dirOf(s), "ledger.json"), JSON.stringify(noItems));
+    const noItemsText = JSON.stringify(noItems);
+    writeFileSync(join(dirOf(s), "ledger.json"), noItemsText);
     assert.throws(() => run("show", base(s)), (e) => e.code === "bad_ledger");
+    // It names this site, so pull may move it aside, kept whole, and rebuild.
+    const r = run("pull", { ...base(s), today: "2026-10-13", input: { complete: true, last_run: null, items: [serverRow({})] } });
+    assert.match(r.quarantined, /ledger\.corrupt-.*\.json$/);
+    assert.equal(readFileSync(r.quarantined, "utf8"), noItemsText);
+    assert.equal(r.restored_from_server, true);
   } finally {
     s.done();
   }

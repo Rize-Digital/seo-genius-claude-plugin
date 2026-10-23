@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { cpSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { scratch, cli, snapshot, git, commits, lockFiles, pendingTxns, writeDraft, PLAN, U } from "./helpers.mjs";
+import { scratch, cli, cliAsync, pool, POOL, snapshot, git, commits, lockFiles, pendingTxns, writeDraft, PLAN, U } from "./helpers.mjs";
 
 const COMMIT_POINT = "txn:committed#1";
 
@@ -23,7 +23,7 @@ function steps(s, cmd, opts) {
  * Crashes `cmd` at each of its steps on a fresh copy of the old folder, recovers
  * with `show`, and compares with the generation a clean run produces.
  */
-function crashAtEveryStep(name, prepare, cmd, opts, { oldIsUnreadable = false } = {}) {
+async function crashAtEveryStep(name, prepare, cmd, opts, { oldRefusal = null } = {}) {
   const s = scratch();
   try {
     prepare(s);
@@ -46,16 +46,17 @@ function crashAtEveryStep(name, prepare, cmd, opts, { oldIsUnreadable = false } 
     const commitAt = trace.indexOf(COMMIT_POINT);
     assert.ok(commitAt > 0, `${name}: the command passes its commit point (${trace.join(", ")})`);
 
-    trace.forEach((point, i) => {
+    // The steps are independent (each on its own copy), so they run a few at a time.
+    await pool(trace.map((point, i) => [point, i]), POOL, async ([point, i]) => {
       const t = fresh(`crash-${i}`);
-      const crashed = cli(t, cmd, { ...opts, env: { ...(opts.env ?? {}), SEO_GENIUS_LEDGER_TEST_CRASH_AT: point } });
+      const crashed = await cliAsync(t, cmd, { ...opts, env: { ...(opts.env ?? {}), SEO_GENIUS_LEDGER_TEST_CRASH_AT: point } });
       assert.equal(crashed.code, 86, `${name} at ${point}: the process stopped there`);
       const expectNew = i >= commitAt;
-      const shown = cli(t, "show");
-      // The old generation of a rebuild is the unreadable ledger, which show refuses as before.
-      const showRefuses = oldIsUnreadable && !expectNew;
+      const shown = await cliAsync(t, "show");
+      // The old generation of a rebuild or a claim is a folder show refuses, as before.
+      const showRefuses = !!oldRefusal && !expectNew;
       assert.equal(shown.code, showRefuses ? 2 : 0, `${name} at ${point}: show after the crash (${JSON.stringify(shown.out)})`);
-      if (showRefuses) assert.equal(shown.out.error, "bad_ledger");
+      if (showRefuses) assert.equal(shown.out.error, oldRefusal);
       assert.deepEqual(snapshot(t.siteDir), expectNew ? NEW : OLD, `${name} at ${point}: the ${expectNew ? "new" : "old"} generation, whole`);
       if (existsSync(join(t.siteDir, ".git"))) {
         assert.equal(git(t.siteDir, "status", "--porcelain").stdout, expectNew ? "" : oldStatus, `${name} at ${point}: git holds exactly this generation`);
@@ -63,11 +64,11 @@ function crashAtEveryStep(name, prepare, cmd, opts, { oldIsUnreadable = false } 
       }
       // The next run is clean: a crash before the commit point is simply run again.
       if (!expectNew) {
-        const again = cli(t, cmd, opts);
+        const again = await cliAsync(t, cmd, opts);
         assert.equal(again.code, 0, `${name} at ${point}: the command runs again (${JSON.stringify(again.out)})`);
         assert.deepEqual(snapshot(t.siteDir), NEW, `${name} at ${point}: the rerun brings the new generation`);
       }
-      const after = cli(t, "push-payload");
+      const after = await cliAsync(t, "push-payload");
       assert.equal(after.code, 0, `${name} at ${point}: a later command is not blocked (${JSON.stringify(after.out)})`);
       assert.deepEqual(lockFiles(t.siteDir), [], `${name} at ${point}: no lock left behind`);
       assert.deepEqual(pendingTxns(t.siteDir), [], `${name} at ${point}: no transaction left behind`);
@@ -86,8 +87,8 @@ const weekInput = {
   changes: [{ source: "reported", id: U(1), page_url: "https://bomannfencing.com/blog/how-many-strands-barbed-wire-cattle", change_kind: "title", on: "2026-10-20", verification: "verified" }],
 };
 
-test("crash: a week stopped at any step leaves the old generation or the new one whole, and the next run is clean", () => {
-  const trace = crashAtEveryStep(
+test("crash: a week stopped at any step leaves the old generation or the new one whole, and the next run is clean", async () => {
+  const trace = await crashAtEveryStep(
     "week",
     (s) => {
       assert.equal(cli(s, "plan", { input: { ...PLAN, run_id: "run-plan-1" }, today: "2026-10-12" }).code, 0);
@@ -103,8 +104,8 @@ test("crash: a week stopped at any step leaves the old generation or the new one
   assert.equal(trace.filter((p) => p.startsWith("txn:applied#")).length, 6);
 });
 
-test("crash: a save of two research files stopped at any step saves both or neither", () => {
-  crashAtEveryStep(
+test("crash: a save of two research files stopped at any step saves both or neither", async () => {
+  await crashAtEveryStep(
     "save",
     (s) => {
       assert.equal(cli(s, "prepare").code, 0);
@@ -119,8 +120,8 @@ test("crash: a save of two research files stopped at any step saves both or neit
   );
 });
 
-test("crash: a push acknowledgement stopped at any step is recorded whole or not at all", () => {
-  crashAtEveryStep(
+test("crash: a push acknowledgement stopped at any step is recorded whole or not at all", async () => {
+  await crashAtEveryStep(
     "push-ack",
     (s) => {
       assert.equal(cli(s, "plan", { input: { ...PLAN, run_id: "run-plan-1" }, today: "2026-10-12" }).code, 0);
@@ -131,18 +132,111 @@ test("crash: a push acknowledgement stopped at any step is recorded whole or not
   );
 });
 
-test("crash: rebuilding an unreadable ledger stopped at any step keeps the unreadable file or moves it aside with the rebuilt ledger", () => {
-  crashAtEveryStep(
-    "pull rebuild",
+const PULL_ONE = { complete: true, last_run: null, items: [{ item_key: "P-001", kind: "improve", target_page: "/a", change_kind: "title", status: "open", first_seen: "2026-10-12" }] };
+
+// A ledger that parses and names this site but is incomplete: whose folder it is
+// stays known, so pull may move it aside and rebuild it.
+function incompleteLedger(s) {
+  assert.equal(cli(s, "plan", { input: PLAN, today: "2026-10-12" }).code, 0);
+  writeDraft(s, "config.json", JSON.stringify({ site: "bomannfencing.com" }));
+  assert.equal(cli(s, "save", { args: ["--file", "config.json"] }).code, 0);
+  writeFileSync(join(s.siteDir, "ledger.json"), JSON.stringify({ format_version: 1, site: "bomannfencing.com", items: "lost" }));
+}
+
+// A folder whose owner files do not parse: only claim takes it over.
+function unreadableOwner(s) {
+  assert.equal(cli(s, "plan", { input: PLAN, today: "2026-10-12" }).code, 0);
+  writeFileSync(join(s.siteDir, "ledger.json"), "{ not json");
+  writeFileSync(join(s.siteDir, "config.json"), "{ not json either");
+}
+
+test("crash: rebuilding an incomplete ledger stopped at any step keeps it or moves it aside with the rebuilt ledger", async () => {
+  await crashAtEveryStep("pull rebuild", incompleteLedger, "pull", { input: PULL_ONE }, { oldRefusal: "bad_ledger" });
+});
+
+test("crash: a claim stopped at any step is finished by the next show, never read as owner_unknown once committed", async () => {
+  const trace = await crashAtEveryStep("claim", unreadableOwner, "claim", { args: ["--confirm", "bomannfencing.com"] }, { oldRefusal: "owner_unknown" });
+  // Two copies and two removals: the reported case is a crash at txn:applied#2.
+  assert.ok(trace.includes("txn:applied#2"), trace.join(", "));
+});
+
+// Every command, after a crash at every step, answers as it does on the whole
+// generation the crash leaves (old before the commit point, new at or after it),
+// and leaves no transaction behind: each one recovers before it reads whose folder it is.
+const EVERY_COMMAND = [
+  ["resolve", {}],
+  ["show", {}],
+  ["prepare", {}],
+  ["claim", { args: ["--confirm", "bomannfencing.com"] }],
+  ["pull", { input: PULL_ONE }],
+  ["plan", { input: PLAN }],
+  ["week", { input: { as_of: "2026-10-26" } }],
+  ["history", { input: { complete: true, changes: [] } }],
+  ["set-status", { args: ["--id", "P-001", "--status", "dropped"] }],
+  ["save", { args: ["--file", "notes.md"] }],
+  ["push-payload", {}],
+  ["push-ack", { input: { data: [], runs: [] } }],
+];
+
+async function everyCommandAfterEveryCrash(name, prepare, cmd, opts, { distinct = false } = {}) {
+  const s = scratch();
+  try {
+    prepare(s);
+    const oldDir = join(s.dir, "old");
+    cpSync(s.siteDir, oldDir, { recursive: true });
+    let n = 0;
+    const fresh = (from) => {
+      const t = { ...s, home: join(s.dir, `c${n++}`) };
+      t.siteDir = join(t.home, "bomannfencing.com");
+      cpSync(from, t.siteDir, { recursive: true });
+      writeDraft(t, "notes.md", "# notes\n");
+      return t;
+    };
+    const ref = fresh(oldDir);
+    const trace = steps(ref, cmd, opts);
+    const newDir = join(s.dir, "new");
+    cpSync(ref.siteDir, newDir, { recursive: true });
+    const commitAt = trace.indexOf(COMMIT_POINT);
+    const outcome = (r) => (r.code === 0 ? "ok" : `${r.code} ${r.out.error}`);
+    const expected = { old: {}, new: {} };
+    for (const [gen, dir] of [["old", oldDir], ["new", newDir]]) {
+      const got = await Promise.all(EVERY_COMMAND.map(([c, o]) => cliAsync(fresh(dir), c, o)));
+      EVERY_COMMAND.forEach(([c], k) => (expected[gen][c] = outcome(got[k])));
+    }
+    if (distinct) assert.notDeepEqual(expected.old, expected.new, `${name}: the generations answer differently, so the check can tell them apart`);
+    await pool([...trace.entries()], Math.max(1, Math.floor(POOL / 4)), async ([i, point]) => {
+      const gen = i >= commitAt ? "new" : "old";
+      // One crash at this step, then a copy of the crashed folder for each command.
+      const crashed = fresh(oldDir);
+      assert.equal((await cliAsync(crashed, cmd, { ...opts, env: { SEO_GENIUS_LEDGER_TEST_CRASH_AT: point } })).code, 86, `${name} at ${point}`);
+      const runs = EVERY_COMMAND.map(([c, o]) => {
+        const t = fresh(crashed.siteDir);
+        return cliAsync(t, c, o).then((r) => ({ c, t, r }));
+      });
+      for (const { c, t, r } of await Promise.all(runs)) {
+        assert.equal(outcome(r), expected[gen][c], `${name} crashed at ${point}, then ${c}: answers as on the ${gen} generation (${JSON.stringify(r.out)})`);
+        assert.deepEqual(pendingTxns(t.siteDir), [], `${name} crashed at ${point}, then ${c}: the transaction was finished or thrown away first`);
+        assert.deepEqual(lockFiles(t.siteDir), [], `${name} crashed at ${point}, then ${c}: no lock left behind`);
+      }
+    });
+  } finally {
+    s.done();
+  }
+}
+
+test("crash: after a claim stopped at any step, every command recovers first and answers as on the whole generation", async () => {
+  await everyCommandAfterEveryCrash("claim", unreadableOwner, "claim", { args: ["--confirm", "bomannfencing.com"] }, { distinct: true });
+});
+
+test("crash: after a week stopped at any step, every command recovers first and answers as on the whole generation", async () => {
+  await everyCommandAfterEveryCrash(
+    "week",
     (s) => {
-      assert.equal(cli(s, "plan", { input: PLAN, today: "2026-10-12" }).code, 0);
-      writeDraft(s, "config.json", JSON.stringify({ site: "bomannfencing.com" }));
-      assert.equal(cli(s, "save", { args: ["--file", "config.json"] }).code, 0);
-      writeFileSync(join(s.siteDir, "ledger.json"), "{ not json");
+      assert.equal(cli(s, "plan", { input: { ...PLAN, run_id: "run-plan-1" }, today: "2026-10-12" }).code, 0);
+      assert.equal(cli(s, "push-payload").code, 0);
     },
-    "pull",
-    { input: { complete: true, last_run: null, items: [{ item_key: "P-001", kind: "improve", target_page: "/a", change_kind: "title", status: "open", first_seen: "2026-10-12" }] } },
-    { oldIsUnreadable: true },
+    "week",
+    { input: weekInput, today: "2026-10-26" },
   );
 });
 

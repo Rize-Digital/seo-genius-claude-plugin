@@ -71,6 +71,57 @@ test("owner: a folder whose ledger.json and config.json cannot be read is neithe
   }
 });
 
+const EVERY_COMMAND = [
+  ["resolve", {}],
+  ["prepare", {}],
+  ["show", {}],
+  ["pull", { input: pullInput }],
+  ["plan", { input: PLAN }],
+  ["week", { input: { as_of: "2026-10-19" } }],
+  ["history", { input: { complete: true, changes: [] } }],
+  ["set-status", { args: ["--id", "P-001", "--status", "dropped"] }],
+  ["save", { args: ["--file", "x.md"] }],
+  ["push-payload", {}],
+  ["push-ack", { input: { data: [], runs: [] } }],
+];
+
+test("owner: one unreadable owner file fails closed even when the other one is valid and names this site", () => {
+  for (const [bad, good] of [["ledger.json", "config.json"], ["config.json", "ledger.json"]]) {
+    for (const text of ["{ broken", JSON.stringify({ no_site: true }), JSON.stringify({ site: 42 })]) {
+      const s = scratch();
+      try {
+        assert.equal(cli(s, "plan", { input: PLAN, today: "2026-10-12" }).code, 0);
+        writeFileSync(join(s.siteDir, "config.json"), JSON.stringify({ site }));
+        writeFileSync(join(s.siteDir, bad), text);
+        const goodText = readFileSync(join(s.siteDir, good), "utf8");
+        const frozen = snapshot(s.siteDir);
+        for (const [cmd, opts] of EVERY_COMMAND) {
+          const r = cli(s, cmd, opts);
+          assert.equal(r.out.error, "owner_unknown", `${bad}=${text}, ${cmd}: ${JSON.stringify(r.out)}`);
+          assert.equal(r.code, 2);
+          assert.ok(r.out.message.includes(bad), r.out.message);
+          assert.deepEqual(snapshot(s.siteDir), frozen, `${cmd} changed nothing`);
+        }
+        // claim quarantines the unreadable file only; it is not taken as already claimed.
+        const c = cli(s, "claim", { args: ["--confirm", site] });
+        assert.equal(c.code, 0, JSON.stringify(c.out));
+        assert.equal(c.out.claimed, true);
+        assert.deepEqual(c.out.moved_aside.map((m) => m.file), [bad]);
+        assert.equal(readFileSync(join(s.siteDir, c.out.moved_aside[0].saved_as), "utf8"), text);
+        assert.equal(readFileSync(join(s.siteDir, good), "utf8"), goodText, `${good} kept as it was`);
+        assert.equal(existsSync(join(s.siteDir, bad)), false);
+        const shown = cli(s, "show");
+        assert.equal(shown.code, 0, JSON.stringify(shown.out));
+        // A claim that moved only config.json keeps the ledger's items.
+        assert.equal(shown.out.items.length, bad === "config.json" ? 3 : 0);
+        assert.equal(cli(s, "claim", { args: ["--confirm", site] }).out.claimed, false, "a second claim has nothing to move");
+      } finally {
+        s.done();
+      }
+    }
+  }
+});
+
 test("owner: only claim, naming the domain twice, takes the folder over; the unreadable files are kept and the next pull rebuilds", () => {
   const s = scratch();
   try {

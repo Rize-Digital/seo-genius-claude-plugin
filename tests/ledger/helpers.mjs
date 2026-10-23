@@ -1,7 +1,7 @@
 // Shared by the ledger tests that drive the script as a real process.
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
+import os, { tmpdir } from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -110,3 +110,18 @@ export const PLAN = {
     { action: "create", target_page: "/services/goat-fencing", keyword: "goat fencing", what_to_do: "Service page" },
   ],
 };
+
+/** How many ledger processes a test runs at once. */
+export const POOL = Math.max(2, Math.min(8, (os.availableParallelism?.() ?? os.cpus().length) - 1));
+
+/** Runs fn over items, at most limit at a time; rejects with the first failure. */
+export async function pool(items, limit, fn) {
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const k = next++;
+      await fn(items[k], k);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+}

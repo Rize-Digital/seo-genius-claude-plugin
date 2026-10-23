@@ -2,7 +2,7 @@
 // Run: node --test tests/ledger/lock.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync, readFileSync, mkdirSync, unlinkSync, readdirSync } from "node:fs";
+import { writeFileSync, readFileSync, mkdirSync, unlinkSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { hostname } from "node:os";
 import { scratch, cli, cliAsync, snapshot, lockFiles, pendingTxns, deadPid, PLAN } from "./helpers.mjs";
@@ -44,6 +44,23 @@ test("lock: two runs that both judge a crashed run's lock stale: one takes the s
     assert.ok(!readdirSync(s.siteDir).includes(stale), "the stale lock is gone");
     assert.deepEqual(ids(s), ["P-001", "P-002", "P-003"]);
     assert.deepEqual(lockFiles(s.siteDir), []);
+  } finally {
+    s.done();
+  }
+});
+
+test("lock: taking over a stale lock does not stop the look for a live owner listed after it", () => {
+  const s = scratch();
+  try {
+    // Sorted before the live one, so a run that stopped looking after the takeover would miss the owner.
+    const stale = plantLock(s, { pid: deadPid(), host: hostname() });
+    const live = plantLock(s, { pid: process.pid, host: hostname() }, "ffffffff-0000-4000-8000-0000000000ff");
+    const r = cli(s, "plan", { input: PLAN });
+    assert.equal(r.code, 2, JSON.stringify(r.out));
+    assert.equal(r.out.error, "locked");
+    assert.ok(!readdirSync(s.siteDir).includes(stale), "the stale lock was removed");
+    assert.ok(readdirSync(s.siteDir).includes(live), "the live owner's lock stays");
+    assert.equal(existsSync(join(s.siteDir, "ledger.json")), false, "nothing was written");
   } finally {
     s.done();
   }
