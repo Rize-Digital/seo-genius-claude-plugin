@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.0 (2026-10-15)
+
+- New skill `citations`: a NAP check of the business's Google Business Profile and of the US business directories that the main listing services submit to. It runs on the SEO Genius server through the new `citation_check` tool and returns one compact report, so no listing page is read into the conversation.
+- The server reads two things only: the Google Business Profile, through Google's Business Information API with the business's own connected Google account, read only; and web search results (the URL, title and snippet of each). It opens no directory page. Fields are reported as shown in search results on the run's date, and a field is judged only when the snippet shows it whole.
+- Each directory reads NAP matches, NAP matches with formatting differences, fix this listing (with the field and the value found), partly confirmed, listing seen in search with the NAP not shown, or not seen in search. A directory not seen in search reads "Not seen in search. Check by hand before creating a listing." The skill never calls a directory "not listed".
+- Every directory and the Business Profile come back with a link for the user to check by hand in their own browser: the directory's own search where it is known to work, else a web search for the phone on that site, and a map search for the Business Profile. The skill never opens these links.
+- A Business Profile that is not connected, or whose account did not allow Business Profile access, reads "Connect your Google Business Profile to check it". A service-area profile that hides its address is not a wrong address.
+- The skill confirms the name, address and phone to check against first, offers a saved report from the last 30 days before spending quota, and saves each new report, links included, to the research store when the account can write.
+- With the name, address and phone, the skill asks once whether the business goes by any other name or uses another number, such as a tracking line, and whether it has moved or listed another address in the past. It passes up to three of each (`aliases`, `extra_phones`, `past_addresses`). Each other name adds up to 37 searches and each old address one; other numbers add no search. A listing under one of them is reported as one to fix, and says which.
+- A page that shows the business's phone under another business's name (a related company at the same number) is reported on its own (`phone_on_other_listings`), never as one of the business's listings.
+- Needs a server that offers `citation_check`. Against one that does not, the skill says so and stops.
+- The structural checker expects eighteen skills.
+
 ## 1.3.0 (2026-10-13)
 
 The pipeline on a schedule, and the last tools without a skill.
