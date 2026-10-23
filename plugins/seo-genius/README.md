@@ -8,8 +8,12 @@ SEO audit, keyword research, rankings, competitor analysis, and quick wins for y
 - Claude Code with the `/plugin` command.
 - Context cost: about 642 tokens added to every session for the six skill descriptions in 1.0.0, plus roughly 1.1k to 1.4k tokens when a skill runs (measured with `claude plugin details` on 1.0.0). The eleven skills added since 1.0.0 add eleven more descriptions and have not been measured yet.
 - For the research pipeline: a folder Claude can write to, ideally your site's repository, and a web fetch tool in the session so competitor pages can be read.
+- Node.js 18 or later, for every command that keeps files (`start`, `competitor-dive`, `keyword-gap`, `content-plan`, `weekly`, `report`, `next`, `schedule`). Claude Code itself does not provide it: the native installer, Homebrew, WinGet and the Linux packages install a standalone `claude` binary, and even the npm package runs that binary rather than Node. Those commands check Node first and stop, with nothing written, when it is missing or older than 18. The read-only commands (`audit`, `brief`, `page-check`, `keywords`, `quick-wins`, `competitors`, `log-change`, `history`, `issues`, `sites`) do not need it.
 
 ## Install
+
+1. Check Node.js in a terminal: `node --version` should print `v18` or later. If it prints nothing, "not found", or a lower version, install the current LTS from https://nodejs.org (macOS: `brew install node`; Windows: `winget install OpenJS.NodeJS.LTS`; Linux: your package manager or nvm), then open a new terminal and restart Claude Code so it is on the PATH.
+2. Add the plugin:
 
 ```text
 /plugin marketplace add Rize-Digital/seo-genius-claude-plugin
@@ -43,14 +47,18 @@ You can also just ask in plain words ("what's wrong with my homepage?") and Clau
 
 ## The research pipeline
 
-Four more commands do the research a consultant does before touching a site. Run them in order. Each one saves its result to a `.seo-genius/` folder, and the next one reads it.
+Four more commands do the research a consultant does before touching a site. Run them in order. Each one saves its result to the site's folder, and the next one reads it.
+
+Where the folder is: inside the site's git repository it is `.seo-genius/` at the repository root. For a site with no repository (a WordPress site, say) it is `~/seo-genius/<domain>/` (or `$SEO_GENIUS_HOME/<domain>/`), one folder per site with its own git history, so two sites never share files and nothing is stored inside the site itself. Every skill finds it the same way, through `scripts/ledger.mjs`, which needs Node.js 18 or later. The script creates the folder (and its git history) before anything is written there, and every file goes in through it, so each save is one commit and a run that stops halfway leaves the last whole set of files. A folder whose owner cannot be read is left alone until you name its site with `ledger.mjs claim`.
+
+The plan's items are also indexed in SEO Genius (`save_plan_items`), so the dashboard and a run on another machine see the same ids and statuses. Each run reads the server's index first and sends what changed last. If SEO Genius cannot be reached, the run still finishes on your machine and the next one catches up; nothing is recorded twice. Only the index goes to the server (ids, statuses, pages, links, file hashes); the plan's text, research and changelog stay in the folder.
 
 | Step | Command | What it does | Live calls |
 |---|---|---|---|
 | 1 | `/seo-genius:start` | Once per site. Confirms the site, the services, the city, and up to ten search terms you have to win. Saves `config.json`. | none |
 | 2 | `/seo-genius:competitor-dive` | Finds the three local businesses that outrank you on your terms, starting with the terms you are losing, reads the pages that rank, reads your own pages the same way, and reports what can be seen of why they rank, what your site is missing, and what to add. Saves `competitors.md` and `competitors.json`. | one per term (ten at most), plus one if fewer than three businesses turn up |
 | 3 | `/seo-genius:keyword-gap` | Pulls what you and those three rank for, removes brand and out-of-area terms, and groups the rest into topics where you are missing or behind. Saves `keyword-gap.md` and `keyword-gap.json`, and keeps each list it pulls in `keyword-lists/`. | one per domain (four at most), plus one for local terms nobody ranks for. A first pull may come from the server's shared cache with no date, so it is not reused and the next run pulls it again. A run reuses only a list saved in the last seven days that has a date: one from a fresh pull you asked for, or one the server dated as your own earlier pull. Ask for a fresh pull to get lists dated today |
-| 4 | `/seo-genius:content-plan` | Turns the research into an ordered backlog: pages to create, pages to improve, and pages to leave alone until an earlier change has been measured. Saves `plan.md`. | none |
+| 4 | `/seo-genius:content-plan` | Turns the research into an ordered backlog: pages to create, pages to improve, and pages to leave alone until an earlier change has been measured. Saves `plan.md`. Each item has an id (P-001) that stays the same on every later run. | none |
 
 Run `/seo-genius:brief` before step 2 and before acting on the plan. Repeat steps 2 to 4 about once a month.
 
@@ -70,10 +78,11 @@ Three more commands turn the pipeline into something that runs on its own.
 | Command | What it does |
 |---|---|
 | `/seo-genius:schedule` | Sets up scheduled runs. Records what an unattended run may do, and gives you the prompts to paste into a routine. |
+| `/seo-genius:weekly` | The week-over-week update: compares this week's stored rankings and open issues with last week's, adds every recorded change to `changelog.md` (changes logged through SEO Genius and fixes applied from the dashboard), updates plan items in place under the same ids, and syncs them with SEO Genius. Stored data only, no live calls. |
 | `/seo-genius:report` | The weekly report: what changed, what moved, what is waiting, and what needs a decision. |
 | `/seo-genius:next` | Takes the next item from the plan and writes the exact change as a proposal, or opens a pull request when you allow it. One item per run. |
 
-A usual setup is two routines: the research once a month (`competitor-dive`, `keyword-gap`, `content-plan`), and `report` then `next` once a week.
+A usual setup is two routines: the research once a month (`competitor-dive`, `keyword-gap`, `content-plan`), and `weekly`, then `next` once a week. The weekly run reads stored data only and makes no live call; run `/seo-genius:report` by hand when you want the report.
 
 What an unattended run can and cannot do:
 
@@ -89,7 +98,7 @@ What an unattended run can and cannot do:
 Two ways to schedule:
 
 - On your machine: a local routine in the Claude desktop app. It should load this plugin like any session on your machine; check that on the first run. It runs while the app is open and the computer is awake.
-- In the cloud: a routine on your Claude account, which runs when your computer is off. A cloud run does not install plugins, so `/seo-genius:schedule` copies the pipeline skills into your repository's `.claude/skills/` folder for you to commit. Run it again after a plugin update. SEO Genius has to be a connector on your Claude account. The default cloud environment blocks most outside sites, so competitor pages are marked "not read" unless you open its network access. A cloud run keeps nothing it does not push, and the research steps push nothing: after each monthly run you merge its research files from the run's session, or the weekly run keeps working from the old plan.
+- In the cloud: a routine on your Claude account, which runs when your computer is off. A cloud run does not install plugins, so `/seo-genius:schedule` copies the pipeline skills, and the two scripts they run, into your repository's `.claude/skills/` folder for you to commit. Run it again after a plugin update. SEO Genius has to be a connector on your Claude account. The default cloud environment blocks most outside sites, so competitor pages are marked "not read" unless you open its network access. A cloud run keeps nothing it does not push, and the research steps push nothing: after each monthly run you merge its research files from the run's session, or the weekly run keeps working from the old plan.
 
 ## How the skills behave
 
