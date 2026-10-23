@@ -197,7 +197,8 @@ test("merge: an invalid combination follows the until_needs_waiting rule, report
     l.items[0].status = "open";
     writeFileSync(p, JSON.stringify(l));
     const r = t.pull({});
-    assert.deepEqual(r.kept_local[0].normalized, [{ field: "until", rule: "until_needs_waiting" }]);
+    // The edited ledger is normalized as it is read, before the merge sees it.
+    assert.deepEqual(r.normalized, [{ id: "P-001", field: "until", rule: "until_needs_waiting", was: "2026-11-02" }]);
     assert.equal(t.item().until, null);
     assert.equal(t.push().payload.items[0].status_until, null);
   } finally {
