@@ -750,6 +750,40 @@ function idNumber(id) {
   return Number(String(id).split("-")[1]);
 }
 
+/**
+ * The item rule, in one place. `until` is the day a waiting item opens; on any
+ * other status it opens nothing and would show a stale date, so rule
+ * `until_needs_waiting` clears it. A waiting item with no until is valid (a
+ * would_revert block has no date to wait for), so nothing is invented for it.
+ * Takes anything with `status` and `until` (a ledger item or a merged state),
+ * changes it in place, and returns what it changed. Every path into the ledger
+ * passes through it: setStatus (set-status, plan, week verdicts), an item
+ * imported from the server (pull, a rebuilt ledger), the three-way merge, and
+ * every item of a ledger.json read from disk before a command uses it (a hand
+ * edit, or an item stored before this rule; so the pull shortcut for an item
+ * equal to the server's only ever sees a valid one). A change it makes to a synced item
+ * leaves the item differing from its synced state, so the next push sends it.
+ */
+export function normalizeState(x) {
+  if ((x.until ?? null) !== null && x.status !== "waiting") {
+    const was = x.until;
+    x.until = null;
+    return [{ field: "until", rule: "until_needs_waiting", was }];
+  }
+  return [];
+}
+
+// What normalizeState changed during the current command, reported in its answer.
+let normalizedLog = [];
+
+/** normalizeState on a ledger item, logged with its id. */
+function normalizeItem(it, on) {
+  const changes = normalizeState(it);
+  for (const c of changes) normalizedLog.push({ id: it.id, ...c });
+  if (changes.length && on) it.updated_on = on;
+  return changes;
+}
+
 function setStatus(item, status, on, reason, until = null) {
   if (!ITEM_STATUSES.includes(status)) throw new LedgerError("bad_input", `unknown status ${status} for ${item.id}`);
   const changed = item.status !== status || (item.until ?? null) !== (until ?? null) || (item.status_reason ?? null) !== (reason ?? null);
@@ -759,6 +793,7 @@ function setStatus(item, status, on, reason, until = null) {
     item.history.push({ status, on, reason: reason ?? null });
     item.status = status;
   }
+  normalizeItem(item, on);
   if (changed) item.updated_on = on;
   return changed;
 }
@@ -814,14 +849,10 @@ function serverRowState(s) {
  * With no base (never acknowledged) every field that differs is a conflict and
  * the local value stands.
  *
- * One combination is invalid whichever sides it came from: an until date on a
- * status other than waiting. `until` is the day a waiting item opens; on any
- * other status it opens nothing and would show a stale date. Rule
- * `until_needs_waiting`: the date is cleared, the field is reported in
- * `normalized`, and the push sends the clear. A waiting item with no until is
- * valid (a would_revert block has no date to wait for), so nothing is invented
- * for it. No other combination of the five fields is invalid: the server stores
- * each one independently.
+ * The merged state then passes through normalizeState (rule until_needs_waiting),
+ * whichever sides its fields came from; what it cleared is reported in
+ * `normalized`, and the push sends the clear. No other combination of the five
+ * fields is invalid.
  */
 export function mergeItemState(base, mine, theirs) {
   const merged = {};
@@ -836,11 +867,7 @@ export function mergeItemState(base, mine, theirs) {
     else side[f] = "conflict";
     merged[f] = side[f] === "server" ? r : l;
   }
-  const normalized = [];
-  if (merged.until !== null && merged.status !== "waiting") {
-    merged.until = null;
-    normalized.push({ field: "until", rule: "until_needs_waiting" });
-  }
+  const normalized = normalizeState(merged).map(({ field, rule }) => ({ field, rule }));
   return {
     merged,
     adopted: SYNC_FIELDS.filter((f) => side[f] === "server" && merged[f] === (theirs[f] ?? null)),
@@ -894,6 +921,8 @@ function importServerItem(ledger, s, today) {
     synced: serverRowState(s),
   };
   if (s.change_id) it.links.change = `reported:${String(s.change_id).toLowerCase()}`;
+  // synced keeps the server's row as it is, so a date cleared here is pushed.
+  normalizeItem(it, today);
   ledger.items.push(it);
   return it;
 }
@@ -943,12 +972,15 @@ export function applyPull(ledger, input, today) {
     }
     const server = serverRowState(s);
     if (sameState(server, statusState(local))) {
+      // local already passed normalizeState when the ledger was read, so equal
+      // means the server row is valid too.
       local.synced = server;
       out.in_sync += 1;
       continue;
     }
     const { merged, adopted, conflicts, normalized } = mergeItemState(local.synced ?? null, statusState(local), server);
     applyItemState(local, merged, today, "changed on the server");
+    for (const c of normalized) normalizedLog.push({ id: local.id, ...c });
     local.synced = server;
     if (adopted.length) out.adopted.push({ id: local.id, status: local.status, fields: adopted });
     const pending = SYNC_FIELDS.filter((f) => (merged[f] ?? null) !== (server[f] ?? null));
@@ -1499,6 +1531,7 @@ function historyLabel(mode, gitReady) {
 
 /** Runs one command against a site folder and returns the JSON the CLI prints. */
 export function run(cmd, opts) {
+  normalizedLog = [];
   const today = opts.today ?? new Date().toISOString().slice(0, 10);
   const env = opts.env ?? process.env;
   if (cmd === "claim") {
@@ -1559,6 +1592,8 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
 
   if (cmd === "show") {
     const ledger = loadLedger(dir, site, today) ?? emptyLedger(site, today);
+    // Shown as the next write will store it; nothing is written here.
+    for (const it of ledger.items) normalizeItem(it);
     return {
       ...where,
       format_version: ledger.format_version,
@@ -1576,6 +1611,7 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
       runs: ledger.runs.length,
       runs_not_synced: ledger.runs.filter((r) => !r.synced).length,
       push_pending: !!ledger.pending_push,
+      ...(normalizedLog.length ? { normalized: normalizedLog } : {}),
     };
   }
   // In a site folder its git exists before anything is written into it.
@@ -1639,6 +1675,8 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     ledger.history_complete = false;
   }
   if (input?.site_id && !ledger.site_id) ledger.site_id = input.site_id;
+  // A ledger.json edited by hand passes the same rule before anything reads it.
+  for (const it of ledger.items) normalizeItem(it, today);
 
   // A file the ledger wrote and someone edited since is kept before anything is rewritten.
   let recorded = ledger.files;
@@ -1725,6 +1763,7 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     ...(ledger.history_complete === false ? { history_needed: true } : {}),
     ...(guarded.hand_edited.length ? { hand_edited: guarded.hand_edited } : {}),
     ...(guarded.missing.length ? { missing: guarded.missing } : {}),
+    ...(normalizedLog.length ? { normalized: normalizedLog } : {}),
     ...result,
   };
 }
