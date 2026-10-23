@@ -66,6 +66,28 @@ test("lock: taking over a stale lock does not stop the look for a live owner lis
   }
 });
 
+test("lock: a Windows sharing error while taking over a stale lock is contention: the run answers locked and commits nothing", () => {
+  for (const op of ["unlink", "stat"]) {
+    for (const code of ["EPERM", "EBUSY", "EACCES"]) {
+      const s = scratch();
+      try {
+        const stale = plantLock(s, { pid: deadPid(), host: hostname() });
+        const r = cli(s, "plan", { input: PLAN, env: { SEO_GENIUS_LEDGER_TEST_LOCK_FS_ERROR: `${op}:${code}` } });
+        assert.equal(r.code, 2, `${op}:${code} ${JSON.stringify(r.out)}`);
+        assert.equal(r.out.error, "locked", `${op}:${code}: the standard answer, not a raw ${code}`);
+        assert.equal(existsSync(join(s.siteDir, "ledger.json")), false, `${op}:${code}: nothing written`);
+        assert.deepEqual(pendingTxns(s.siteDir), [], `${op}:${code}: nothing staged`);
+        assert.deepEqual(lockFiles(s.siteDir), [stale], `${op}:${code}: only the stale lock is left; its own is released`);
+        // Once the other run is done with it, the next run takes the stale lock over.
+        assert.equal(cli(s, "plan", { input: PLAN }).code, 0);
+        assert.deepEqual(lockFiles(s.siteDir), []);
+      } finally {
+        s.done();
+      }
+    }
+  }
+});
+
 test("lock: a run that crashed on this machine is taken over at once, however recently it refreshed its lock", () => {
   const s = scratch();
   try {
