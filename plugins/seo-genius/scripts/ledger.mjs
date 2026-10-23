@@ -150,6 +150,9 @@ const TEST = {
   pause: process.env.SEO_GENIUS_LEDGER_TEST_PAUSE || "",
   staleMs: Number(process.env.SEO_GENIUS_LEDGER_TEST_STALE_MS) || 0,
   host: process.env.SEO_GENIUS_LEDGER_TEST_HOST || "",
+  // "unlink:EPERM" or "stat:EBUSY": that file call on another run's lock fails with
+  // that code, as Windows answers for a file another process is deleting.
+  lockFsError: process.env.SEO_GENIUS_LEDGER_TEST_LOCK_FS_ERROR || "",
 };
 const stepCounts = new Map();
 function step(name) {
@@ -167,6 +170,18 @@ function step(name) {
 function sleep(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
+
+// This process's own lock, which the test seam leaves alone.
+let ownLockName = null;
+
+/** Test seam: makes the named file call on another run's lock fail as Windows would. */
+function injectedLockError(op) {
+  const [at, code] = TEST.lockFsError.split(":");
+  if (at === op) throw Object.assign(new Error(`${code}: injected by test (${op})`), { code });
+}
+
+// What Windows answers for a file another process holds open or is deleting.
+const SHARING_ERRORS = new Set(["EPERM", "EBUSY", "EACCES"]);
 
 function thisHost() {
   return TEST.host || hostname();
@@ -351,9 +366,13 @@ function readLock(dir, name) {
   const path = join(dir, name);
   let heartbeat;
   try {
+    if (name !== ownLockName) injectedLockError("stat");
     heartbeat = statSync(path).mtimeMs;
   } catch (e) {
     if (e.code === "ENOENT") return null;
+    // Another run is removing or writing it right now: treated as a live owner, so
+    // this run withdraws and, after the wait, answers locked.
+    if (SHARING_ERRORS.has(e.code)) return { name, path, owner: null, heartbeat: Date.now(), busy: true };
     throw e;
   }
   let owner = null;
@@ -391,15 +410,22 @@ function otherLocks(dir, mine) {
  * Removes the lock that was judged stale, by its own name. A name carries its
  * owner's token and is never reused, so this can only remove that owner's lock,
  * never one a newer run published. A lock refreshed since it was judged is left.
+ * Returns "removed", "gone" (another run removed it first, or it was refreshed),
+ * or "contended": Windows refused the delete because another run is taking the
+ * same lock over at this moment (EPERM, EBUSY or EACCES). Contended is a live
+ * competitor, never an error: the caller withdraws as from any live owner.
  */
 function removeStaleLock(dir, judged) {
   const now = readLock(dir, judged.name);
-  if (!now || now.heartbeat !== judged.heartbeat) return false;
+  if (!now || now.busy) return now?.busy ? "contended" : "gone";
+  if (now.heartbeat !== judged.heartbeat) return "gone";
   try {
+    injectedLockError("unlink");
     unlinkSync(judged.path);
-    return true;
+    return "removed";
   } catch (e) {
-    if (e.code === "ENOENT") return false;
+    if (e.code === "ENOENT") return "gone";
+    if (SHARING_ERRORS.has(e.code)) return "contended";
     throw e;
   }
 }
@@ -426,6 +452,7 @@ function cleanLockTemps(dir) {
 function publishLock(dir) {
   const token = randomUUID();
   const name = `${LOCK_PREFIX}${token}`;
+  ownLockName = name;
   const path = join(dir, name);
   const owner = { token, pid: process.pid, host: thisHost(), started: new Date().toISOString() };
   const tmp = `${path}.tmp`;
@@ -484,7 +511,7 @@ export function acquireLock(dir, { waitMs = LOCK_WAIT_MS } = {}) {
     for (const l of otherLocks(dir, lock.name)) {
       if (lockIsStale(l)) {
         step("lock:judged-stale");
-        removeStaleLock(dir, l);
+        if (removeStaleLock(dir, l) === "contended") live.push({ ...l, owner: null, heartbeat: Date.now() });
       } else {
         live.push(l);
       }
