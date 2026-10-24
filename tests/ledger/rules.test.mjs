@@ -47,7 +47,7 @@ test("week: rule table: only open, unchecked, or waiting whose until has come ma
   for (const [it, want] of cases) assert.equal(weekMayChange(it, today), want, JSON.stringify(it));
 });
 
-test("week: a manual status survives two weeks of allow verdicts and a live change; open and a run-out wait move; held says why", () => {
+test("week: a manual status survives two weeks of allow verdicts and a live change; a run-out wait opens on its date; held says why", () => {
   const s = scratch();
   try {
     ok(cli(s, "plan", { input: SIX, today: "2026-10-12" }));
@@ -61,12 +61,13 @@ test("week: a manual status survives two weeks of allow verdicts and a live chan
       const st = (id) => [item(s, id).status, item(s, id).until ?? null, item(s, id).status_reason];
       assert.deepEqual(st("P-001"), ["in_progress", null, "pull request 12"], `week ${week}`);
       assert.deepEqual(st("P-002"), ["waiting", "2026-11-30", "client review"], `week ${week}`);
-      assert.deepEqual(st("P-003")[0], "open", `week ${week}: the wait ran out on 2026-10-19`);
+      assert.deepEqual(st("P-003"), ["open", null, null], `week ${week}: the wait ran out on 2026-10-19; allow set no reason`);
       assert.deepEqual(st("P-004"), ["done", null, "shipped by hand"], `week ${week}`);
       assert.deepEqual(st("P-005"), ["dropped", null, "client said no"], `week ${week}`);
       assert.equal(st("P-006")[0], "open");
       const held = Object.fromEntries(w.held.map((h) => [h.id, h.would_be]));
-      assert.deepEqual(held, { "P-001": "done", "P-002": "open" }, `week ${week}: ${JSON.stringify(w.held)}`);
+      // An allow changes nothing, so it holds nothing back either: only the live change is reported.
+      assert.deepEqual(held, { "P-001": "done" }, `week ${week}: ${JSON.stringify(w.held)}`);
       assert.deepEqual(w.status_changes.map((c) => c.id), week === 1 ? ["P-003"] : [], `week ${week}`);
       const page = readFileSync(join(s.siteDir, "weekly", `${today}.md`), "utf8");
       assert.match(page, /## Kept as set/);

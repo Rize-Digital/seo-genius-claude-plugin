@@ -112,11 +112,11 @@ test("normalize: set-status with an until date on a status other than waiting st
   }
 });
 
-test("normalize: a week verdict that gives a date to an open item stores no date and reports it", () => {
+test("normalize: a week verdict that gives a date to a status other than waiting stores no date and reports it", () => {
   const s = scratch();
   try {
     assert.equal(cli(s, "plan", { input: PLAN, today: "2026-10-12" }).code, 0);
-    const r = cli(s, "week", { input: { as_of: "2026-10-19", verdicts: { "P-003": { status: "open", reason: "go", until: "2026-11-01" } } } });
+    const r = cli(s, "week", { input: { as_of: "2026-10-19", verdicts: { "P-003": { status: "dropped", reason: "would_revert", until: "2026-11-01" } } } });
     assert.equal(r.code, 0, JSON.stringify(r.out));
     assert.deepEqual(r.out.normalized, [RULE("P-003", "2026-11-01")]);
     assert.equal(item(s, "P-003").until, null);

@@ -16,6 +16,7 @@
 13. Prompt 1 started from inside the site folder itself (`~/seo-genius/<domain>/`), then from the folder that holds it.
 14. Prompt 1 twice in a row with nothing new.
 15. Prompt 1 after `/seo-genius:report` recorded the merged pull request of an item in progress, once while the change is claimed and again after SEO Genius verified it.
+16. Prompt 1 when `check_change` allows every item.
 
 ## Expected tool sequence
 node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan_items (every page) -> ledger.mjs pull -> [history_needed: list_page_changes and list_applied_fixes, every page, no since -> ledger.mjs history] -> ledger.mjs show -> list_tracked_keywords -> list_issues (status open, limit 100) -> list_page_changes (since the last run) -> list_applied_fixes (same since, every page) -> [check_change per item that is open, unchecked, or waiting with an until on or before today, twenty at most] -> ledger.mjs week -> ledger.mjs push-payload -> [save_plan_items -> ledger.mjs push-ack, when there is something to send]
@@ -33,6 +34,7 @@ node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan
 - [ ] Prompt 10: both times the reply stops with `owner_unknown`, repeats the `claim` command, and nothing in the folder changed.
 - [ ] Prompt 11: one run finishes; the other says another run is working on the site and writes nothing.
 - [ ] Prompt 12: neither item changed status; no `check_change` call was made for them; the reply lists both under `held`, the in-progress one with the recorded change as what the week found.
+- [ ] Prompt 16: no item changed, no item has a new reason, and the push sends only the run.
 - [ ] Prompt 15: the in-progress item whose own linked change (recorded by `/seo-genius:report` after its pull request merged) is now verified live is done, with that change as the reason; one whose change is still claimed stays in progress.
 - [ ] Prompt 13: both runs use the site folder itself, and no `.seo-genius/` folder appears inside it.
 - [ ] Prompt 14: the second push answers `nothing_to_send: true` with no commit, and `show` said no push was pending.

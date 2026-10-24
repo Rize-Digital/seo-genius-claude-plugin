@@ -11,7 +11,7 @@
 //   node ledger.mjs history      --site <domain> --input <file|->   the whole change history -> changelog
 //   node ledger.mjs plan         --site <domain> --input <file|->   content-plan items -> local
 //   node ledger.mjs week         --site <domain> --input <file|->   this week's stored readings -> local
-//   node ledger.mjs set-status   --site <domain> --id P-001 --status in_progress [--reason <text>] [--until <date>] [--change <log_page_change id>]
+//   node ledger.mjs set-status   --site <domain> --id P-001 --status in_progress [--reason <text>] [--until <date>] [--change <log_page_change id> | --replace-change <id>]
 //   node ledger.mjs save         --site <domain> --file <path>[,<path>...]   drafts -> the site folder, one commit
 //   node ledger.mjs claim        --site <domain> --confirm <domain>  take over a folder whose owner cannot be read
 //   node ledger.mjs push-payload --site <domain>                    local -> save_plan_items input
@@ -103,14 +103,27 @@
 // other change or closed issue moves it. One exception closes the loop that
 // `next` opens: an item in progress becomes done when its own linked change
 // (links.change, the server's change_id) is in the changelog as verified live.
-// It never goes back to open. What the week would have done to a kept item is
-// reported in `held`, so the caller can say it and a person can decide.
+// It never goes back to open; while its own change is claimed, unobserved or not
+// read yet, it is reported in `held` with that reason. What the week would have
+// done to any other kept item is reported in `held` too, so the caller can say it
+// and a person can decide. An allow verdict (status open) changes nothing, not
+// even a reason: only a block moves an item. A wait whose date has come opens
+// again on that date by itself, unless a verdict blocks it again.
+//
+// NOTHING WRITTEN ON A REFUSAL OR A NO-OP. Arguments and input are checked before
+// any folder exists. Only prepare, pull, plan, week and history create a missing
+// site folder, and one of them that is then refused removes what it created. The
+// folder's git, .gitignore and drafts folder are made only by a command about to
+// write. push-payload with nothing to send, on a missing, empty or synced folder,
+// writes nothing.
 //
 // SET-STATUS. A reason or until left out keeps the item's own when the status
 // stays the same (only the other one changes). When the status changes, the old
 // reason explained the old status, so a left-out one is cleared, as is the old
 // until (normalizeState clears an until on any status but waiting). An empty
-// --reason "" or --until "" clears it.
+// --reason "" or --until "" clears it. --change links the item to the change
+// log_page_change recorded for it; it never replaces a different link already
+// there. Only --replace-change does that, and no skill uses it.
 
 import {
   readFileSync,
@@ -1101,6 +1114,11 @@ export function applyPull(ledger, input, today) {
       });
     }
   }
+  // A payload whose answer was lost, and whose state the server now confirms, is not awaited any more.
+  if (ledger.pending_push && !pendingSync(ledger).pending) {
+    delete ledger.pending_push;
+    out.cleared_pending_push = true;
+  }
   return out;
 }
 
@@ -1111,7 +1129,9 @@ export function applyPull(ledger, input, today) {
 export function pendingSync(ledger) {
   const items = ledger.items.filter((it) => !sameState(it.synced, statusState(it)));
   const runs = ledger.runs.filter((r) => !r.synced);
-  return { items, runs, pending: items.length > 0 || runs.length > 0 };
+  const pending = items.length > 0 || runs.length > 0;
+  // A payload made and not acknowledged counts only while something is still pending.
+  return { items, runs, pending, awaiting_ack: pending && !!ledger.pending_push };
 }
 
 /** What the server has not seen yet, as save_plan_items input. With nothing pending the ledger is left as it is. */
@@ -1435,9 +1455,7 @@ export function weekMayChange(it, today) {
 }
 
 export function applyWeek(ledger, input, prev, today) {
-  if (input.as_of != null && input.as_of !== today) {
-    throw new LedgerError("bad_input", `as_of ${input.as_of} is not the run's date ${today} (the UTC date); leave as_of out, and the run is dated ${today}. Nothing was changed.`);
-  }
+  checkAsOf(input, today);
   const merged = mergeChanges(ledger, input.changes);
   const out = { status_changes: [], held: [], changes_added: merged.added, changes_updated: merged.updated };
 
@@ -1448,10 +1466,16 @@ export function applyWeek(ledger, input, prev, today) {
     const before = it.status;
     // An item in progress closes on its own linked change once the server verified it
     // live, and on nothing else: no verdict, other change or closed issue moves it.
-    const own = it.status === "in_progress" && it.links.change ? ledger.changes.find((c) => c.key === it.links.change && c.state === "verified") : null;
-    if (own) {
-      setStatus(it, "done", today, `its own change verified live ${own.on} (${sourceLabel(own)})`);
-      out.status_changes.push({ id: it.id, from: before, to: it.status, reason: it.status_reason });
+    if (it.status === "in_progress" && it.links.change) {
+      const own = ledger.changes.find((c) => c.key === it.links.change);
+      if (own?.state === "verified") {
+        setStatus(it, "done", today, `its own change verified live ${own.on} (${sourceLabel(own)})`);
+        out.status_changes.push({ id: it.id, from: before, to: it.status, reason: it.status_reason });
+      } else {
+        // Its own change is what closes it, so the item waits on that change alone.
+        const why = own ? `its own change ${own.on} is ${own.state ?? "not verified"}, not verified live yet` : `its own change ${it.links.change} is not in the changelog yet`;
+        out.held.push({ id: it.id, status: it.status, until: null, would_be: "done", reason: why });
+      }
       continue;
     }
     const done = it.change_kind
@@ -1468,7 +1492,10 @@ export function applyWeek(ledger, input, prev, today) {
     let next = null;
     if (done) next = { status: "done", reason: `change recorded ${done.on} (${sourceLabel(done)})`, until: null, change: done.key };
     else if (it.links.issue_id && issuesRead && !openIssues.has(it.links.issue_id)) next = { status: "done", reason: "the issue it was planned for is no longer open", until: null };
-    else if (input.verdicts?.[it.id]) next = { status: input.verdicts[it.id].status, reason: input.verdicts[it.id].reason, until: input.verdicts[it.id].until };
+    // An allow verdict (status open) changes nothing: no status, no reason. Only a block moves an item.
+    else if (input.verdicts?.[it.id] && input.verdicts[it.id].status !== "open") next = { status: input.verdicts[it.id].status, reason: input.verdicts[it.id].reason, until: input.verdicts[it.id].until };
+    // A wait whose date has come opens again on that date, not on a verdict.
+    else if (it.status === "waiting" && weekMayChange(it, today)) next = { status: "open", reason: null, until: null };
     if (!next) continue;
     if (!weekMayChange(it, today)) {
       // Set by a person, or a wait that has not run out: kept, and reported.
@@ -1527,6 +1554,10 @@ export function renderPlan(ledger, today) {
   return `${lines.join("\n")}\n`;
 }
 
+function countLine(n, one, many) {
+  return `${n} ${n === 1 ? one : many} recorded.`;
+}
+
 export function renderChangelog(ledger, today) {
   const rows = [...ledger.changes].sort((a, b) => String(b.on ?? "").localeCompare(String(a.on ?? "")) || a.key.localeCompare(b.key));
   const lines = [
@@ -1534,6 +1565,10 @@ export function renderChangelog(ledger, today) {
     `# Changelog: ${ledger.site}`,
     "",
     `Updated ${today}. Both sources, each row once by its id: changes recorded through the MCP (log_page_change) and fixes applied from the dashboard (apply-fix).`,
+    "",
+    // A source with no rows says so, so "none recorded" is never mistaken for "not read".
+    countLine(ledger.changes.filter((c) => c.source === "reported").length, "MCP change", "MCP changes"),
+    countLine(ledger.changes.filter((c) => c.source === "coach_applied_fix").length, "dashboard fix", "dashboard fixes"),
     "",
   ];
   if (rows.length === 0) {
@@ -1632,6 +1667,22 @@ function ensureGitignore(dir) {
   renameReplacing(tmp, p);
 }
 
+/**
+ * The path `save` stores a draft under. Either that path itself, relative to the
+ * site folder ("reports/2026-10-25-next.md"), or the draft's own path, absolute or
+ * relative to the working folder, as long as it lies inside the drafts folder
+ * ("<site folder>/.drafts/reports/2026-10-25-next.md"). Anything else is refused.
+ */
+function draftRel(dir, given) {
+  const drafts = resolvePath(dir, DRAFTS_DIR);
+  const pathLike = nodePath.isAbsolute(given) || /^\.{1,2}[\\/]/.test(given) || /(^|[\\/])\.drafts[\\/]/.test(given);
+  if (!pathLike) return given.replace(/\\/g, "/");
+  const full = resolvePath(given);
+  const rel = nodePath.relative(drafts, full);
+  if (!rel || rel.startsWith("..") || nodePath.isAbsolute(rel)) throw new LedgerError("bad_input", `${given} is not inside the drafts folder ${drafts}; give the path inside the site folder (reports/<date>.md), or the draft's own path`);
+  return rel.split(nodePath.sep).join("/");
+}
+
 /** The drafts `save` takes in: `<site folder>/.drafts/<path>`. */
 function saveWrites(dir, site, list) {
   const rels = String(list ?? "")
@@ -1639,7 +1690,8 @@ function saveWrites(dir, site, list) {
     .map((s) => s.trim())
     .filter(Boolean);
   if (rels.length === 0) throw new LedgerError("bad_input", "save needs --file <path>[,<path>...], each one written under the drafts folder first");
-  return rels.map((rel) => {
+  return rels.map((given) => {
+    const rel = draftRel(dir, given);
     target(dir, rel);
     if (!/\.(md|json)$/.test(rel)) throw new LedgerError("bad_input", `${rel}: save keeps .md and .json files only`);
     if (LEDGER_OWNED.has(rel) || LEDGER_OWNED_DIRS.some((d) => rel.startsWith(d)) || /\.(hand-edit|corrupt|unreadable)-/.test(rel)) {
@@ -1693,24 +1745,60 @@ export function run(cmd, opts) {
     }
   }
   if (cmd !== "resolve" && cmd !== "show" && !WRITES.has(cmd)) throw new LedgerError("bad_command", `unknown command ${cmd}`);
+  // Everything a command can be refused for on its arguments and input alone is
+  // checked here, before any folder, git, .gitignore or drafts folder exists.
+  const input = INPUT_COMMANDS.has(cmd) ? opts.input ?? readInput(opts.inputPath) : null;
+  if (cmd === "week") checkAsOf(input, today);
+  if (cmd === "set-status") checkSetStatusArgs(opts);
   const located = locateSiteDir({ ...opts, env });
   const { dir } = located;
   const drafts_dir = join(dir, DRAFTS_DIR);
-  // A command that writes creates the folder; resolve and show leave a missing one missing.
-  if (WRITES.has(cmd)) mkdirSync(dir, { recursive: true });
-  if (!existsSync(dir)) {
+  if (!existsSync(dir) && !CREATES.has(cmd)) {
+    // resolve and show leave a missing folder missing, and so does every command
+    // that would write nothing into it.
     const where = ownerAnswer(cmd, located);
     if (cmd === "resolve") return { ...where, drafts_dir };
-    return { ...where, format_version: FORMAT_VERSION, items: [], runs: 0, items_not_synced: 0, runs_not_synced: 0, push_pending: false, awaiting_ack: false };
+    if (cmd === "push-payload") return { ...where, command: cmd, drafts_dir, files: {}, commit: null, nothing_to_send: true, payload: { items: [], runs: [] } };
+    if (cmd === "show") return { ...where, format_version: FORMAT_VERSION, items: [], runs: 0, items_not_synced: 0, runs_not_synced: 0, push_pending: false, awaiting_ack: false };
+    throw new LedgerError("bad_input", `${dir} does not exist yet, so there is nothing to ${cmd}; nothing was written`);
   }
-  // Every command, in this order: the lock, then a pending transaction finished or
-  // thrown away, then whose folder it is. Owner files half moved in are never read.
-  const lock = acquireLock(dir);
+  // Only a command that writes the ledger creates the folder. One that is then
+  // refused takes away again what it created.
+  const created = existsSync(dir) ? undefined : mkdirSync(dir, { recursive: true });
+  let ok = false;
   try {
-    return runLocked(cmd, opts, { located, lock, today, env, drafts_dir });
+    // Every command, in this order: the lock, then a pending transaction finished or
+    // thrown away, then whose folder it is. Owner files half moved in are never read.
+    const lock = acquireLock(dir);
+    try {
+      const out = runLocked(cmd, { ...opts, input }, { located, lock, today, env, drafts_dir });
+      ok = true;
+      return out;
+    } finally {
+      lock.release();
+    }
   } finally {
-    lock.release();
+    if (created && !ok) rmSync(created, { recursive: true, force: true });
   }
+}
+
+// Commands that read --input, and the ones that may create the site folder.
+const INPUT_COMMANDS = new Set(["pull", "plan", "week", "history", "push-ack"]);
+const CREATES = new Set(["prepare", "pull", "plan", "week", "history"]);
+
+/** A week's as_of, when given, is the run's own date (DATES at the top). */
+function checkAsOf(input, today) {
+  if (input?.as_of != null && input.as_of !== today) {
+    throw new LedgerError("bad_input", `as_of ${input.as_of} is not the run's date ${today} (the UTC date); leave as_of out, and the run is dated ${today}. Nothing was changed.`);
+  }
+}
+
+function checkSetStatusArgs(opts) {
+  if (!ITEM_STATUSES.includes(opts.status)) throw new LedgerError("bad_input", `--status must be one of ${ITEM_STATUSES.join(", ")}, got ${JSON.stringify(opts.status)}`);
+  for (const k of ["change", "replaceChange"]) {
+    if (opts[k] !== undefined && !UUID_RE.test(String(opts[k]))) throw new LedgerError("bad_input", `--${k === "change" ? "change" : "replace-change"} must be the id log_page_change returned, got ${JSON.stringify(opts[k])}`);
+  }
+  if (opts.change !== undefined && opts.replaceChange !== undefined) throw new LedgerError("bad_input", "give --change or --replace-change, not both");
 }
 
 /** The resolver's answer once the owner files are read. */
@@ -1762,14 +1850,13 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
       runs_not_synced: pending.runs.length,
       push_pending: pending.pending,
       // A payload made and not acknowledged yet; the next push-payload sends what is still pending.
-      awaiting_ack: !!ledger.pending_push,
+      awaiting_ack: pending.awaiting_ack,
       ...(normalizedLog.length ? { normalized: normalizedLog } : {}),
     };
   }
-  // In a site folder its git exists before anything is written into it.
-  const gitReady = mode === "workspace" ? ensureWorkspaceGit(dir, env) : false;
-  ensureGitignore(dir);
-  mkdirSync(drafts_dir, { recursive: true });
+  // The folder's git, .gitignore and drafts folder are made only by a command that
+  // is about to write: in a site folder its git exists before anything is written into it.
+  let gitReady = mode === "workspace" && existsSync(join(dir, ".git"));
   const base = {
     ...where,
     command: cmd,
@@ -1777,12 +1864,19 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     history: historyLabel(mode, gitReady),
     ...(recovered.length ? { recovered } : {}),
   };
+  const setUp = () => {
+    gitReady = mode === "workspace" ? ensureWorkspaceGit(dir, env) : false;
+    ensureGitignore(dir);
+    mkdirSync(drafts_dir, { recursive: true });
+    base.history = historyLabel(mode, gitReady);
+  };
   if (cmd === "prepare") {
+    setUp();
     const commit = gitReady ? commitWorkspace(dir, `ledger: set up the site folder ${today}`, env) : null;
     return { ...base, commit };
   }
 
-  const input = ["push-payload", "set-status", "save", "claim"].includes(cmd) ? null : opts.input ?? readInput(opts.inputPath);
+  const input = opts.input;
   const writes = [];
   let ledger = null;
   let quarantined = null;
@@ -1873,10 +1967,15 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     // SET-STATUS at the top: left out, a reason or until is kept while the status stays.
     const same = opts.status === it.status;
     const given = (v, have) => (v === undefined ? (same ? have ?? null : null) : v || null);
-    if (opts.change !== undefined) {
-      // The recorded change this item made (log_page_change's id): a week closes an item in progress on it.
-      if (!UUID_RE.test(String(opts.change))) throw new LedgerError("bad_input", `--change must be the id log_page_change returned, got ${JSON.stringify(opts.change)}`);
-      it.links.change = `reported:${String(opts.change).toLowerCase()}`;
+    const link = opts.change ?? opts.replaceChange;
+    if (link !== undefined) {
+      // The recorded change this item made (log_page_change's id): a week closes an item in
+      // progress on it. A different link already there is replaced only by --replace-change.
+      const key = `reported:${String(link).toLowerCase()}`;
+      if (opts.replaceChange === undefined && it.links.change && it.links.change !== key) {
+        throw new LedgerError("bad_input", `${it.id} is already linked to ${it.links.change}; nothing was changed. Only --replace-change replaces a link.`);
+      }
+      it.links.change = key;
       if (it.cleared_changes) it.cleared_changes = it.cleared_changes.filter((k) => k !== it.links.change);
     }
     setStatus(it, opts.status, today, given(opts.reason, it.status_reason), given(opts.until, it.until));
@@ -1911,6 +2010,7 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
   if (!movedLedger) writes.push({ rel: "ledger.json", data: `${JSON.stringify(ledger, null, 1)}\n` });
   const runId = runEntry ? ledger.runs[ledger.runs.length - 1].run_id : null;
   const message = `ledger: ${cmd} ${today}${runId ? ` run ${runId}` : ""}${cmd === "save" ? ` ${drafts.map((d) => d.rel).join(", ")}` : ""}`;
+  setUp();
   const commit = finishTransaction(dir, stageTransaction(dir, writes, message, lock), { gitReady, env, lock });
   // The drafts are in the folder's history now.
   for (const d of drafts) rmSync(d.draft, { force: true });
@@ -1977,6 +2077,7 @@ if (isMain) {
       file: a.file,
       confirm: a.confirm,
       change: a.change,
+      replaceChange: a["replace-change"],
       holdMs: process.env.SEO_GENIUS_LEDGER_TEST_HOLD_MS,
     });
     process.stdout.write(`${JSON.stringify(out, null, 1)}\n`);
