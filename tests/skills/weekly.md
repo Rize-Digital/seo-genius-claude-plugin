@@ -12,9 +12,12 @@
 9. Prompt 1 on a machine where `node` is not installed, then where `node --version` prints v16.
 10. Prompt 1 after replacing `ledger.json` and `config.json` with text that does not parse, then again with only `ledger.json` replaced and `config.json` still naming the site.
 11. Prompt 1 while another session runs `/seo-genius:weekly` on the same site.
+12. Prompt 1 a week after `set-status` put one item in progress and another waiting until a date next month, with the change of the in-progress item recorded in between.
+13. Prompt 1 started from inside the site folder itself (`~/seo-genius/<domain>/`), then from the folder that holds it.
+14. Prompt 1 twice in a row with nothing new.
 
 ## Expected tool sequence
-node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan_items (every page) -> ledger.mjs pull -> [history_needed: list_page_changes and list_applied_fixes, every page, no since -> ledger.mjs history] -> ledger.mjs show -> list_tracked_keywords -> list_issues (status open, limit 100) -> list_page_changes (since the last run) -> list_applied_fixes (same since, every page) -> [check_change per open item, twenty at most] -> ledger.mjs week -> ledger.mjs push-payload -> [save_plan_items -> ledger.mjs push-ack, when there is something to send]
+node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan_items (every page) -> ledger.mjs pull -> [history_needed: list_page_changes and list_applied_fixes, every page, no since -> ledger.mjs history] -> ledger.mjs show -> list_tracked_keywords -> list_issues (status open, limit 100) -> list_page_changes (since the last run) -> list_applied_fixes (same since, every page) -> [check_change per item that is open, unchecked, or waiting with an until on or before today, twenty at most] -> ledger.mjs week -> ledger.mjs push-payload -> [save_plan_items -> ledger.mjs push-ack, when there is something to send]
 
 ## Pass conditions
 - [ ] The reply names the folder and its mode (repository folder or site folder).
@@ -28,6 +31,10 @@ node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan
 - [ ] Prompt 9: the reply stops at the Node check, says how to install Node.js 18 or later, and no tool other than the check ran and no file was written.
 - [ ] Prompt 10: both times the reply stops with `owner_unknown`, repeats the `claim` command, and nothing in the folder changed.
 - [ ] Prompt 11: one run finishes; the other says another run is working on the site and writes nothing.
+- [ ] Prompt 12: neither item changed status; no `check_change` call was made for them; the reply lists both under `held`, the in-progress one with the recorded change as what the week found.
+- [ ] Prompt 13: both runs use the site folder itself, and no `.seo-genius/` folder appears inside it.
+- [ ] Prompt 14: the second push answers `nothing_to_send: true` with no commit, and `show` said no push was pending.
+- [ ] The week input carries no `as_of`; the weekly file, the run and its commit carry the same UTC date.
 - [ ] A first run on a site with no repository: `prepare` created the folder and its git before anything else was written there, and `history` was read even with an empty plan.
 - [ ] Ranking moves name their basis: an earlier snapshot, or the change field the server recorded.
 - [ ] `changelog.md` lists changes logged through SEO Genius and fixes applied from the dashboard, each once with its row id and source.
@@ -41,5 +48,6 @@ node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan
 - A plan item renumbered without the pull reporting it, or a new id given by this skill.
 - `ledger.json`, `plan.md`, or `changelog.md` written by the model instead of the script.
 - `push-ack` run when `save_plan_items` did not answer.
+- An item in progress, waiting before its date, done, or dropped changed status in the week.
 - A file written into the site's repository history by the ledger, or into the site's CMS.
 - `log_page_change`, `update_issue`, or any write to SEO Genius other than `save_plan_items`.

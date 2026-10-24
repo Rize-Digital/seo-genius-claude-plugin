@@ -73,12 +73,13 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
    - `list_applied_fixes` with `since` set the same way, `limit: 100`, following `next_cursor`: the fixes applied from the dashboard, each a change row as Server sync maps it. When the tool is not in the tool list, say the dashboard's fixes were not read this run and go on without them.
    Every change needs its `id`: the changelog keeps one row per id, and refreshes its state (a fix verified or rolled back later) instead of adding a second row.
    Never call `serp_rank_check`, `keyword_research`, `ranked_keywords`, or `competitor_domains` in this skill.
-4. Verdicts for open items. For each item that is `open`, `waiting`, or `in_progress` and names a page and a field, call `check_change` with that page and `change_kind` (rule 7 to find the page). Twenty calls at most; say when items were left unchecked. Map the result as `/seo-genius:content-plan` step 7 does: WAIT, `frozen`, or `pending_measurement` is `waiting` with its date; `would_revert` is `dropped`; `allow` is `open`; a failed call leaves the item as it was.
+4. Verdicts for open items. A week never changes an item that is `in_progress`, `waiting` before its date, `done`, or `dropped`: a person set it, or its wait has not run out. So call `check_change` only for an item that is `open` or `unchecked`, or `waiting` with an `until` on or before today (the UTC date), and names a page and a field, with that page and `change_kind` (rule 7 to find the page). Twenty calls at most; say when items were left unchecked. Map the result as `/seo-genius:content-plan` step 7 does: WAIT, `frozen`, or `pending_measurement` is `waiting` with its date; `would_revert` is `dropped`; `allow` is `open`; a failed call leaves the item as it was. The script holds to the same rule whatever verdicts it is given: what this week would have done to a kept item (a change that went live for an item in progress, say) comes back in `held`, and is not applied.
 5. Write the week. Put the readings into one JSON object and pass it to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" week --site <domain> --input -` on standard input:
+
+   Leave `as_of` out: the script dates the run, its files, its commit, and every status change with the UTC date, and refuses an `as_of` that is any other date.
 
    ```json
    {
-     "as_of": "YYYY-MM-DD",
      "site_id": "<id from list_sites>",
      "run_id": "<a new id for this run>",
      "session_id": "<this session's id, when the client gives one>",
@@ -95,7 +96,7 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
 
    The script, not the model, decides: it keeps every item under its id, marks an item done when a change to its page and field went live after it was planned (a fix rolled back or failed, or a claim the reconcile did not observe, does not count), or when its issue is no longer open on a complete list, records a status history row only when a status changes, adds new changes to `changelog.md` once, compares rankings and issues with the newest earlier snapshot, and writes `weekly/<date>.md`. In a site folder outside a repository it also commits the run to that folder's own git history. It never commits to a site repository.
 6. Do the end of Server sync (the push).
-7. Show the result: the folder, the ranking moves and their basis (an earlier snapshot, or the change field the server recorded), issues opened and no longer open, items that changed status with the reason, changes added to the changelog by source, and what was left unchecked.
+7. Show the result: the folder, the ranking moves and their basis (an earlier snapshot, or the change field the server recorded), issues opened and no longer open, items that changed status with the reason, the items in `held` with what this week found for each (a person changes them with `set-status`), changes added to the changelog by source, and what was left unchecked.
 
 ## Output
 

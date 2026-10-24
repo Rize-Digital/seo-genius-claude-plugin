@@ -205,3 +205,20 @@ test("merge: an invalid combination follows the until_needs_waiting rule, report
     t.done();
   }
 });
+
+test("merge: an open item whose change the server unlinked is not closed again by a later week that still lists that change", () => {
+  // Open, so a week may change it: only the cleared link keeps the old change from closing it.
+  const t = synced();
+  try {
+    t.pull({ status: "open", status_reason: null, status_until: null, change_id: null });
+    assert.equal(t.item().status, "open");
+    run("week", { ...t.o, today: "2026-10-19", input: { changes: [{ source: "reported", id: U(5), page_url: "/fence", change_kind: "title", on: "2026-10-05", verification: "verified" }] } });
+    assert.equal(t.item().status, "open");
+    assert.equal(t.item().links.change, undefined);
+    // A change recorded since, on the same page and field, still closes it.
+    run("week", { ...t.o, today: "2026-10-26", input: { changes: [{ source: "reported", id: U(6), page_url: "/fence", change_kind: "title", on: "2026-10-20", verification: "verified" }] } });
+    assert.equal(t.item().status, "done");
+  } finally {
+    t.done();
+  }
+});

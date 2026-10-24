@@ -170,7 +170,7 @@ const EVERY_COMMAND = [
   ["claim", { args: ["--confirm", "bomannfencing.com"] }],
   ["pull", { input: PULL_ONE }],
   ["plan", { input: PLAN }],
-  ["week", { input: { as_of: "2026-10-26" } }],
+  ["week", { input: { as_of: "2026-10-26" }, today: "2026-10-26" }],
   ["history", { input: { complete: true, changes: [] } }],
   ["set-status", { args: ["--id", "P-001", "--status", "dropped"] }],
   ["save", { args: ["--file", "notes.md"] }],
