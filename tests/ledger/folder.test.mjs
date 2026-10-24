@@ -13,7 +13,7 @@ test("history: a missing ledger asks for the whole history even when the server 
   const s = scratch();
   try {
     // A site with a changelog but an empty plan.
-    assert.equal(cli(s, "week", { input: { as_of: "2026-10-12", changes: [{ source: "reported", id: U(1), page_url: "/a", change_kind: "title", on: "2026-10-10", verification: "verified" }] } }).code, 0);
+    assert.equal(cli(s, "week", { input: { as_of: "2026-10-12", changes: [{ source: "reported", id: U(1), page_url: "/a", change_kind: "title", on: "2026-10-10", verification: "verified" }] }, today: "2026-10-12" }).code, 0);
     assert.equal(cli(s, "history", { input: { complete: true, changes: [{ source: "reported", id: U(1), page_url: "/a", change_kind: "title", on: "2026-10-10", verification: "verified" }] } }).code, 0);
     assert.equal(cli(s, "pull", { input: { complete: true, last_run: null, items: [] } }).out.history_needed, undefined);
     rmSync(join(s.siteDir, "ledger.json"));

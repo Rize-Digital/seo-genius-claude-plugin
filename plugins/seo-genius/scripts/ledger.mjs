@@ -30,7 +30,14 @@
 // history survives without a site repository; without git on the machine the
 // files are still written and the answer says history is unavailable. Every file
 // a skill keeps there (config, research, reports) goes through `save`, so it is
-// written the same way and committed. A folder already holding another site's
+// written the same way and committed. Such a site folder has a `.git` of its own,
+// so it is recognised before any repository is looked for, whatever the working
+// folder: run from inside it (or a folder under it), it is a site folder, never a
+// site repository, and its home is --home, else SEO_GENIUS_HOME, else the folder
+// it sits in. Run from a folder that holds this site's folder, that folder is the
+// home. A site folder is a folder with its own `.git` and either the ledger's
+// .gitignore lines or a ledger.json of this format at its root, or one directly
+// under the configured home. A folder already holding another site's
 // files is refused, and so is one whose ledger.json and config.json cannot be
 // read: only `claim`, naming the domain, takes such a folder over. One of the
 // two that exists but does not parse, or names no site, is enough to refuse,
@@ -59,7 +66,10 @@
 // with the hash of every file it wrote. `pull` at the start of a run brings the
 // server's view in (items another run or machine changed, a ledger restored
 // after a loss); `push-payload` at the end lists what the server has not seen
-// yet, and `push-ack` marks it seen once save_plan_items answered. A sync that
+// yet, and `push-ack` marks it seen once save_plan_items answered. What is
+// pending is decided in one place (pendingSync): `show` reports it as
+// push_pending, and push-payload sends exactly it; with nothing pending,
+// push-payload writes nothing and commits nothing. A sync that
 // fails is simply sent again next time: items are keyed by id and runs by run
 // id on the server, so a resend never duplicates anything.
 //
@@ -78,6 +88,26 @@
 // wrote it is copied aside before it is rewritten, never lost. A ledger.json that
 // does not parse is moved aside and rebuilt from the server's index, never
 // silently replaced.
+//
+// DATES. Every date the ledger writes is the UTC calendar date of the run (or
+// --today, for tests): an item's first_seen, updated_on and status history, a
+// run's `on` and `ran_on` (what the server stores), the snapshot and weekly file
+// names, and the date in each commit message. A week's `as_of`, when given, must
+// be that same date; any other is refused rather than mixed in. `until`, the day
+// a waiting item opens, is compared with the same UTC date.
+//
+// WHAT A WEEK MAY CHANGE. A week changes an item's status only when the item is
+// open, unchecked, or waiting with an until that has come (until <= the run's
+// date). An item in progress, waiting before its date (or with no date), done or
+// dropped was set by a person or for a reason that still holds: no verdict,
+// change or closed issue moves it. What the week would have done to such an item
+// is reported in `held`, so the caller can say it and a person can decide.
+//
+// SET-STATUS. A reason or until left out keeps the item's own when the status
+// stays the same (only the other one changes). When the status changes, the old
+// reason explained the old status, so a left-out one is cleared, as is the old
+// until (normalizeState clears an until on any status but waiting). An empty
+// --reason "" or --until "" clears it.
 
 import {
   readFileSync,
@@ -241,19 +271,57 @@ const realIo = {
   homedir: osHomedir,
   siteOf: siteInFolder,
   ownerOf: folderOwner,
+  isWorkspace: hasWorkspaceFiles,
 };
 
 const OWNER_FILES = ["ledger.json", "config.json"];
 
 export function findGitRoot(start, io = realIo) {
+  return findRoot(start, io).git_root;
+}
+
+/**
+ * The first folder with a `.git`, from `start` up. `workspace` when that folder
+ * is a ledger site folder (see isLedgerWorkspace), `git_root` when it is a site
+ * repository; both null when there is neither.
+ */
+function findRoot(start, io, homeHint = null) {
   const p = io.path;
   let dir = p.resolve(start);
   for (;;) {
-    if (io.exists(p.join(dir, ".git"))) return dir;
+    if (io.exists(p.join(dir, ".git"))) {
+      return isLedgerWorkspace(dir, io, homeHint) ? { workspace: dir, git_root: null } : { workspace: null, git_root: dir };
+    }
     const up = p.dirname(dir);
-    if (up === dir) return null;
+    if (up === dir) return { workspace: null, git_root: null };
     dir = up;
   }
+}
+
+/** The ledger's own files at a folder's root: its .gitignore lines, or a ledger.json of this format. */
+function hasWorkspaceFiles(dir) {
+  try {
+    const lines = readFileSync(join(dir, ".gitignore"), "utf8").split(/\r?\n/);
+    if (GITIGNORE_LINES.slice(0, 2).every((l) => lines.includes(l))) return true;
+  } catch {
+    // No .gitignore: look at ledger.json.
+  }
+  try {
+    const d = JSON.parse(readFileSync(join(dir, "ledger.json"), "utf8"));
+    return typeof d.site === "string" && Number.isInteger(d.format_version);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A folder with a `.git` is a ledger site folder, not a site repository, when it
+ * sits directly under the configured home, or holds the ledger's own files.
+ */
+export function isLedgerWorkspace(dir, io = realIo, homeHint = null) {
+  const p = io.path;
+  if (homeHint && p.resolve(p.dirname(dir)) === p.resolve(homeHint)) return true;
+  return !!io.isWorkspace?.(dir);
 }
 
 function siteInFolder(dir) {
@@ -301,18 +369,19 @@ export function resolveSiteDir(opts = {}) {
 export function locateSiteDir({ site, cwd = process.cwd(), home, env = process.env, io = realIo } = {}) {
   const p = io.path;
   const domain = normalizeDomain(site);
-  const root = findGitRoot(cwd, io);
-  let mode;
-  let dir;
-  if (root) {
-    mode = "repo";
-    dir = p.join(root, ".seo-genius");
-  } else {
-    mode = "workspace";
-    const base = home || env.SEO_GENIUS_HOME || p.join(io.homedir(), "seo-genius");
-    dir = p.join(p.resolve(base), domain);
+  const configured = home || env.SEO_GENIUS_HOME || null;
+  const fallback = p.join(io.homedir(), "seo-genius");
+  const found = findRoot(cwd, io, configured ?? fallback);
+  if (found.git_root) return { site: domain, mode: "repo", dir: p.join(found.git_root, ".seo-genius"), git_root: found.git_root, cwd };
+  // Inside a site folder: its own home. In a folder that holds this site's folder: that folder.
+  let base = configured;
+  if (!base && found.workspace) base = p.dirname(found.workspace);
+  if (!base) {
+    const here = p.join(p.resolve(cwd), domain);
+    if (io.exists(p.join(here, ".git")) && isLedgerWorkspace(here, io)) base = p.resolve(cwd);
   }
-  return { site: domain, mode, dir, git_root: root, cwd };
+  const dir = p.join(p.resolve(base ?? fallback), domain);
+  return { site: domain, mode: "workspace", dir, git_root: null, cwd };
 }
 
 /**
@@ -631,6 +700,13 @@ function renameReplacing(from, to) {
 
 export function sha256(text) {
   return createHash("sha256").update(text).digest("hex");
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The run's date: the UTC calendar date (see DATES at the top). */
+export function utcDate(now = new Date()) {
+  return now.toISOString().slice(0, 10);
 }
 
 function stamp(now = new Date()) {
@@ -1025,10 +1101,22 @@ export function applyPull(ledger, input, today) {
   return out;
 }
 
-/** What the server has not seen yet, as save_plan_items input. */
+/**
+ * What the server has not seen yet: the one answer `show` (push_pending) and
+ * push-payload (what it sends) both read.
+ */
+export function pendingSync(ledger) {
+  const items = ledger.items.filter((it) => !sameState(it.synced, statusState(it)));
+  const runs = ledger.runs.filter((r) => !r.synced);
+  return { items, runs, pending: items.length > 0 || runs.length > 0 };
+}
+
+/** What the server has not seen yet, as save_plan_items input. With nothing pending the ledger is left as it is. */
 export function pushPayload(ledger) {
-  const dirty = ledger.items.filter((it) => !sameState(it.synced, statusState(it))).slice(0, PUSH_MAX_ITEMS);
-  const runs = ledger.runs.filter((r) => !r.synced).slice(0, PUSH_MAX_RUNS);
+  const pending = pendingSync(ledger);
+  if (!pending.pending) return { nothing_to_send: true, payload: { items: [], runs: [] } };
+  const dirty = pending.items.slice(0, PUSH_MAX_ITEMS);
+  const runs = pending.runs.slice(0, PUSH_MAX_RUNS);
   const items = dirty.map((it) => {
     const st = statusState(it);
     const row = {
@@ -1068,7 +1156,7 @@ export function pushPayload(ledger) {
     items: Object.fromEntries(dirty.map((it) => [it.id, statusState(it)])),
     runs: runs.map((r) => r.run_id),
   };
-  return { nothing_to_send: items.length === 0 && runs.length === 0, payload };
+  return { nothing_to_send: false, payload };
 }
 
 /** Marks what save_plan_items accepted. Anything it refused stays pending, with the reason. */
@@ -1334,10 +1422,21 @@ export function applyHistory(ledger, input) {
   return { changes_added: merged.added, changes_updated: merged.updated, changes_total: ledger.changes.length };
 }
 
+/**
+ * Whether a week may change an item's status (WHAT A WEEK MAY CHANGE, at the
+ * top): open, unchecked, or waiting with an until that has come. Nothing else.
+ */
+export function weekMayChange(it, today) {
+  if (it.status === "open" || it.status === "unchecked") return true;
+  return it.status === "waiting" && it.until != null && it.until <= today;
+}
+
 export function applyWeek(ledger, input, prev, today) {
-  const asOf = input.as_of ?? today;
+  if (input.as_of != null && input.as_of !== today) {
+    throw new LedgerError("bad_input", `as_of ${input.as_of} is not the run's date ${today} (the UTC date); leave as_of out, and the run is dated ${today}. Nothing was changed.`);
+  }
   const merged = mergeChanges(ledger, input.changes);
-  const out = { status_changes: [], changes_added: merged.added, changes_updated: merged.updated };
+  const out = { status_changes: [], held: [], changes_added: merged.added, changes_updated: merged.updated };
 
   const openIssues = new Set((input.issues ?? []).map((i) => i.id));
   const issuesRead = Array.isArray(input.issues) && input.issues_complete !== false;
@@ -1355,15 +1454,20 @@ export function applyWeek(ledger, input, prev, today) {
             !(it.cleared_changes ?? []).includes(c.key),
         )
       : null;
-    if (done) {
-      it.links.change = done.key;
-      setStatus(it, "done", asOf, `change recorded ${done.on} (${sourceLabel(done)})`);
-    } else if (it.links.issue_id && issuesRead && !openIssues.has(it.links.issue_id)) {
-      setStatus(it, "done", asOf, "the issue it was planned for is no longer open");
-    } else if (input.verdicts?.[it.id]) {
-      const v = input.verdicts[it.id];
-      setStatus(it, v.status, asOf, v.reason, v.until);
+    let next = null;
+    if (done) next = { status: "done", reason: `change recorded ${done.on} (${sourceLabel(done)})`, until: null, change: done.key };
+    else if (it.links.issue_id && issuesRead && !openIssues.has(it.links.issue_id)) next = { status: "done", reason: "the issue it was planned for is no longer open", until: null };
+    else if (input.verdicts?.[it.id]) next = { status: input.verdicts[it.id].status, reason: input.verdicts[it.id].reason, until: input.verdicts[it.id].until };
+    if (!next) continue;
+    if (!weekMayChange(it, today)) {
+      // Set by a person, or a wait that has not run out: kept, and reported.
+      if (next.status !== it.status || (next.until ?? null) !== (it.until ?? null)) {
+        out.held.push({ id: it.id, status: it.status, until: it.until ?? null, would_be: next.status, reason: next.reason ?? null });
+      }
+      continue;
     }
+    if (next.change) it.links.change = next.change;
+    setStatus(it, next.status, today, next.reason, next.until);
     if (it.status !== before) out.status_changes.push({ id: it.id, from: before, to: it.status, reason: it.status_reason });
   }
 
@@ -1447,6 +1551,10 @@ export function renderWeek(ledger, week, asOf) {
   if (c.previous_as_of) lines.push(`Opened since ${c.previous_as_of}: ${c.issues_opened.length}. No longer open: ${c.issues_closed.length}.`);
   lines.push("", "## Plan items that changed status", "");
   lines.push(week.status_changes.length === 0 ? "None." : week.status_changes.map((s) => `- ${s.id}: ${s.from} -> ${s.to} (${s.reason})`).join("\n"));
+  if (week.held.length) {
+    lines.push("", "## Kept as set", "", "A week does not change an item in progress, waiting before its date, done or dropped. What this week found for them:", "");
+    lines.push(week.held.map((h) => `- ${h.id}: ${h.status}${h.until ? ` until ${h.until}` : ""}; this week would make it ${h.would_be} (${h.reason ?? "no reason given"}). Change it with set-status if that is right.`).join("\n"));
+  }
   lines.push("", `Changes added to the changelog this run: ${week.changes_added}. Changes whose state moved: ${week.changes_updated}.`);
   return `${lines.join("\n")}\n`;
 }
@@ -1559,7 +1667,8 @@ function historyLabel(mode, gitReady) {
 /** Runs one command against a site folder and returns the JSON the CLI prints. */
 export function run(cmd, opts) {
   normalizedLog = [];
-  const today = opts.today ?? new Date().toISOString().slice(0, 10);
+  const today = opts.today ?? utcDate();
+  if (!DATE_RE.test(today)) throw new LedgerError("bad_input", `--today must be a date (YYYY-MM-DD), got ${JSON.stringify(today)}`);
   const env = opts.env ?? process.env;
   if (cmd === "claim") {
     let named = null;
@@ -1581,7 +1690,7 @@ export function run(cmd, opts) {
   if (!existsSync(dir)) {
     const where = ownerAnswer(cmd, located);
     if (cmd === "resolve") return { ...where, drafts_dir };
-    return { ...where, format_version: FORMAT_VERSION, items: [], runs: 0, runs_not_synced: 0, push_pending: false };
+    return { ...where, format_version: FORMAT_VERSION, items: [], runs: 0, items_not_synced: 0, runs_not_synced: 0, push_pending: false, awaiting_ack: false };
   }
   // Every command, in this order: the lock, then a pending transaction finished or
   // thrown away, then whose folder it is. Owner files half moved in are never read.
@@ -1621,6 +1730,7 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     const ledger = loadLedger(dir, site, today) ?? emptyLedger(site, today);
     // Shown as the next write will store it; nothing is written here.
     for (const it of ledger.items) normalizeItem(it);
+    const pending = pendingSync(ledger);
     return {
       ...where,
       format_version: ledger.format_version,
@@ -1636,8 +1746,11 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
         ...(it.sync_error ? { sync_error: it.sync_error } : {}),
       })),
       runs: ledger.runs.length,
-      runs_not_synced: ledger.runs.filter((r) => !r.synced).length,
-      push_pending: !!ledger.pending_push,
+      items_not_synced: pending.items.length,
+      runs_not_synced: pending.runs.length,
+      push_pending: pending.pending,
+      // A payload made and not acknowledged yet; the next push-payload sends what is still pending.
+      awaiting_ack: !!ledger.pending_push,
       ...(normalizedLog.length ? { normalized: normalizedLog } : {}),
     };
   }
@@ -1729,7 +1842,7 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     write("plan.md", renderPlan(ledger, today));
     runEntry = { kind: "plan" };
   } else if (cmd === "week") {
-    const asOf = input.as_of ?? today;
+    const asOf = today;
     const prev = previousSnapshot(dir, asOf);
     result = applyWeek(ledger, input, prev, today);
     const snap = { format_version: FORMAT_VERSION, rankings: input.rankings ?? [], issues: (input.issues ?? []).map(({ id, severity, issue_type, page_url }) => ({ id, severity, issue_type, page_url })) };
@@ -1737,7 +1850,7 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     write(`weekly/${asOf}.md`, renderWeek(ledger, result, asOf));
     write("changelog.md", renderChangelog(ledger, today));
     write("plan.md", renderPlan(ledger, today));
-    runEntry = { kind: "week", ran_on: asOf };
+    runEntry = { kind: "week" };
   } else if (cmd === "history") {
     result = applyHistory(ledger, input);
     write("changelog.md", renderChangelog(ledger, today));
@@ -1745,8 +1858,11 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     const it = ledger.items.find((x) => x.id === opts.id);
     if (!it) throw new LedgerError("bad_input", `no item ${opts.id} in this ledger`);
     const before = it.status;
-    setStatus(it, opts.status, today, opts.reason ?? null, opts.until ?? null);
-    result = { id: it.id, from: before, to: it.status };
+    // SET-STATUS at the top: left out, a reason or until is kept while the status stays.
+    const same = opts.status === it.status;
+    const given = (v, have) => (v === undefined ? (same ? have ?? null : null) : v || null);
+    setStatus(it, opts.status, today, given(opts.reason, it.status_reason), given(opts.until, it.until));
+    result = { id: it.id, from: before, to: it.status, status_reason: it.status_reason ?? null, until: it.until ?? null };
     write("plan.md", renderPlan(ledger, today));
   } else if (cmd === "save") {
     drafts = saveWrites(dir, site, opts.file);
@@ -1756,6 +1872,8 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     result = { claimed: claimed.length > 0, moved_aside: claimed };
   } else if (cmd === "push-payload") {
     result = pushPayload(ledger);
+    // Nothing to send: no file is written and nothing is committed.
+    if (result.nothing_to_send) return { ...base, files: {}, commit: null, ...result };
   } else {
     result = applyPushAck(ledger, input);
   }
@@ -1766,7 +1884,7 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
       session_id: input?.session_id ?? null,
       kind: runEntry.kind,
       on: today,
-      ran_on: runEntry.ran_on ?? today,
+      ran_on: today,
       files,
       items_total: ledger.items.length,
       synced: false,

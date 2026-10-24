@@ -13,6 +13,7 @@
 //
 // Run: node tests/ledger/mutations.mjs [name filter]
 //      node tests/ledger/mutations.mjs --list    every mutant applies? (no tests run)
+//      MUTATION_SHARD=2/4 node tests/ledger/mutations.mjs   the second of four shards
 // (Set SEO_GENIUS_TEST_OLD_NODES as tests/ledger/node.test.mjs describes to run
 // the real-old-Node test too.)
 import { readFileSync, writeFileSync, readdirSync, mkdtempSync, cpSync, rmSync } from "node:fs";
@@ -55,7 +56,23 @@ const MUTATIONS = [
   ["ids restart below the server's", "  ledger.next_ids.P = Math.max(ledger.next_ids.P ?? 1, maxServer + 1, ...ledger.items.map((it) => idNumber(it.id) + 1));", ""],
   ["a refused item is marked synced", "    if ([\"created\", \"updated\", \"unchanged\"].includes(row.result)) {", "    if (true) {"],
   ["a run is resent forever", "      run.synced = true;", "      run.synced = false;"],
-  ["a synced item is sent again", "  const dirty = ledger.items.filter((it) => !sameState(it.synced, statusState(it))).slice(0, PUSH_MAX_ITEMS);", "  const dirty = ledger.items.slice(0, PUSH_MAX_ITEMS);"],
+  ["a synced item is sent again", "  const items = ledger.items.filter((it) => !sameState(it.synced, statusState(it)));", "  const items = ledger.items;"],
+  ["a week changes a manual status", "    if (!weekMayChange(it, today)) {", "    if (false) {"],
+  ["a wait before its date may change", "  return it.status === \"waiting\" && it.until != null && it.until <= today;", "  return it.status === \"waiting\";"],
+  ["an item in progress may change", "  if (it.status === \"open\" || it.status === \"unchecked\") return true;", "  if (it.status !== \"waiting\") return true;"],
+  ["a run-out wait is kept", "  return it.status === \"waiting\" && it.until != null && it.until <= today;", "  return false;"],
+  ["a site folder is taken for a site repository", "      return isLedgerWorkspace(dir, io, homeHint) ? ", "      return false ? "],
+  ["a site folder is known only under the configured home", "  return !!io.isWorkspace?.(dir);", "  return false;"],
+  ["inside a site folder the default home is used", "  if (!base && found.workspace) base = p.dirname(found.workspace);", ""],
+  ["the folder holding a site folder is not its home", "    if (io.exists(p.join(here, \".git\")) && isLedgerWorkspace(here, io)) base = p.resolve(cwd);", ""],
+  ["nothing to send still records a payload and commits", "  if (!pending.pending) return { nothing_to_send: true, payload: { items: [], runs: [] } };", ""],
+  ["show reads the stored payload for push_pending", "      push_pending: pending.pending,", "      push_pending: !!ledger.pending_push,"],
+  ["a week dated other than the run is accepted", "  if (input.as_of != null && input.as_of !== today) {", "  if (false) {"],
+  ["--today is not checked", "  if (!DATE_RE.test(today)) throw", "  if (false) throw"],
+  ["the run is dated in local time", "  return now.toISOString().slice(0, 10);", "  return now.toLocaleDateString(\"en-CA\");"],
+  ["set-status drops a reason it was not given", "    const given = (v, have) => (v === undefined ? (same ? have ?? null : null) : v || null);", "    const given = (v, have) => (v === undefined ? null : v || null);"],
+  ["set-status keeps a reason across a status change", "    const given = (v, have) => (v === undefined ? (same ? have ?? null : null) : v || null);", "    const given = (v, have) => (v === undefined ? have ?? null : v || null);"],
+  ["an empty --reason is stored, not cleared", "    const given = (v, have) => (v === undefined ? (same ? have ?? null : null) : v || null);", "    const given = (v, have) => (v === undefined ? (same ? have ?? null : null) : v);"],
   ["no git on the machine fails the run", "  return !r.error && r.status === 0;", "  if (r.error) throw r.error;\n  return r.status === 0;"],
   ["the history read accepts a partial read", "  if (input.complete !== true) {\n    throw new LedgerError(\"bad_input\", \"history needs every page", "  if (false) {\n    throw new LedgerError(\"bad_input\", \"history needs every page"],
   ["a changelog row repeated across pages is added twice", "    const have = known.get(key);\n    if (have) {", "    const have = null;\n    if (have) {"],
@@ -127,7 +144,9 @@ const MUTATIONS = [
 const args = process.argv.slice(2);
 const listOnly = args.includes("--list");
 const only = args.find((a) => !a.startsWith("--")) ?? "";
-const chosen = MUTATIONS.filter(([name]) => !only || name.includes(only));
+// MUTATION_SHARD=k/n runs every n-th mutant from the k-th, so n shells can split one run.
+const [shardK, shardN] = (process.env.MUTATION_SHARD || "1/1").split("/").map(Number);
+const chosen = MUTATIONS.filter(([name]) => !only || name.includes(only)).filter((m, i) => i % shardN === shardK - 1);
 
 const originals = new Map([LEDGER, NODE_CHECK, CHECK].map((f) => [f, readFileSync(join(ROOT, f), "utf8").replace(/\r\n/g, "\n")]));
 const missing = chosen.filter(([, from, , { file = LEDGER } = {}]) => !originals.get(file).includes(from));
