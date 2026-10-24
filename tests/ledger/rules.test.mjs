@@ -284,3 +284,86 @@ test("set-status: a left-out reason is kept while the status stays, cleared when
     s.done();
   }
 });
+
+// --- an item in progress and its own change ----------------------------------
+
+const BARBED = "https://bomannfencing.com/blog/how-many-strands-barbed-wire-cattle/";
+const titleChange = (n, verification, on = "2026-10-18") => ({ source: "reported", id: U(n), page_url: BARBED, change_kind: "title", on, verification });
+
+test("week: in_progress -> done on its own verified change, not before it is verified, and never back to open", () => {
+  const s = scratch();
+  try {
+    ok(cli(s, "plan", { input: PLAN, today: "2026-10-12" }));
+    setStatus(s, "P-002", "in_progress", ["--reason", "pull request 12"]);
+    // report links the change it recorded for the merged pull request; the reason stays.
+    const linked = setStatus(s, "P-002", "in_progress", ["--change", U(20).toUpperCase()]);
+    assert.deepEqual([linked.change, linked.status_reason], [`reported:${U(20)}`, "pull request 12"]);
+    assert.equal(ok(cli(s, "show")).items.find((i) => i.id === "P-002").change, `reported:${U(20)}`);
+    assert.equal(ok(cli(s, "push-payload")).payload.items.find((i) => i.item_key === "P-002").change_id, U(20));
+    // Claimed, not verified yet: still in progress, whatever the verdict says.
+    const w1 = ok(cli(s, "week", { input: { changes: [titleChange(20, "claimed")], verdicts: { "P-002": { status: "open", reason: "allow" } } }, today: "2026-10-19" }));
+    assert.equal(item(s, "P-002").status, "in_progress");
+    assert.deepEqual(w1.status_changes, []);
+    // Verified live: done, with its own change as the reason.
+    const w2 = ok(cli(s, "week", { input: { changes: [titleChange(20, "verified")] }, today: "2026-10-26" }));
+    assert.deepEqual(w2.status_changes, [{ id: "P-002", from: "in_progress", to: "done", reason: "its own change verified live 2026-10-18 (MCP log)" }]);
+    // Done stays done: an allow never reopens it.
+    ok(cli(s, "week", { input: { verdicts: { "P-002": { status: "open", reason: "allow" } } }, today: "2026-11-02" }));
+    assert.equal(item(s, "P-002").status, "done");
+    assert.ok(item(s, "P-002").history.every((h) => h.status !== "open" || h.on === "2026-10-12"), "never back to open");
+  } finally {
+    s.done();
+  }
+});
+
+test("week: in_progress is not changed by an unrelated live change, a closed issue, an unobserved own change, or a verdict", () => {
+  const s = scratch();
+  try {
+    const plan = { items: PLAN.items.map((c, i) => (i === 1 ? { ...c, issue_id: U(40) } : c)) };
+    ok(cli(s, "plan", { input: plan, today: "2026-10-12" }));
+    setStatus(s, "P-002", "in_progress", ["--reason", "pull request 12", "--change", U(30)]);
+    const w = ok(
+      cli(s, "week", {
+        input: {
+          // Another verified change to the same page and field, its own change not observed, and its issue no longer open.
+          changes: [titleChange(31, "verified"), titleChange(30, "not_observed")],
+          issues: [{ id: U(41), severity: "low" }],
+          verdicts: { "P-002": { status: "open", reason: "allow" } },
+        },
+        today: "2026-10-19",
+      }),
+    );
+    assert.deepEqual([item(s, "P-002").status, item(s, "P-002").status_reason], ["in_progress", "pull request 12"]);
+    assert.deepEqual(w.status_changes.filter((c) => c.id === "P-002"), []);
+    assert.deepEqual(w.held.find((h) => h.id === "P-002")?.would_be, "done");
+  } finally {
+    s.done();
+  }
+  // The closed issue alone, with no change recorded at all: still kept.
+  const t = scratch();
+  try {
+    ok(cli(t, "plan", { input: { items: PLAN.items.map((c, i) => (i === 1 ? { ...c, issue_id: U(40) } : c)) }, today: "2026-10-12" }));
+    setStatus(t, "P-002", "in_progress", ["--reason", "pull request 12"]);
+    const w2 = ok(cli(t, "week", { input: { issues: [] }, today: "2026-10-19" }));
+    assert.equal(JSON.parse(readFileSync(join(t.siteDir, "ledger.json"), "utf8")).items[1].status, "in_progress");
+    assert.equal(w2.held.find((h) => h.id === "P-002")?.reason, "the issue it was planned for is no longer open");
+  } finally {
+    t.done();
+  }
+});
+
+test("week: only an item in progress closes on its own change; waiting before its date stays waiting; --change takes a change id only", () => {
+  const s = scratch();
+  try {
+    ok(cli(s, "plan", { input: PLAN, today: "2026-10-12" }));
+    setStatus(s, "P-002", "waiting", ["--until", "2026-12-01", "--reason", "client review", "--change", U(20)]);
+    ok(cli(s, "week", { input: { changes: [titleChange(20, "verified")] }, today: "2026-10-19" }));
+    assert.deepEqual([item(s, "P-002").status, item(s, "P-002").until], ["waiting", "2026-12-01"]);
+    const bad = cli(s, "set-status", { args: ["--id", "P-001", "--status", "in_progress", "--change", "pr-12"] });
+    assert.equal(bad.code, 2);
+    assert.equal(bad.out.error, "bad_input");
+    assert.equal(item(s, "P-001").status, "open", "nothing written");
+  } finally {
+    s.done();
+  }
+});

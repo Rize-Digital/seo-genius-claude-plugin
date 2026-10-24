@@ -11,7 +11,7 @@
 //   node ledger.mjs history      --site <domain> --input <file|->   the whole change history -> changelog
 //   node ledger.mjs plan         --site <domain> --input <file|->   content-plan items -> local
 //   node ledger.mjs week         --site <domain> --input <file|->   this week's stored readings -> local
-//   node ledger.mjs set-status   --site <domain> --id P-001 --status in_progress [--reason <text>] [--until <date>]
+//   node ledger.mjs set-status   --site <domain> --id P-001 --status in_progress [--reason <text>] [--until <date>] [--change <log_page_change id>]
 //   node ledger.mjs save         --site <domain> --file <path>[,<path>...]   drafts -> the site folder, one commit
 //   node ledger.mjs claim        --site <domain> --confirm <domain>  take over a folder whose owner cannot be read
 //   node ledger.mjs push-payload --site <domain>                    local -> save_plan_items input
@@ -100,8 +100,11 @@
 // open, unchecked, or waiting with an until that has come (until <= the run's
 // date). An item in progress, waiting before its date (or with no date), done or
 // dropped was set by a person or for a reason that still holds: no verdict,
-// change or closed issue moves it. What the week would have done to such an item
-// is reported in `held`, so the caller can say it and a person can decide.
+// other change or closed issue moves it. One exception closes the loop that
+// `next` opens: an item in progress becomes done when its own linked change
+// (links.change, the server's change_id) is in the changelog as verified live.
+// It never goes back to open. What the week would have done to a kept item is
+// reported in `held`, so the caller can say it and a person can decide.
 //
 // SET-STATUS. A reason or until left out keeps the item's own when the status
 // stays the same (only the other one changes). When the status changes, the old
@@ -1443,6 +1446,14 @@ export function applyWeek(ledger, input, prev, today) {
   for (const it of ledger.items) {
     if (TERMINAL.has(it.status)) continue;
     const before = it.status;
+    // An item in progress closes on its own linked change once the server verified it
+    // live, and on nothing else: no verdict, other change or closed issue moves it.
+    const own = it.status === "in_progress" && it.links.change ? ledger.changes.find((c) => c.key === it.links.change && c.state === "verified") : null;
+    if (own) {
+      setStatus(it, "done", today, `its own change verified live ${own.on} (${sourceLabel(own)})`);
+      out.status_changes.push({ id: it.id, from: before, to: it.status, reason: it.status_reason });
+      continue;
+    }
     const done = it.change_kind
       ? ledger.changes.find(
           (c) =>
@@ -1742,6 +1753,7 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
         target_page: it.target_page,
         change_kind: it.change_kind,
         until: it.until,
+        change: it.links?.change ?? null,
         synced: sameState(it.synced, statusState(it)),
         ...(it.sync_error ? { sync_error: it.sync_error } : {}),
       })),
@@ -1861,8 +1873,14 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     // SET-STATUS at the top: left out, a reason or until is kept while the status stays.
     const same = opts.status === it.status;
     const given = (v, have) => (v === undefined ? (same ? have ?? null : null) : v || null);
+    if (opts.change !== undefined) {
+      // The recorded change this item made (log_page_change's id): a week closes an item in progress on it.
+      if (!UUID_RE.test(String(opts.change))) throw new LedgerError("bad_input", `--change must be the id log_page_change returned, got ${JSON.stringify(opts.change)}`);
+      it.links.change = `reported:${String(opts.change).toLowerCase()}`;
+      if (it.cleared_changes) it.cleared_changes = it.cleared_changes.filter((k) => k !== it.links.change);
+    }
     setStatus(it, opts.status, today, given(opts.reason, it.status_reason), given(opts.until, it.until));
-    result = { id: it.id, from: before, to: it.status, status_reason: it.status_reason ?? null, until: it.until ?? null };
+    result = { id: it.id, from: before, to: it.status, status_reason: it.status_reason ?? null, until: it.until ?? null, change: it.links.change ?? null };
     write("plan.md", renderPlan(ledger, today));
   } else if (cmd === "save") {
     drafts = saveWrites(dir, site, opts.file);
@@ -1958,6 +1976,7 @@ if (isMain) {
       until: a.until,
       file: a.file,
       confirm: a.confirm,
+      change: a.change,
       holdMs: process.env.SEO_GENIUS_LEDGER_TEST_HOLD_MS,
     });
     process.stdout.write(`${JSON.stringify(out, null, 1)}\n`);
