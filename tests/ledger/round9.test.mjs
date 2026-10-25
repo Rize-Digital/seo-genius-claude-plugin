@@ -211,7 +211,7 @@ test("save: takes the path inside the site folder or the draft's own path; refus
 // 8 ---------------------------------------------------------------------------
 
 test("allow: an allow verdict sets no reason and changes no item; the weekly skill says to send none", () => {
-  assert.match(skill("weekly"), /`allow` changes nothing, so send no verdict for it \(no status, no reason\)/);
+  assert.ok(skill("weekly").includes('`allow` changes nothing on an `open` item, so send no verdict for it (no status, no reason); on an `unchecked` item it is the check the item waited for, so send `{ "status": "open" }` with no reason, and the item opens;'));
   const s = scratch();
   try {
     ok(cli(s, "plan", { input: PLAN, today: "2026-10-12" }));

@@ -79,7 +79,8 @@ test("lock: a Windows sharing error while taking over a stale lock is contention
         assert.deepEqual(pendingTxns(s.siteDir), [], `${op}:${code}: nothing staged`);
         assert.deepEqual(lockFiles(s.siteDir), [stale], `${op}:${code}: only the stale lock is left; its own is released`);
         // Once the other run is done with it, the next run takes the stale lock over.
-        assert.equal(cli(s, "plan", { input: PLAN }).code, 0);
+        const next = cli(s, "plan", { input: PLAN });
+        assert.equal(next.code, 0, `${op}:${code}: the next run ${JSON.stringify(next.out)}`);
         assert.deepEqual(lockFiles(s.siteDir), []);
       } finally {
         s.done();

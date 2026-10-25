@@ -20,7 +20,7 @@
 // Every command prints one JSON object on stdout. Exit 0 on success, 2 on a
 // refusal the caller can act on (wrong site in a folder, a folder whose owner
 // cannot be read, bad input, a ledger it cannot read, a newer format, another run
-// holding the lock), 1 on anything else.
+// holding the lock, a link on a path it would use), 1 on anything else.
 //
 // WHERE THE FILES GO. Inside a git repository: `.seo-genius/` at the repository
 // root. Outside one (a WordPress site, say): one folder per site,
@@ -69,7 +69,11 @@
 // yet, and `push-ack` marks it seen once save_plan_items answered. What is
 // pending is decided in one place (pendingSync): `show` reports it as
 // push_pending, and push-payload sends exactly it; with nothing pending,
-// push-payload writes nothing and commits nothing. A sync that
+// push-payload writes nothing and commits nothing. A pull settles what it
+// confirms: an item the server holds as it is here is synced (a refusal recorded
+// for it is cleared), a last_run that is a run of the last payload marks that
+// payload's runs synced, and what the server holds of a payload whose answer was
+// lost is no longer awaited. A sync that
 // fails is simply sent again next time: items are keyed by id and runs by run
 // id on the server, so a resend never duplicates anything.
 //
@@ -106,16 +110,36 @@
 // It never goes back to open; while its own change is claimed, unobserved or not
 // read yet, it is reported in `held` with that reason. What the week would have
 // done to any other kept item is reported in `held` too, so the caller can say it
-// and a person can decide. An allow verdict (status open) changes nothing, not
-// even a reason: only a block moves an item. A wait whose date has come opens
-// again on that date by itself, unless a verdict blocks it again.
+// and a person can decide. An allow verdict (status open) changes nothing on an
+// open item, not even a reason: only a block moves it. On an unchecked item it is
+// the check the item waited for, so it opens the item, with no reason. A wait whose
+// date has come opens again on that date by itself, unless a verdict blocks it again.
 //
 // NOTHING WRITTEN ON A REFUSAL OR A NO-OP. Arguments and input are checked before
 // any folder exists. Only prepare, pull, plan, week and history create a missing
-// site folder, and one of them that is then refused removes what it created. The
-// folder's git, .gitignore and drafts folder are made only by a command about to
-// write. push-payload with nothing to send, on a missing, empty or synced folder,
-// writes nothing.
+// site folder, and each is first run in memory on the empty ledger the folder would
+// start with, so what its input would be refused for is refused before the folder
+// is made. A folder, once made, is never removed: another run may be using it from
+// that moment (it is then that run's, and this one meets its lock). Every path a
+// command writes is checked before anything is made, and the folder's git,
+// .gitignore and drafts folder are made only by a command about to write. A
+// write that would leave a file as it is, is no write: a command that changes
+// nothing (push-payload with nothing to send, a claim with nothing to take over, a
+// set-status to the values the item has) writes and commits nothing.
+//
+// LINKS. The ledger reads, writes and removes nothing through a link. The site
+// folder itself (in a repository, .seo-genius) must not be a link, and its .git, when
+// there is one, must be a real folder of its own, not a link or a pointer file to
+// another repository. Every path under the site folder it touches (ledger.json, the markdown, snapshots, drafts,
+// transactions, .gitignore, what save takes in and the draft it then removes) is
+// refused with unsafe_path when any part of it below the site folder is a symbolic
+// link, a junction or a hard link, or when its real path lies outside the site
+// folder. A link where a lock or an owner file would be is not read: a lock link
+// is no lock, an owner file link is a file that cannot be read. A transaction's
+// manifest names only files of its own folder (`<n>.data`) and targets inside the
+// site folder; any other is refused (bad_ledger) and nothing of it is moved. A
+// file list from the server (last_run's file_hashes, on a rebuild) is read only
+// for names that are plain paths inside the site folder.
 //
 // SET-STATUS. A reason or until left out keeps the item's own when the status
 // stays the same (only the other one changes). When the status changes, the old
@@ -137,8 +161,11 @@ import {
   unlinkSync,
   fsyncSync,
   statSync,
+  lstatSync,
+  realpathSync,
   utimesSync,
   rmSync,
+  rmdirSync,
   appendFileSync,
 } from "node:fs";
 import nodePath from "node:path";
@@ -314,15 +341,30 @@ function findRoot(start, io, homeHint = null) {
   }
 }
 
+/** A file's own entry (a link is not followed), or null when there is none. */
+function lstatIfAny(p) {
+  try {
+    return lstatSync(p);
+  } catch (e) {
+    if (e.code === "ENOENT" || e.code === "ENOTDIR") return null;
+    throw e;
+  }
+}
+
 /** The ledger's own files at a folder's root: its .gitignore lines, or a ledger.json of this format. */
 function hasWorkspaceFiles(dir) {
+  const plain = (name) => {
+    const st = lstatIfAny(join(dir, name));
+    return !!st && !isLink(st);
+  };
   try {
-    const lines = readFileSync(join(dir, ".gitignore"), "utf8").split(/\r?\n/);
+    const lines = plain(".gitignore") ? readFileSync(join(dir, ".gitignore"), "utf8").split(/\r?\n/) : [];
     if (GITIGNORE_LINES.slice(0, 2).every((l) => lines.includes(l))) return true;
   } catch {
     // No .gitignore: look at ledger.json.
   }
   try {
+    if (!plain("ledger.json")) return false;
     const d = JSON.parse(readFileSync(join(dir, "ledger.json"), "utf8"));
     return typeof d.site === "string" && Number.isInteger(d.format_version);
   } catch {
@@ -356,8 +398,11 @@ export function folderOwner(dir) {
   const unreadable = [];
   for (const name of OWNER_FILES) {
     const p = join(dir, name);
-    if (!existsSync(p)) continue;
+    const st = lstatIfAny(p);
+    if (!st) continue;
     try {
+      // A link is not read: it counts as a file that cannot be read.
+      if (isLink(st)) throw new Error("a link");
       sites.push(normalizeDomain(JSON.parse(readFileSync(p, "utf8")).site));
     } catch {
       unreadable.push(name);
@@ -484,9 +529,18 @@ export function lockIsStale(l, { now = Date.now(), staleMs = TEST.staleMs || LOC
   return quiet > staleMs;
 }
 
+/** A lock name that is a link is no lock: it is neither read nor removed. A file being removed right now is left to readLock. */
+function linkEntry(p) {
+  try {
+    return isLink(lstatSync(p));
+  } catch {
+    return false;
+  }
+}
+
 function otherLocks(dir, mine) {
   return readdirSync(dir)
-    .filter((n) => n.startsWith(LOCK_PREFIX) && !n.endsWith(".tmp") && n !== mine)
+    .filter((n) => n.startsWith(LOCK_PREFIX) && !n.endsWith(".tmp") && n !== mine && !linkEntry(join(dir, n)))
     .map((n) => readLock(dir, n))
     .filter(Boolean);
 }
@@ -520,6 +574,7 @@ function cleanLockTemps(dir) {
   for (const n of readdirSync(dir)) {
     if (!n.startsWith(LOCK_PREFIX) || !n.endsWith(".tmp")) continue;
     const p = join(dir, n);
+    if (linkEntry(p)) continue;
     try {
       let gone = Date.now() - statSync(p).mtimeMs > LOCK_WRITE_GRACE_MS;
       if (!gone) {
@@ -647,7 +702,7 @@ function shapeProblems(d) {
 }
 
 export function loadLedger(dir, site, today) {
-  const p = join(dir, "ledger.json");
+  const p = insidePath(dir, "ledger.json");
   if (!existsSync(p)) return null;
   let data;
   try {
@@ -673,8 +728,9 @@ export function loadLedger(dir, site, today) {
   return data;
 }
 
-function writeDurable(path, data) {
-  const fd = openSync(path, "w");
+/** Writes and flushes a file. `wx` (the default) creates it and refuses one already there, a link included. */
+function writeDurable(path, data, flag = "wx") {
+  const fd = openSync(path, flag);
   try {
     writeSync(fd, data);
     fsyncSync(fd);
@@ -720,6 +776,14 @@ export function sha256(text) {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** A real calendar date written YYYY-MM-DD (2026-02-30 is not one). */
+export function isCalendarDate(v) {
+  if (typeof v !== "string" || !DATE_RE.test(v)) return false;
+  const [y, m, d] = v.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}
+
 /** The run's date: the UTC calendar date (see DATES at the top). */
 export function utcDate(now = new Date()) {
   return now.toISOString().slice(0, 10);
@@ -733,7 +797,45 @@ const SAFE_REL = /^[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
 
 function target(dir, rel) {
   if (!SAFE_REL.test(rel) || rel.split("/").includes("..")) throw new LedgerError("bad_input", `not a file inside the site folder: ${rel}`);
-  return join(dir, ...rel.split("/"));
+  return insidePath(dir, rel);
+}
+
+/** A symbolic link or junction, or a file with another name elsewhere (a hard link). */
+function isLink(st) {
+  return st.isSymbolicLink() || (st.isFile() && st.nlink > 1);
+}
+
+/**
+ * LINKS (at the top): the full path of `rel` under the site folder, for a read,
+ * a write or a removal. Refused when any part of it below the site folder, the
+ * file itself included, is a link, or when its real path lies outside the site
+ * folder's. `rel` is checked for its form by the caller.
+ */
+function insidePath(dir, rel) {
+  const full = join(dir, ...rel.split("/"));
+  let p = dir;
+  let last = null;
+  for (const part of rel.split("/")) {
+    p = join(p, part);
+    let st;
+    try {
+      st = lstatSync(p);
+    } catch (e) {
+      if (e.code === "ENOENT" || e.code === "ENOTDIR") break;
+      throw e;
+    }
+    if (isLink(st)) {
+      throw new LedgerError("unsafe_path", `${p} is a link (a symbolic link, a junction or a hard link); the ledger reads, writes and removes nothing through one. Nothing was changed. Put a real file or folder there, or remove it, and run again.`);
+    }
+    last = p;
+  }
+  if (last) {
+    const from = nodePath.relative(realpathSync.native(dir), realpathSync.native(last));
+    if (from.startsWith("..") || nodePath.isAbsolute(from)) {
+      throw new LedgerError("unsafe_path", `${last} lies outside ${dir} once its links are followed; nothing was changed`);
+    }
+  }
+  return full;
 }
 
 /**
@@ -743,8 +845,9 @@ function target(dir, rel) {
  */
 function stageTransaction(dir, writes, message, lock) {
   const id = `${Date.now().toString(36)}-${process.pid}-${randomUUID().slice(0, 8)}`;
+  mkdirSync(insidePath(dir, TXN_DIR), { recursive: true });
   const tdir = join(dir, TXN_DIR, id);
-  mkdirSync(tdir, { recursive: true });
+  mkdirSync(tdir);
   // One operation per file, the last one asked for: replaying the transaction after
   // a crash must never let an earlier removal undo a later write of the same file.
   const last = new Map(writes.map((w, i) => [w.rel, i]));
@@ -775,11 +878,25 @@ function stageTransaction(dir, writes, message, lock) {
  * git commit, then the transaction removed. Returns the commit, or null.
  */
 function finishTransaction(dir, tdir, { gitReady, env, lock, recovered = false }) {
-  const m = JSON.parse(readFileSync(join(tdir, "manifest.json"), "utf8"));
+  const trel = `${TXN_DIR}/${nodePath.basename(tdir)}`;
+  const m = JSON.parse(readFileSync(insidePath(dir, `${trel}/manifest.json`), "utf8"));
   if (Number.isInteger(m.format_version) && m.format_version > FORMAT_VERSION) {
     throw new LedgerError("newer_format", `${tdir} was written by a newer plugin; update the plugin to finish it.`);
   }
-  for (const e of m.entries) {
+  // A staged file is one this script named `<n>.data` inside the transaction's own
+  // folder: a manifest naming any other is not one it wrote, and nothing of it is moved.
+  for (const e of m.entries ?? []) {
+    if (!e.remove && !/^[0-9]+\.data$/.test(String(e.file))) {
+      throw new LedgerError("bad_ledger", `${tdir} names a staged file outside its folder (${JSON.stringify(e.file)}); nothing was moved. Remove ${tdir} and run again.`);
+    }
+    try {
+      target(dir, e.rel);
+    } catch (err) {
+      if (err.code !== "bad_input") throw err;
+      throw new LedgerError("bad_ledger", `${tdir} names a file outside the site folder (${JSON.stringify(e.rel)}); nothing was moved. Remove ${tdir} and run again.`);
+    }
+  }
+  for (const e of m.entries ?? []) {
     const to = target(dir, e.rel);
     if (e.remove) {
       try {
@@ -788,7 +905,7 @@ function finishTransaction(dir, tdir, { gitReady, env, lock, recovered = false }
         if (err.code !== "ENOENT") throw err;
       }
     } else {
-      const from = join(tdir, e.file);
+      const from = insidePath(dir, `${trel}/${e.file}`);
       if (existsSync(from)) {
         mkdirSync(dirname(to), { recursive: true });
         renameReplacing(from, to);
@@ -800,9 +917,19 @@ function finishTransaction(dir, tdir, { gitReady, env, lock, recovered = false }
   }
   const commit = gitReady ? commitWorkspace(dir, recovered ? `${m.message} (finished after an interruption)` : m.message, env) : null;
   step("git:committed");
-  rmSync(tdir, { recursive: true, force: true });
+  removeTxnDir(tdir);
   step("txn:cleaned");
   return commit;
+}
+
+/**
+ * Removes a transaction's folder, never recursively: its own files (and a link
+ * put there, as a link) are unlinked one by one, then the empty folder. A folder
+ * inside it is not one this script made, so the removal stops there with an error.
+ */
+function removeTxnDir(tdir) {
+  for (const n of readdirSync(tdir)) unlinkSync(join(tdir, n));
+  rmdirSync(tdir);
 }
 
 /**
@@ -811,16 +938,19 @@ function finishTransaction(dir, tdir, { gitReady, env, lock, recovered = false }
  * yet). Returns what was done.
  */
 function recoverTransactions(dir, opts) {
-  const root = join(dir, TXN_DIR);
+  const root = insidePath(dir, TXN_DIR);
   if (!existsSync(root)) return [];
   const out = [];
   for (const id of readdirSync(root).sort()) {
-    const tdir = join(root, id);
+    // A transaction folder reached through a link is refused before anything in it is read or removed.
+    const tdir = insidePath(dir, `${TXN_DIR}/${id}`);
+    // Only a folder is a transaction; anything else there is not this script's and is left.
+    if (!lstatSync(tdir).isDirectory()) continue;
     if (existsSync(join(tdir, "manifest.json"))) {
       finishTransaction(dir, tdir, { ...opts, recovered: true });
       out.push({ id, done: "finished" });
     } else {
-      rmSync(tdir, { recursive: true, force: true });
+      removeTxnDir(tdir);
       out.push({ id, done: "discarded" });
     }
     step("txn:recovered");
@@ -831,7 +961,7 @@ function recoverTransactions(dir, opts) {
 /** The writes that move an unreadable ledger.json aside: a copy beside it, and the original gone. */
 function quarantineWrites(dir) {
   const rel = `ledger.corrupt-${stamp()}.json`;
-  return { rel, writes: [{ rel, data: readFileSync(join(dir, "ledger.json")) }, { rel: "ledger.json", remove: true }] };
+  return { rel, writes: [{ rel, data: readFileSync(insidePath(dir, "ledger.json")) }, { rel: "ledger.json", remove: true }] };
 }
 
 /**
@@ -839,16 +969,25 @@ function quarantineWrites(dir) {
  * are gone. An edited file gets a copy, written in the same transaction as the
  * rewrite, so it is never lost.
  */
-function guardFiles(dir, recorded) {
+function guardFiles(dir, recorded, rewriting) {
   const hand_edited = [];
   const missing = [];
   const writes = [];
   for (const [rel, hash] of Object.entries(recorded ?? {})) {
-    const p = join(dir, ...rel.split("/"));
+    // The list comes from ledger.json or, on a restore, from the server: a name that
+    // is not a file inside the site folder is never read, whatever it says.
+    let p;
+    try {
+      p = target(dir, rel);
+    } catch (e) {
+      if (e.code !== "bad_input") throw e;
+      continue;
+    }
     if (!existsSync(p)) {
       missing.push(rel);
       continue;
     }
+    if (!rewriting.has(rel)) continue;
     const data = readFileSync(p);
     if (sha256(data) !== hash) {
       const saved = rel.replace(/(\.[a-z]+)?$/, (ext) => `.hand-edit-${stamp()}${ext || ""}`);
@@ -1092,8 +1231,9 @@ export function applyPull(ledger, input, today) {
     const server = serverRowState(s);
     if (sameState(server, statusState(local))) {
       // local already passed normalizeState when the ledger was read, so equal
-      // means the server row is valid too.
+      // means the server row is valid too. A refusal recorded for it is answered.
       local.synced = server;
+      delete local.sync_error;
       out.in_sync += 1;
       continue;
     }
@@ -1103,6 +1243,7 @@ export function applyPull(ledger, input, today) {
     local.synced = server;
     if (adopted.length) out.adopted.push({ id: local.id, status: local.status, fields: adopted });
     const pending = SYNC_FIELDS.filter((f) => (merged[f] ?? null) !== (server[f] ?? null));
+    if (pending.length === 0) delete local.sync_error;
     if (pending.length) {
       out.kept_local.push({
         id: local.id,
@@ -1114,10 +1255,39 @@ export function applyPull(ledger, input, today) {
       });
     }
   }
-  // A payload whose answer was lost, and whose state the server now confirms, is not awaited any more.
-  if (ledger.pending_push && !pendingSync(ledger).pending) {
-    delete ledger.pending_push;
-    out.cleared_pending_push = true;
+  // last_run is the newest run the server recorded. save_plan_items stores a
+  // payload's runs in one transaction, in the order sent, so the payload's last run
+  // is the newest it records: a last_run that is the last run of the payload this
+  // ledger sent means all of that payload's runs are recorded. Any other last_run
+  // (an earlier run of it, which an older payload may have recorded alone, or
+  // another machine's) confirms only itself.
+  const lastId = input.last_run?.run_id ? String(input.last_run.run_id) : null;
+  if (lastId) {
+    const sent = ledger.pending_push?.runs ?? [];
+    const recorded = new Set(sent.length > 0 && sent[sent.length - 1] === lastId ? sent : [lastId]);
+    for (const r of ledger.runs) {
+      if (!r.synced && recorded.has(r.run_id)) {
+        r.synced = true;
+        (out.runs_confirmed ??= []).push(r.run_id);
+      }
+    }
+  }
+  // A payload whose answer was lost: what the server now holds is not awaited any
+  // more, item by item and run by run; the record goes once nothing of it is left.
+  const pp = ledger.pending_push;
+  if (pp) {
+    const byIdNow = new Map(ledger.items.map((it) => [it.id, it]));
+    pp.items = Object.fromEntries(
+      Object.entries(pp.items ?? {}).filter(([id, sent]) => {
+        const it = byIdNow.get(id);
+        return it && !sameState(it.synced, sent) && !sameState(it.synced, statusState(it));
+      }),
+    );
+    pp.runs = (pp.runs ?? []).filter((id) => ledger.runs.some((r) => r.run_id === id && !r.synced));
+    if (Object.keys(pp.items).length === 0 && pp.runs.length === 0) {
+      delete ledger.pending_push;
+      out.cleared_pending_push = true;
+    }
   }
   return out;
 }
@@ -1237,6 +1407,7 @@ export function applyPlan(ledger, input, today) {
     if (!ITEM_ACTIONS.includes(norm(c.action)) || !c.target_page) throw new LedgerError("bad_input", `item ${i} needs action (improve or create) and target_page`);
     if (c.change_kind != null && !CHANGE_KINDS.includes(c.change_kind)) throw new LedgerError("bad_input", `item ${i} has change_kind ${c.change_kind}; use one of ${CHANGE_KINDS.join(", ")}`);
     if (c.issue_id != null && !UUID_RE.test(c.issue_id)) throw new LedgerError("bad_input", `item ${i} has an issue_id that is not an issue id`);
+    if (c.until != null && !isCalendarDate(c.until)) throw new LedgerError("bad_input", `item ${i} has an until that is not a date (YYYY-MM-DD): ${JSON.stringify(c.until)}`);
     if (String(c.target_page).length > 2000) throw new LedgerError("bad_input", `item ${i} has a target_page longer than 2000 characters`);
     const key = itemKey(c);
     if (seen.has(key)) return;
@@ -1331,7 +1502,8 @@ function snapshotPath(dir, asOf) {
 }
 
 function previousSnapshot(dir, asOf) {
-  const sdir = join(dir, "snapshots");
+  if (!dir) return null;
+  const sdir = insidePath(dir, "snapshots");
   if (!existsSync(sdir)) return null;
   const dates = readdirSync(sdir)
     .map((n) => n.match(/^(\d{4}-\d{2}-\d{2})\.json$/)?.[1])
@@ -1339,7 +1511,7 @@ function previousSnapshot(dir, asOf) {
     .sort();
   for (let i = dates.length - 1; i >= 0; i--) {
     try {
-      return { as_of: dates[i], ...JSON.parse(readFileSync(snapshotPath(dir, dates[i]), "utf8")) };
+      return { as_of: dates[i], ...JSON.parse(readFileSync(insidePath(dir, `snapshots/${dates[i]}.json`), "utf8")) };
     } catch {
       // A damaged snapshot is skipped; the one before it is compared instead.
     }
@@ -1456,6 +1628,9 @@ export function weekMayChange(it, today) {
 
 export function applyWeek(ledger, input, prev, today) {
   checkAsOf(input, today);
+  for (const [id, v] of Object.entries(input.verdicts ?? {})) {
+    if (v?.until != null && !isCalendarDate(v.until)) throw new LedgerError("bad_input", `the verdict for ${id} has an until that is not a date (YYYY-MM-DD): ${JSON.stringify(v.until)}`);
+  }
   const merged = mergeChanges(ledger, input.changes);
   const out = { status_changes: [], held: [], changes_added: merged.added, changes_updated: merged.updated };
 
@@ -1492,8 +1667,10 @@ export function applyWeek(ledger, input, prev, today) {
     let next = null;
     if (done) next = { status: "done", reason: `change recorded ${done.on} (${sourceLabel(done)})`, until: null, change: done.key };
     else if (it.links.issue_id && issuesRead && !openIssues.has(it.links.issue_id)) next = { status: "done", reason: "the issue it was planned for is no longer open", until: null };
-    // An allow verdict (status open) changes nothing: no status, no reason. Only a block moves an item.
+    // An allow verdict (status open) changes nothing on an open item: no status, no reason. Only a block moves it.
     else if (input.verdicts?.[it.id] && input.verdicts[it.id].status !== "open") next = { status: input.verdicts[it.id].status, reason: input.verdicts[it.id].reason, until: input.verdicts[it.id].until };
+    // An unchecked item waited for exactly this check: an allow opens it, with no reason.
+    else if (input.verdicts?.[it.id]?.status === "open" && it.status === "unchecked") next = { status: "open", reason: null, until: null };
     // A wait whose date has come opens again on that date, not on a verdict.
     else if (it.status === "waiting" && weekMayChange(it, today)) next = { status: "open", reason: null, until: null };
     if (!next) continue;
@@ -1613,6 +1790,14 @@ function gitBin(env) {
   return env.SEO_GENIUS_GIT || "git";
 }
 
+/** A site folder's .git, when there is one, is a real folder inside it. */
+function gitDirIsOwn(dir) {
+  const st = lstatIfAny(join(dir, ".git"));
+  if (st && !st.isDirectory()) {
+    throw new LedgerError("unsafe_path", `${join(dir, ".git")} is ${st.isSymbolicLink() ? "a link" : "a file pointing elsewhere"}, not the site folder's own history; nothing was committed or changed. Move it away and run again.`);
+  }
+}
+
 function ensureWorkspaceGit(dir, env) {
   if (existsSync(join(dir, ".git"))) return true;
   const r = spawnSync(gitBin(env), ["init", "-q", dir], { encoding: "utf8" });
@@ -1657,12 +1842,14 @@ export function nodeTooOld(version = process.versions.node) {
 
 /** The folder's .gitignore keeps the lock, the transactions and the drafts out of its history. */
 function ensureGitignore(dir) {
-  const p = join(dir, ".gitignore");
+  const p = insidePath(dir, ".gitignore");
   const have = existsSync(p) ? readFileSync(p, "utf8") : "";
   const lines = have.split(/\r?\n/).filter(Boolean);
   const missing = GITIGNORE_LINES.filter((l) => !lines.includes(l));
   if (missing.length === 0) return;
   const tmp = `${p}.${process.pid}.tmp`;
+  // Left by a crashed run with this pid: its own name, under this run's lock.
+  rmSync(tmp, { force: true });
   writeDurable(tmp, `${[...lines, ...missing].join("\n")}\n`);
   renameReplacing(tmp, p);
 }
@@ -1683,6 +1870,26 @@ function draftRel(dir, given) {
   return rel.split(nodePath.sep).join("/");
 }
 
+/** A file or folder on the way to `rel` whose name differs from it only in case, or null. */
+function caseTwin(dir, rel) {
+  let at = dir;
+  let have = "";
+  for (const part of rel.split("/")) {
+    let names;
+    try {
+      names = readdirSync(at);
+    } catch {
+      return null;
+    }
+    const twin = names.find((n) => n !== part && n.toLowerCase() === part.toLowerCase());
+    if (twin) return have + twin;
+    if (!names.includes(part)) return null;
+    at = join(at, part);
+    have += `${part}/`;
+  }
+  return null;
+}
+
 /** The drafts `save` takes in: `<site folder>/.drafts/<path>`. */
 function saveWrites(dir, site, list) {
   const rels = String(list ?? "")
@@ -1694,10 +1901,15 @@ function saveWrites(dir, site, list) {
     const rel = draftRel(dir, given);
     target(dir, rel);
     if (!/\.(md|json)$/.test(rel)) throw new LedgerError("bad_input", `${rel}: save keeps .md and .json files only`);
-    if (LEDGER_OWNED.has(rel) || LEDGER_OWNED_DIRS.some((d) => rel.startsWith(d)) || /\.(hand-edit|corrupt|unreadable)-/.test(rel)) {
+    // Windows and macOS folders ignore case, so the ledger's own names are compared without it.
+    const low = rel.toLowerCase();
+    if (LEDGER_OWNED.has(low) || LEDGER_OWNED_DIRS.some((d) => low.startsWith(d)) || /\.(hand-edit|corrupt|unreadable)-/.test(low)) {
       throw new LedgerError("bad_input", `${rel} is written by the ledger itself; use its own command`);
     }
-    const draft = join(dir, DRAFTS_DIR, ...rel.split("/"));
+    const sameName = caseTwin(dir, rel);
+    if (sameName) throw new LedgerError("bad_input", `${rel} differs only in case from ${sameName}, which is already in the site folder; save it under that name`);
+    // Read only by its real path inside the drafts folder: a link anywhere on the way is refused.
+    const draft = insidePath(dir, `${DRAFTS_DIR}/${rel}`);
     if (!existsSync(draft)) throw new LedgerError("bad_input", `no draft for ${rel}: write it to ${draft} first, then run save`);
     const data = readFileSync(draft);
     if (rel.endsWith(".json")) {
@@ -1708,7 +1920,7 @@ function saveWrites(dir, site, list) {
         throw new LedgerError("bad_input", `${rel} does not parse (${e.message}); nothing was saved`);
       }
       const named = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed.site : undefined;
-      if (rel === "config.json" && typeof named !== "string") throw new LedgerError("bad_input", "config.json needs its site, so the folder's owner stays known");
+      if (low === "config.json" && typeof named !== "string") throw new LedgerError("bad_input", "config.json needs its site, so the folder's owner stays known");
       if (named !== undefined) {
         let other;
         try {
@@ -1721,6 +1933,18 @@ function saveWrites(dir, site, list) {
     }
     return { rel, data, draft };
   });
+}
+
+/** Whether a write would leave its file as it is (a removal: the file is not there). */
+function unchangedOnDisk(dir, w) {
+  const p = target(dir, w.rel);
+  if (w.remove) return !existsSync(p);
+  try {
+    return readFileSync(p).equals(Buffer.from(w.data));
+  } catch (e) {
+    if (e.code === "ENOENT") return false;
+    throw e;
+  }
 }
 
 function historyLabel(mode, gitReady) {
@@ -1748,43 +1972,97 @@ export function run(cmd, opts) {
   // Everything a command can be refused for on its arguments and input alone is
   // checked here, before any folder, git, .gitignore or drafts folder exists.
   const input = INPUT_COMMANDS.has(cmd) ? opts.input ?? readInput(opts.inputPath) : null;
+  if (INPUT_COMMANDS.has(cmd) && (!input || typeof input !== "object" || Array.isArray(input))) throw new LedgerError("bad_input", `${cmd} input must be a JSON object`);
   if (cmd === "week") checkAsOf(input, today);
   if (cmd === "set-status") checkSetStatusArgs(opts);
   const located = locateSiteDir({ ...opts, env });
   const { dir } = located;
   const drafts_dir = join(dir, DRAFTS_DIR);
-  if (!existsSync(dir) && !CREATES.has(cmd)) {
-    // resolve and show leave a missing folder missing, and so does every command
-    // that would write nothing into it.
-    const where = ownerAnswer(cmd, located);
-    if (cmd === "resolve") return { ...where, drafts_dir };
-    if (cmd === "push-payload") return { ...where, command: cmd, drafts_dir, files: {}, commit: null, nothing_to_send: true, payload: { items: [], runs: [] } };
-    if (cmd === "show") return { ...where, format_version: FORMAT_VERSION, items: [], runs: 0, items_not_synced: 0, runs_not_synced: 0, push_pending: false, awaiting_ack: false };
-    throw new LedgerError("bad_input", `${dir} does not exist yet, so there is nothing to ${cmd}; nothing was written`);
+  // LINKS: the site folder itself (in a repository, its .seo-genius) is never a link.
+  const own = lstatIfAny(dir);
+  if (own && isLink(own)) {
+    throw new LedgerError("unsafe_path", `${dir} is a link (a symbolic link or a junction); the site folder must be a real folder, so nothing is read or written through it. Nothing was changed.`);
   }
-  // Only a command that writes the ledger creates the folder. One that is then
-  // refused takes away again what it created.
-  const created = existsSync(dir) ? undefined : mkdirSync(dir, { recursive: true });
-  let ok = false;
-  try {
-    // Every command, in this order: the lock, then a pending transaction finished or
-    // thrown away, then whose folder it is. Owner files half moved in are never read.
-    const lock = acquireLock(dir);
-    try {
-      const out = runLocked(cmd, { ...opts, input }, { located, lock, today, env, drafts_dir });
-      ok = true;
-      return out;
-    } finally {
-      lock.release();
+  if (!existsSync(dir)) {
+    if (!CREATES.has(cmd)) {
+      // resolve and show leave a missing folder missing, and so does every command
+      // that would write nothing into it.
+      const where = ownerAnswer(cmd, located);
+      if (cmd === "resolve") return { ...where, drafts_dir };
+      if (cmd === "push-payload") return { ...where, command: cmd, drafts_dir, files: {}, commit: null, nothing_to_send: true, payload: { items: [], runs: [] } };
+      if (cmd === "show") return { ...where, format_version: FORMAT_VERSION, items: [], runs: 0, items_not_synced: 0, runs_not_synced: 0, push_pending: false, awaiting_ack: false };
+      throw new LedgerError("bad_input", `${dir} does not exist yet, so there is nothing to ${cmd}; nothing was written`);
     }
+    // The command is first run in memory on the empty ledger a new folder starts
+    // with, so whatever its input would be refused for is refused before the folder
+    // exists. Once made, the folder is never removed: another run may already be in it.
+    preflight(cmd, input, located.site, today);
+    mkdirSync(dir, { recursive: true });
+  }
+  // Every command, in this order: the lock, then a pending transaction finished or
+  // thrown away, then whose folder it is. Owner files half moved in are never read.
+  const lock = acquireLock(dir);
+  try {
+    return runLocked(cmd, { ...opts, input }, { located, lock, today, env, drafts_dir });
   } finally {
-    if (created && !ok) rmSync(created, { recursive: true, force: true });
+    lock.release();
   }
 }
 
 // Commands that read --input, and the ones that may create the site folder.
 const INPUT_COMMANDS = new Set(["pull", "plan", "week", "history", "push-ack"]);
 const CREATES = new Set(["prepare", "pull", "plan", "week", "history"]);
+// The commands inputCommand runs, the same on a site folder and in preflight.
+const INPUT_RUNS = new Set(["pull", "plan", "week", "history"]);
+
+/**
+ * pull, plan, week and history on a ledger: the result, the run to record, and
+ * every file through `write`. `dir` is null in preflight (no previous snapshot).
+ */
+function inputCommand(cmd, ledger, input, dir, today, write) {
+  if (cmd === "pull") {
+    const result = applyPull(ledger, input, today);
+    write("plan.md", renderPlan(ledger, today));
+    return { result, runEntry: null };
+  }
+  if (cmd === "plan") {
+    const result = applyPlan(ledger, input, today);
+    write("plan.md", renderPlan(ledger, today));
+    return { result, runEntry: { kind: "plan" } };
+  }
+  if (cmd === "week") {
+    const asOf = today;
+    const result = applyWeek(ledger, input, previousSnapshot(dir, asOf), today);
+    const snap = { format_version: FORMAT_VERSION, rankings: input.rankings ?? [], issues: (input.issues ?? []).map(({ id, severity, issue_type, page_url }) => ({ id, severity, issue_type, page_url })) };
+    write(`snapshots/${asOf}.json`, `${JSON.stringify(snap, null, 1)}\n`);
+    write(`weekly/${asOf}.md`, renderWeek(ledger, result, asOf));
+    write("changelog.md", renderChangelog(ledger, today));
+    write("plan.md", renderPlan(ledger, today));
+    return { result, runEntry: { kind: "week" } };
+  }
+  const result = applyHistory(ledger, input);
+  write("changelog.md", renderChangelog(ledger, today));
+  return { result, runEntry: null };
+}
+
+/**
+ * A command that creates a missing site folder, run in memory first on the empty
+ * ledger the folder would start with. It throws what the run would be refused for;
+ * it writes nothing. Input the command cannot use at all (a field of the wrong
+ * type) is a refusal here too.
+ */
+function preflight(cmd, input, site, today) {
+  if (!INPUT_RUNS.has(cmd)) return;
+  const keep = normalizedLog;
+  try {
+    inputCommand(cmd, emptyLedger(site, today), input, null, today, () => {});
+  } catch (e) {
+    if (e instanceof LedgerError) throw e;
+    throw new LedgerError("bad_input", `${cmd} input cannot be used (${e.message}); nothing was written`);
+  } finally {
+    normalizedLog = keep;
+  }
+}
 
 /** A week's as_of, when given, is the run's own date (DATES at the top). */
 function checkAsOf(input, today) {
@@ -1799,6 +2077,7 @@ function checkSetStatusArgs(opts) {
     if (opts[k] !== undefined && !UUID_RE.test(String(opts[k]))) throw new LedgerError("bad_input", `--${k === "change" ? "change" : "replace-change"} must be the id log_page_change returned, got ${JSON.stringify(opts[k])}`);
   }
   if (opts.change !== undefined && opts.replaceChange !== undefined) throw new LedgerError("bad_input", "give --change or --replace-change, not both");
+  if (opts.until !== undefined && opts.until !== "" && !isCalendarDate(opts.until)) throw new LedgerError("bad_input", `--until must be a date (YYYY-MM-DD), got ${JSON.stringify(opts.until)}`);
 }
 
 /** The resolver's answer once the owner files are read. */
@@ -1817,6 +2096,9 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
       sleep(100);
     }
   }
+  // A site folder's history is its own: a .git that is a link or a file (a pointer to
+  // another repository's) is refused before anything is committed into it.
+  if (mode === "workspace") gitDirIsOwn(dir);
   // Recovery commits only into a git history that is already there: a folder gets
   // one only once it is known to be this site's.
   const recoverGit = mode === "workspace" && existsSync(join(dir, ".git"));
@@ -1871,6 +2153,7 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     base.history = historyLabel(mode, gitReady);
   };
   if (cmd === "prepare") {
+    for (const rel of [".gitignore", DRAFTS_DIR]) insidePath(dir, rel);
     setUp();
     const commit = gitReady ? commitWorkspace(dir, `ledger: set up the site folder ${today}`, env) : null;
     return { ...base, commit };
@@ -1889,10 +2172,12 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     } else {
       claimed = found.unreadable.map((name) => {
         const rel = name.replace(/\.json$/, `.unreadable-${stamp()}.json`);
-        writes.push({ rel, data: readFileSync(join(dir, name)) }, { rel: name, remove: true });
+        writes.push({ rel, data: readFileSync(insidePath(dir, name)) }, { rel: name, remove: true });
         return { file: name, saved_as: rel };
       });
     }
+    // Nothing to take over: nothing is read further, written or committed.
+    if (claimed.length === 0) return { ...base, files: {}, commit: null, claimed: false, moved_aside: [] };
   }
   // A claim that moved ledger.json aside leaves it missing, so the next pull rebuilds
   // it from the server the same way as a lost one: restored, history read, and the
@@ -1924,11 +2209,9 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
   // A ledger.json edited by hand passes the same rule before anything reads it.
   for (const it of ledger.items) normalizeItem(it, today);
 
-  // A file the ledger wrote and someone edited since is kept before anything is rewritten.
-  let recorded = ledger.files;
+  // The hashes the ledger last wrote, read before this command records its own.
+  let recorded = { ...ledger.files };
   if (restored && input?.last_run?.file_hashes) recorded = input.last_run.file_hashes;
-  const guarded = guardFiles(dir, recorded);
-  writes.push(...guarded.writes);
 
   const files = {};
   const write = (rel, data) => {
@@ -1940,26 +2223,8 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
   let result = {};
   let runEntry = null;
   let drafts = [];
-  if (cmd === "pull") {
-    result = applyPull(ledger, input, today);
-    write("plan.md", renderPlan(ledger, today));
-  } else if (cmd === "plan") {
-    result = applyPlan(ledger, input, today);
-    write("plan.md", renderPlan(ledger, today));
-    runEntry = { kind: "plan" };
-  } else if (cmd === "week") {
-    const asOf = today;
-    const prev = previousSnapshot(dir, asOf);
-    result = applyWeek(ledger, input, prev, today);
-    const snap = { format_version: FORMAT_VERSION, rankings: input.rankings ?? [], issues: (input.issues ?? []).map(({ id, severity, issue_type, page_url }) => ({ id, severity, issue_type, page_url })) };
-    write(`snapshots/${asOf}.json`, `${JSON.stringify(snap, null, 1)}\n`);
-    write(`weekly/${asOf}.md`, renderWeek(ledger, result, asOf));
-    write("changelog.md", renderChangelog(ledger, today));
-    write("plan.md", renderPlan(ledger, today));
-    runEntry = { kind: "week" };
-  } else if (cmd === "history") {
-    result = applyHistory(ledger, input);
-    write("changelog.md", renderChangelog(ledger, today));
+  if (INPUT_RUNS.has(cmd)) {
+    ({ result, runEntry } = inputCommand(cmd, ledger, input, dir, today, write));
   } else if (cmd === "set-status") {
     const it = ledger.items.find((x) => x.id === opts.id);
     if (!it) throw new LedgerError("bad_input", `no item ${opts.id} in this ledger`);
@@ -1995,6 +2260,9 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     result = applyPushAck(ledger, input);
   }
 
+  if (runEntry && input?.run_id && ledger.runs.some((r) => r.run_id === String(input.run_id))) {
+    throw new LedgerError("bad_input", `run_id ${input.run_id} is already recorded in this ledger (this ${cmd} already ran); give a new run_id. Nothing was written.`);
+  }
   if (runEntry) {
     ledger.runs.push({
       run_id: (input?.run_id && String(input.run_id)) || randomUUID(),
@@ -2007,13 +2275,34 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
       synced: false,
     });
   }
+  // A file the ledger wrote and someone edited since is copied aside when this
+  // command rewrites it; one it does not rewrite keeps the edit and is left alone.
+  const guarded = guardFiles(dir, recorded, new Set(writes.filter((w) => !w.remove).map((w) => w.rel)));
+  writes.push(...guarded.writes);
   if (!movedLedger) writes.push({ rel: "ledger.json", data: `${JSON.stringify(ledger, null, 1)}\n` });
   const runId = runEntry ? ledger.runs[ledger.runs.length - 1].run_id : null;
   const message = `ledger: ${cmd} ${today}${runId ? ` run ${runId}` : ""}${cmd === "save" ? ` ${drafts.map((d) => d.rel).join(", ")}` : ""}`;
-  setUp();
-  const commit = finishTransaction(dir, stageTransaction(dir, writes, message, lock), { gitReady, env, lock });
-  // The drafts are in the folder's history now.
-  for (const d of drafts) rmSync(d.draft, { force: true });
+  // Every path this command writes or removes is checked before anything is made,
+  // git, .gitignore and the drafts folder included (LINKS at the top).
+  for (const rel of [".gitignore", DRAFTS_DIR, TXN_DIR]) insidePath(dir, rel);
+  for (const w of writes) target(dir, w.rel);
+  // A write that leaves a file as it is, is none: a command that changes nothing commits nothing.
+  const changing = writes.filter((w) => !unchangedOnDisk(dir, w));
+  let commit = null;
+  if (changing.length > 0) {
+    setUp();
+    commit = finishTransaction(dir, stageTransaction(dir, changing, message, lock), { gitReady, env, lock });
+  }
+  // The drafts are in the folder now. Each is removed by its checked path, and only
+  // while it still holds what was saved: one written again since is kept.
+  for (const d of drafts) {
+    const p = insidePath(dir, `${DRAFTS_DIR}/${d.rel}`);
+    try {
+      if (readFileSync(p).equals(d.data)) unlinkSync(p);
+    } catch (e) {
+      if (e.code !== "ENOENT") throw e;
+    }
+  }
   step("lock:before-release");
   return {
     ...base,
