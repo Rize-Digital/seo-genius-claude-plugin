@@ -91,10 +91,14 @@ export function pendingTxns(dir) {
   return existsSync(join(dir, ".txn")) ? readdirSync(join(dir, ".txn")) : [];
 }
 
-/** A process id that has just ended. */
+/**
+ * A process id no live process has. A pid that has just ended is not enough:
+ * Windows hands it out again within moments when many processes start, and a lock
+ * planted with it then belongs to a live process. 2147483647 is odd (Windows pids
+ * are multiples of 4) and above the pid limit of Linux and macOS.
+ */
 export function deadPid() {
-  const r = spawnSync(process.execPath, ["-e", "process.stdout.write(String(process.pid))"], { encoding: "utf8" });
-  return Number(r.stdout);
+  return 2147483647;
 }
 
 export function writeDraft(s, rel, text) {

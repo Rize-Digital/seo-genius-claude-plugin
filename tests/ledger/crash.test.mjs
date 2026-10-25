@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { cpSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { scratch, cli, cliAsync, pool, POOL, snapshot, git, commits, lockFiles, pendingTxns, writeDraft, PLAN, U } from "./helpers.mjs";
+import { scratch, cli, cliAsync, pool, POOL, snapshot, git, commits, lockFiles, pendingTxns, writeDraft, PLAN, U, deadPid } from "./helpers.mjs";
 
 const COMMIT_POINT = "txn:committed#1";
 
@@ -209,6 +209,12 @@ async function everyCommandAfterEveryCrash(name, prepare, cmd, opts, { distinct 
       // One crash at this step, then a copy of the crashed folder for each command.
       const crashed = fresh(oldDir);
       assert.equal((await cliAsync(crashed, cmd, { ...opts, env: { SEO_GENIUS_LEDGER_TEST_CRASH_AT: point } })).code, 86, `${name} at ${point}`);
+      // The crashed run's lock stays, naming a pid no live process can have: Windows hands a pid
+      // that just ended to a new process within moments, and the lock would then look live.
+      for (const n of lockFiles(crashed.siteDir)) {
+        const p = join(crashed.siteDir, n);
+        writeFileSync(p, JSON.stringify({ ...JSON.parse(readFileSync(p, "utf8")), pid: deadPid() }));
+      }
       const runs = EVERY_COMMAND.map(([c, o]) => {
         const t = fresh(crashed.siteDir);
         return cliAsync(t, c, o).then((r) => ({ c, t, r }));
