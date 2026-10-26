@@ -7,12 +7,13 @@
 4. Prompt 3 in a session with no web fetch tool.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> [read config, or get_business_context] -> list_tracked_keywords -> get_serp_snapshots (keywords set to the terms) -> [state the spend for the terms with no reading from the last seven days, wait for a yes] -> serp_rank_check (one per such term, depth 20, ten at most) -> [competitor_domains once, only when fewer than three businesses were found] -> web fetch (competitor ranking pages, three per competitor at most; sitemaps) -> search_pages / web fetch / get_page / list_pages (this site) -> write .seo-genius/competitors.md and competitors.json
+get_my_tenant -> list_sites -> [read config, or get_business_context] -> get_serp_snapshots (keywords set to the terms, since seven days back, limit 25, every page) -> [state the spend for the terms with no stored page from the last seven days at the config's location, wait for a yes] -> serp_rank_check (one per such term, depth 20, ten at most) -> [competitor_domains once, only when fewer than three businesses were found] -> web fetch (competitor ranking pages, three per competitor at most; sitemaps) -> search_pages / web fetch / get_page / list_pages (this site) -> write .seo-genius/competitors.md and competitors.json
 
 ## Pass conditions
 - [ ] The reply states the number of live searches, says one more call may follow if fewer than three businesses turn up, and waits for a yes before the first one.
-- [ ] list_tracked_keywords and get_serp_snapshots run before any live search; a term with a reading from the last seven days is read from the stored data (place, URL, map pack place) and not searched live.
-- [ ] When get_serp_snapshots says stored search pages are not set up, the reply says so and the run continues with tracked readings and live searches.
+- [ ] get_serp_snapshots runs before any live search, with since set to seven days back and limit 25, following next_cursor to the end; a term with a stored page from the last seven days at the config's location (its metro location_code, or a national search when there is none) is read from that page and not searched live.
+- [ ] On a stored page, this site's place is counted among the organic entries in p order, never taken from site_position; the map pack place comes from site_pack_position.
+- [ ] When get_serp_snapshots says stored search pages are not set up, the reply says so and the run continues with live searches, after the yes.
 - [ ] Ten serp_rank_check calls at most, and one competitor_domains call at most.
 - [ ] Who is first, second, and third is read from the order of results, not from the rank number.
 - [ ] Directories and marketplaces are listed apart and never counted among the three competitors, including any that competitor_domains returns.
