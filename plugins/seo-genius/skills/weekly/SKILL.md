@@ -1,6 +1,6 @@
 ---
 name: weekly
-description: Week-over-week SEO plan and research update from SEO Genius, kept in a local ledger. Use for "weekly update", "what changed this week", "update the plan", "compare with last week", or as the weekly step of a scheduled run before next. Reads last run's files, compares this week's stored rankings and open issues with last week's, adds every recorded change to the local changelog (changes logged through SEO Genius and fixes applied from the dashboard), and updates plan items in place under the same ids. Uses stored data only and makes no Data-for-SEO call. Requires the SEO Genius MCP server, connected and authorized, and Node.js for the ledger script.
+description: Week-over-week SEO plan and research update from SEO Genius, kept in a local ledger. Use for "weekly update", "what changed this week", "update the plan", "compare with last week", or as the weekly step of a scheduled run before report and next. Reads last run's files, compares this week's stored rankings and open issues with last week's, adds every recorded change to the local changelog (changes logged through SEO Genius and fixes applied from the dashboard), and updates plan items in place under the same ids. Uses stored data only and makes no Data-for-SEO call. Requires the SEO Genius MCP server, connected and authorized, and Node.js for the ledger script.
 ---
 
 # SEO Genius: weekly ledger update
@@ -9,7 +9,7 @@ Last week's files, this week's stored numbers, the same plan items. Nothing is r
 
 ## When to use
 
-"weekly update", "what changed this week", "update the plan", "compare with last week". Also as the weekly step of a scheduled run, before `/seo-genius:next`.
+"weekly update", "what changed this week", "update the plan", "compare with last week". Also as the weekly step of a scheduled run, before `/seo-genius:report` and `/seo-genius:next`.
 
 ## Requires
 
