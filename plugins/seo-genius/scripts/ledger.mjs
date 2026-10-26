@@ -28,7 +28,9 @@
 // `~/seo-genius`. That folder is created and gets its own `git init` before
 // anything is written into it, and one commit per command that writes, so the
 // history survives without a site repository; without git on the machine the
-// files are still written and the answer says history is unavailable. Every file
+// files are still written and the answer says history is unavailable. A commit
+// takes exactly the files the command wrote, moved aside or removed, named one by
+// one: nothing else in the folder is ever staged. Every file
 // a skill keeps there (config, research, reports) goes through `save`, so it is
 // written the same way and committed. Such a site folder has a `.git` of its own,
 // so it is recognised before any repository is looked for, whatever the working
@@ -915,7 +917,9 @@ function finishTransaction(dir, tdir, { gitReady, env, lock, recovered = false }
     lock?.touch();
     step("txn:applied");
   }
-  const commit = gitReady ? commitWorkspace(dir, recovered ? `${m.message} (finished after an interruption)` : m.message, env) : null;
+  // The transaction's own paths, and .gitignore, which the command may have just written.
+  const rels = [".gitignore", ...(m.entries ?? []).map((e) => e.rel)];
+  const commit = gitReady ? commitWorkspace(dir, recovered ? `${m.message} (finished after an interruption)` : m.message, env, rels) : null;
   step("git:committed");
   removeTxnDir(tdir);
   step("txn:cleaned");
@@ -1790,12 +1794,31 @@ function gitBin(env) {
   return env.SEO_GENIUS_GIT || "git";
 }
 
-/** A site folder's .git, when there is one, is a real folder inside it. */
+/**
+ * A site folder's .git, when there is one, is a real folder inside it, and nothing
+ * in it is a link: no entry anywhere under it is a symbolic link or a junction, and
+ * no file in it has another name elsewhere (a hard link). git would read and write
+ * through any of them. Checked before anything is written, and again before each
+ * git command that writes.
+ */
 function gitDirIsOwn(dir) {
-  const st = lstatIfAny(join(dir, ".git"));
-  if (st && !st.isDirectory()) {
-    throw new LedgerError("unsafe_path", `${join(dir, ".git")} is ${st.isSymbolicLink() ? "a link" : "a file pointing elsewhere"}, not the site folder's own history; nothing was committed or changed. Move it away and run again.`);
+  const root = join(dir, ".git");
+  const st = lstatIfAny(root);
+  if (!st) return;
+  if (!st.isDirectory()) {
+    throw new LedgerError("unsafe_path", `${root} is ${st.isSymbolicLink() ? "a link" : "a file pointing elsewhere"}, not the site folder's own history; nothing was committed or changed. Move it away and run again.`);
   }
+  const walk = (d) => {
+    for (const n of readdirSync(d)) {
+      const p = join(d, n);
+      const e = lstatSync(p);
+      if (isLink(e)) {
+        throw new LedgerError("unsafe_path", `${p} is a link (a symbolic link, a junction or a hard link) inside the site folder's git history; git would read or write through it, so nothing was committed or changed. Remove the link and run again.`);
+      }
+      if (e.isDirectory()) walk(p);
+    }
+  };
+  walk(root);
 }
 
 function ensureWorkspaceGit(dir, env) {
@@ -1804,11 +1827,29 @@ function ensureWorkspaceGit(dir, env) {
   return !r.error && r.status === 0;
 }
 
-function commitWorkspace(dir, message, env) {
+/**
+ * Commits exactly `rels`, the paths the command itself wrote, moved aside or
+ * removed, and nothing else: each is named as a literal pathspec, so another file
+ * in the folder (or one staged by hand) is never read or committed. A removed path
+ * is committed only when git tracks it.
+ */
+function commitWorkspace(dir, message, env, rels) {
+  gitDirIsOwn(dir);
   const git = (...args) =>
     spawnSync(gitBin(env), ["-C", dir, "-c", "user.name=SEO Genius ledger", "-c", "user.email=ledger@seo-genius.local", ...args], { encoding: "utf8" });
-  if (git("add", "-A").error) return null;
-  const r = git("commit", "-q", "-m", message);
+  const lit = (r) => `:(literal)${r}`;
+  const wanted = [...new Set(rels)];
+  const present = wanted.filter((r) => existsSync(join(dir, ...r.split("/"))));
+  const listed = git("ls-files", "-z", "--", ...wanted.map(lit));
+  if (listed.error || listed.status !== 0) return null;
+  const tracked = new Set(listed.stdout.split("\0").filter(Boolean));
+  const paths = [...present, ...wanted.filter((r) => !present.includes(r) && tracked.has(r))];
+  if (paths.length === 0) return null;
+  if (present.length > 0) {
+    const added = git("add", "--", ...present.map(lit));
+    if (added.error || added.status !== 0) return null;
+  }
+  const r = git("commit", "-q", "-m", message, "--", ...paths.map(lit));
   if (!r.error && r.status === 0) return git("rev-parse", "--short", "HEAD").stdout.trim();
   return null;
 }
@@ -2155,7 +2196,7 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
   if (cmd === "prepare") {
     for (const rel of [".gitignore", DRAFTS_DIR]) insidePath(dir, rel);
     setUp();
-    const commit = gitReady ? commitWorkspace(dir, `ledger: set up the site folder ${today}`, env) : null;
+    const commit = gitReady ? commitWorkspace(dir, `ledger: set up the site folder ${today}`, env, [".gitignore"]) : null;
     return { ...base, commit };
   }
 
