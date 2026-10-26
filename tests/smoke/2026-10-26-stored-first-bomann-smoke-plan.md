@@ -23,7 +23,7 @@ Record each answer's key numbers in the results table. Take today as the UTC dat
 | 0.1 | `get_my_tenant`, `list_sites` | Bomann's site id, `can_write` |
 | 0.2 | `list_tracked_keywords` with `keywords` set to the four terms of step 1 | each term's readings: `location`, `position`, `pack_position`, `url`, `checked_on`; `locations` (label and `location_code`); `not_tracked` |
 | 0.3 | `get_serp_snapshots` with `keywords` set to the same terms, `since` D7, `limit: 25`, every page | per entry: `location_code`, `checked_at`, `site_position`, `site_pack_position`; `not_found`. For one entry with a map pack, count this site's place among the `organic` entries by hand and note it beside `site_position` |
-| 0.4 | `list_issues` `status: open`, `severity: critical`, `limit: 100`; the same for `high`; and once with no severity | each `total`; the critical rows' `type` and `page_url` |
+| 0.4 | `list_issues` `status: open`, `severity: critical`, `limit: 100`, following `next_cursor` to the end; the same for `high`; and once with no severity | each `total` and the rows read; the critical rows' `type` and `page_url` |
 
 Pick the terms from 0.2 and 0.3 before step 1:
 - T1, T2: tracked at Bomann's tracked location, with `checked_on` on or after D7 (expected from the 2026-10-19 weekly check cadence: re-check the date).
@@ -41,8 +41,8 @@ Prompt: `Unattended run. Run /seo-genius:weekly, then /seo-genius:report. Then s
 
 Pass:
 - `weekly` writes `snapshots/<today>.json` and `weekly/<today>.md`, pulls and pushes through `save_plan_items` (the only write), and makes no live call.
-- `report` reads `snapshots/<today>.json` before any server call for a position. T1 and T2 come from it, with no second lookup.
-- `report` calls `list_tracked_keywords` with the terms (for `locations`), and `get_serp_snapshots` only for the terms not in the snapshot (T3, T4), with `since` D7, `limit: 25`, following `next_cursor`.
+- `report` reads `snapshots/<today>.json` before any server call for a position. T1 and T2 come from it, with no second lookup: neither is sent to `list_tracked_keywords` or `get_serp_snapshots`.
+- `report` calls `list_tracked_keywords` with only the terms not in the snapshot (T3, T4; its first page also gives `locations`), then `get_serp_snapshots` with only the terms still without a reading, with `since` D7, `limit: 25`, following `next_cursor`.
 - T4 is named as having no stored reading this week, with the note to add it in the rank tracker. No live search is attempted, although `live_calls_per_run` is 3.
 - A reading at a location other than the config's, or checked before D7, is not used.
 - T1 and T2 are shown as the place on the page (a tracker position counts every block), beside the previous snapshot's reading or the `change` field, never beside `site_place` from `competitors.json`. T3, if present, shows its organic place counted from the stored page (matching the hand count of 0.3), not `site_position`.
@@ -72,7 +72,7 @@ On the report files of steps 2 and 3, and on `/seo-genius:brief` (run A home; `g
 Then `/seo-genius:content-plan`, attended.
 
 Pass:
-- `list_issues` is called twice, `status: open`, `limit: 100`, `severity: critical` then `high`, first page each; the totals match 0.4. Neither is called without a severity.
+- `list_issues` is read for `severity: critical`, then `high`, `status: open`, `limit: 100`, each following `next_cursor` until it is null; the rows read match the totals of 0.4. Neither is called without a severity.
 - Each critical issue whose type maps to one of the nine change kinds is an Improve item on its page, with `issue_id` set (check with `ledger.mjs show` and on the server with `list_plan_items`), checked with `check_change`, and listed first among the open items.
 - A critical issue that maps to no kind is listed in the plan header and gets no item.
 - Every Improve or Create item on a page with an open critical or high issue names that issue.
