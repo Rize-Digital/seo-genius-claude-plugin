@@ -7,13 +7,13 @@
 4. Prompt 1 on a site where one target page had its title logged with `/seo-genius:log-change` in the last few days.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> [read the research files and config] -> get_site_briefing -> list_pages (limit 100, five pages at most) -> list_issues (status open, limit 100, first page only) -> check_change (one per Improve item, and one with change_kind internal_links per page a Create item links from) -> write .seo-genius/plan.md
+get_my_tenant -> list_sites -> [read the research files and config] -> get_site_briefing -> list_pages (limit 100, five pages at most) -> list_issues (status open, severity critical, limit 100, first page only) -> list_issues (status open, severity high, limit 100, first page only) -> check_change (one per Improve item, and one with change_kind internal_links per page a Create item links from) -> write .seo-genius/plan.md
 
 ## Pass conditions
 - [ ] No Data-for-SEO call is made.
 - [ ] The topical map marks each slot covered, thin, or empty, and names the URL for a covered slot.
 - [ ] Every backlog item names the research row or the issue row it came from.
-- [ ] list_issues is called once, with status open and limit 100, and only its first page is read.
+- [ ] list_issues is called twice, with status open, limit 100, and severity critical, then high, and only the first page of each is read; a total larger than its page is reported as capped for that severity.
 - [ ] An Improve or Create item on a page with an open critical or high issue names that issue beside it.
 - [ ] An open critical issue whose type maps to one of the nine change kinds becomes its own Improve item with that change_kind, checked with check_change like any other; one that maps to none is listed in the header, not as an item.
 - [ ] The plan header says that open issues were read, how many pages had a critical or high one, and whether the first page was capped.
