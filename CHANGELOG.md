@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.0 (2026-10-26)
 
 A local ledger, so the plan and research carry over from week to week instead of being rebuilt.
 
