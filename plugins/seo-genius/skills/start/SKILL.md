@@ -29,7 +29,9 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 ## Files
 
-- Writes `.seo-genius/config.json`. The folder sits at the repository root, or in the current folder when there is no repository.
+- `.seo-genius/` means the site folder the resolver gives. The files are kept by a Node.js script, so check Node first, before step 1 and before any other tool call: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/node-check.cjs"`. When the shell says `node` is not found, or the check answers `ok: false`, stop there: call no other tool, write no file, and tell the user to install Node.js 18 or later (the current LTS from https://nodejs.org; macOS `brew install node`; Windows `winget install OpenJS.NodeJS.LTS`), open a new terminal, restart Claude Code, and run the command again. Once the site is known (step 1), and before anything is written there, run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" prepare --site <domain>` and use the `dir` and `drafts_dir` it prints: it creates the folder, and outside a repository gives it its own git history. In a repository that is `.seo-genius/` at the repository root; with no repository it is `~/seo-genius/<domain>/`, one folder per site. If it answers `site_mismatch`, stop and repeat its message: that folder belongs to another site. If it answers `owner_unknown`, stop, write nothing, and repeat its message: only the user can say whose folder it is, with the `claim` command it names.
+- Every file this skill keeps in `.seo-genius/` is saved through the script, never written there directly. Write it first under `drafts_dir`, at the same path (`.seo-genius/reports/<date>.md` is drafted as `<drafts_dir>/reports/<date>.md`), then run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" save --site <domain> --file <path>`, with the paths of files that belong together joined by commas. The script puts them in place in one step and, outside a repository, commits them to the folder's history. `ledger.json`, `plan.md`, `changelog.md`, `weekly/`, and `snapshots/` are written only by their own ledger commands. When `save` answers an error, nothing was saved: say so and repeat its message.
+- Writes `.seo-genius/config.json`, through `save`.
 - The file is meant to be kept with the site, so a later session or a scheduled run finds it. It holds no token, key, or password. Never write one into it.
 - If the session cannot write files, show the config in the reply and say it was not saved.
 
@@ -43,7 +45,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
    - Continue the setup in both cases.
 4. Terms. Propose ten at most. Each is a service plus the primary city, phrased the way a customer searches ("fence installation boise"). Core services first. Show the list and let the user add, remove, or reword. These are the terms the competitor research checks.
 5. Location. Use a metro `location_code` only when the user or the business context gives one. Otherwise record `null`; later steps keep the city in the keyword and search at country level (rule 4). Never guess a code.
-6. Save `.seo-genius/config.json`:
+6. Save `.seo-genius/config.json` through `save` (see Files):
 
    ```json
    {
