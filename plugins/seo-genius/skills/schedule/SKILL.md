@@ -125,6 +125,6 @@ This skill is for an attended session only. It asks, and it waits for answers.
 
 - The user chose where to run, the mode, the call budget, and the rule for recording merged changes, and confirmed the block before it was written.
 - Only the `unattended` block in the config changed.
-- For a cloud schedule, the five skill copies exist with their `name:` lines and script paths changed and nothing else, and the two scripts are beside them.
+- For a cloud schedule, the six skill copies exist with their `name:` lines and script paths changed and nothing else, and the two scripts are beside them.
 - The reply holds the two prompts and the steps to create the routines.
 - No routine was created, nothing was committed to a repository or pushed, and nothing was written to SEO Genius.

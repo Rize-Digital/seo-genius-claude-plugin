@@ -68,7 +68,17 @@ test("issues: content-plan reads the open critical and high issues by severity, 
   // list_issues orders by detected_at, newest first; a site with more than 100 open issues
   // kept its older critical ones off the first page, and off the plan.
   const s = step(skill("content-plan"), 5);
-  assert.match(s, /`list_issues` twice, with `status: "open"`, `limit: 100`, and `severity: "critical"`, then `severity: "high"`, first page only \(rule 6\)/);
-  assert.doesNotMatch(s, /`list_issues` with `status: "open"` and `limit: 100`, first page only/);
-  assert.match(s, /Each answer's `total` says whether its first page held every open issue of that severity/);
+  // It is cursor-paginated at 100 a call, so each severity is read to its last page.
+  assert.match(s, /`list_issues` with `status: "open"`, `limit: 100`, and `severity: "critical"`, then the same with `severity: "high"`, each following `next_cursor` until it is null, so every open critical and high issue is read/);
+  assert.doesNotMatch(s, /first page only/);
+  assert.doesNotMatch(s, /first page held/);
+});
+
+test("report: the server is asked only about the terms this run's files did not answer", () => {
+  // After weekly's snapshot answered a term, sending it to list_tracked_keywords again is a
+  // wasted read and can put a second, different reading beside the first.
+  const s = step(skill("report"), 4);
+  assert.match(s, /only for the terms still without a reading that counts \(below\) after this run's files; never send it a term those files already answered\. `list_tracked_keywords` with `keywords` set to those terms/);
+  assert.doesNotMatch(s, /`list_tracked_keywords` with `keywords` set to the terms[ ,(]/);
+  assert.match(s, /When this run's files answered every term, make neither call for a reading; only when the config has a `metro_location_code`, call `list_tracked_keywords` once with `limit: 1` and no `keywords`, for its `locations` alone/);
 });

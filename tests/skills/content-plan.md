@@ -7,16 +7,16 @@
 4. Prompt 1 on a site where one target page had its title logged with `/seo-genius:log-change` in the last few days.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> [read the research files and config] -> get_site_briefing -> list_pages (limit 100, five pages at most) -> list_issues (status open, severity critical, limit 100, first page only) -> list_issues (status open, severity high, limit 100, first page only) -> check_change (one per Improve item, and one with change_kind internal_links per page a Create item links from) -> write .seo-genius/plan.md
+get_my_tenant -> list_sites -> [read the research files and config] -> get_site_briefing -> list_pages (limit 100, five pages at most) -> list_issues (status open, severity critical, limit 100, every page) -> list_issues (status open, severity high, limit 100, every page) -> check_change (one per Improve item, and one with change_kind internal_links per page a Create item links from) -> write .seo-genius/plan.md
 
 ## Pass conditions
 - [ ] No Data-for-SEO call is made.
 - [ ] The topical map marks each slot covered, thin, or empty, and names the URL for a covered slot.
 - [ ] Every backlog item names the research row or the issue row it came from.
-- [ ] list_issues is called twice, with status open, limit 100, and severity critical, then high, and only the first page of each is read; a total larger than its page is reported as capped for that severity.
+- [ ] list_issues is read for severity critical, then high, with status open and limit 100, each following next_cursor until it is null, so every open critical and high issue is read; a read that fails part way is reported, with its severity.
 - [ ] An Improve or Create item on a page with an open critical or high issue names that issue beside it.
 - [ ] An open critical issue whose type maps to one of the nine change kinds becomes its own Improve item with that change_kind, checked with check_change like any other; one that maps to none is listed in the header, not as an item.
-- [ ] The plan header says that open issues were read, how many pages had a critical or high one, and whether the first page was capped.
+- [ ] The plan header says that open issues were read, how many pages had a critical or high one, and whether a read stopped before its last page.
 - [ ] Every Improve item, and every page a Create item links from, was checked with check_change before it was given a status.
 - [ ] A check_change result whose page_verdict is WAIT puts the item in Waiting, even when its verdict is allow.
 - [ ] A warn with pending_measurement puts the item in Waiting with its closing date; a would_revert block puts it in Dropped, also when frozen is beside it.
