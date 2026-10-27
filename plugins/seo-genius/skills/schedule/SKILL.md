@@ -68,33 +68,34 @@ This skill is for an attended session only. It asks, and it waits for answers.
    - The copies and `.seo-genius/` have to be on the repository's default branch before a cloud run can use them. The user commits them, or merges a pull request that holds them.
    - The copies do not update with the plugin. Run this skill again after a plugin update.
    - The copies also show up in local sessions on this repository, under the names `seo-genius-<name>`. In a local session use the plugin's own commands, which are always current.
-6. Hand over the prompts. Use the first pair for a local routine and the second for a cloud routine.
+6. Hand over the prompts. Use the first pair for a local routine and the second for a cloud routine. Write the site's domain in place of `<domain>` in each one. A site with no repository keeps its folder at `~/seo-genius/<domain>/`, and a run finds that folder only by the domain, so a prompt that does not name the site finds none and the run skips.
 
    Monthly research, local:
 
    ```text
-   Unattended run. Run these SEO Genius skills in order, each to its end before the next: /seo-genius:competitor-dive, /seo-genius:keyword-gap, /seo-genius:content-plan. Then list the files saved and everything under "Needs a decision".
+   Unattended run. Site: <domain>. Run these SEO Genius skills in order, each to its end before the next: /seo-genius:competitor-dive, /seo-genius:keyword-gap, /seo-genius:content-plan. Then list the files saved and everything under "Needs a decision".
    ```
 
    Weekly, local:
 
    ```text
-   Unattended run. Run /seo-genius:weekly, then /seo-genius:report, then /seo-genius:next. Then show what the weekly update found, the report, and what next delivered.
+   Unattended run. Site: <domain>. Run /seo-genius:weekly, then /seo-genius:report, then /seo-genius:next. Then show what the weekly update found, the report, and what next delivered.
    ```
 
    Monthly research, cloud:
 
    ```text
-   Unattended run. Use these skills from this repository in order, each to its end before the next: seo-genius-competitor-dive, seo-genius-keyword-gap, seo-genius-content-plan. Then list the files saved and everything under "Needs a decision", and say that these files have to be merged from this session before the weekly run can use them.
+   Unattended run. Site: <domain>. Use these skills from this repository in order, each to its end before the next: seo-genius-competitor-dive, seo-genius-keyword-gap, seo-genius-content-plan. Then list the files saved and everything under "Needs a decision", and say that these files have to be merged from this session before the weekly run can use them.
    ```
 
    Weekly, cloud:
 
    ```text
-   Unattended run. Use the skills seo-genius-weekly, then seo-genius-report, then seo-genius-next from this repository. Then show what the weekly update found, the report, and what next delivered.
+   Unattended run. Site: <domain>. Use the skills seo-genius-weekly, then seo-genius-report, then seo-genius-next from this repository. Then show what the weekly update found, the report, and what next delivered.
    ```
 
 7. Say how to create the routines. The apps change; if a screen differs from this, follow the screen.
+   - Intervals: the research routine monthly, the weekly routine weekly. `live_calls_per_run` caps each run, not how often runs repeat: a routine set to run hourly spends the full budget every hour. Check the interval before turning a routine on.
    - Local: in the Claude desktop app, open the Code tab, then Routines, then New routine, and choose Local. Pick this folder, paste a prompt, set the schedule, and leave the isolated worktree option off. The schedule picker has no monthly choice; for the research, ask Claude in a desktop session to set the routine to the first of each month. Use Run now once, allow the tools it asks for so later runs do not stall waiting for an answer, and check that the run found the SEO Genius skills and tools.
    - Run now is a real run. It can spend live calls, and in `pr` mode it can open a pull request. A run in `report` mode never reaches the push and pull request tools, so after a switch to `pr`, use Run now again and allow those too.
    - Cloud: run `/schedule` in Claude Code, or open claude.ai/code/routines and choose New routine. Pick this repository and paste a prompt. SEO Genius has to be a connector on the Claude account first: add it at claude.ai/customize/connectors with the address `https://api.seogenius.ai/api/mcp/v1`. Keep that connector on the routine and remove the connectors the run does not need, because a run can use every tool of a connector it has. The shortest interval is one hour. For the first of each month, set a preset, then run `/schedule update` and give a cron expression such as `0 9 1 * *`.
@@ -126,5 +127,5 @@ This skill is for an attended session only. It asks, and it waits for answers.
 - The user chose where to run, the mode, the call budget, and the rule for recording merged changes, and confirmed the block before it was written.
 - Only the `unattended` block in the config changed.
 - For a cloud schedule, the six skill copies exist with their `name:` lines and script paths changed and nothing else, and the two scripts are beside them.
-- The reply holds the two prompts and the steps to create the routines.
+- The reply holds the two prompts, each naming the site's domain, and the steps to create the routines.
 - No routine was created, nothing was committed to a repository or pushed, and nothing was written to SEO Genius.
