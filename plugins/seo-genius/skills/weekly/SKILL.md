@@ -1,6 +1,6 @@
 ---
 name: weekly
-description: Week-over-week SEO plan and research update from SEO Genius, kept in a local ledger. Use for "weekly update", "what changed this week", "update the plan", "compare with last week", or as the weekly step of a scheduled run before next. Reads last run's files, compares this week's stored rankings and open issues with last week's, adds every recorded change to the local changelog (changes logged through SEO Genius and fixes applied from the dashboard), and updates plan items in place under the same ids. Uses stored data only and makes no Data-for-SEO call. Requires the SEO Genius MCP server, connected and authorized, and Node.js for the ledger script.
+description: Week-over-week SEO plan and research update from SEO Genius, kept in a local ledger. Use for "weekly update", "what changed this week", "update the plan", "compare with last week", or as the weekly step of a scheduled run before report and next. Reads last run's files, compares this week's stored rankings and open issues with last week's, adds every recorded change to the local changelog (changes logged through SEO Genius and fixes applied from the dashboard), and updates plan items in place under the same ids. Uses stored data only and makes no Data-for-SEO call. Requires the SEO Genius MCP server, connected and authorized, and Node.js for the ledger script.
 ---
 
 # SEO Genius: weekly ledger update
@@ -9,7 +9,7 @@ Last week's files, this week's stored numbers, the same plan items. Nothing is r
 
 ## When to use
 
-"weekly update", "what changed this week", "update the plan", "compare with last week". Also as the weekly step of a scheduled run, before `/seo-genius:next`.
+"weekly update", "what changed this week", "update the plan", "compare with last week". Also as the weekly step of a scheduled run, before `/seo-genius:report` and `/seo-genius:next`.
 
 ## Requires
 
@@ -28,6 +28,7 @@ Node.js 18 or later, for `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs"`. With
 7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
+10. Stamp every section that shows numbers. Each section of a reply or saved file that shows numbers opens with where they came from: "Stored, as of <date>" for values read from SEO Genius, or "Live, <n> calls, <date>" for values a Data-for-SEO call fetched in this run. A section with no numbers carries no stamp. The files the ledger script writes as its own record (`weekly/`, `snapshots/`) are not sections. The closing line totals the stored reads and the live calls.
 
 ## Files
 
@@ -68,13 +69,14 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
 2. Last run. Do the start of Server sync (the pull), then `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" show --site <domain>`. It lists the items with their ids, statuses, and whether each is synced, and how many runs there were and how many are not on the server yet. No items yet: say the plan is empty and that `/seo-genius:content-plan` fills it; continue, because the comparison and the changelog still work.
 3. Stored readings, no live search. All of these are reads that spend no Data-for-SEO quota:
    - `list_tracked_keywords` (`limit: 100`, follow `next_cursor`). One ranking per reading: `keyword`, `location`, `position`, `pack_position`, `change`, `url`, `checked_on`.
-   - `list_issues` with `status: open`, `limit: 100`, first page only. One issue per row: `id`, `severity`, `issue_type`, `page_url`. When `total` is larger than the rows read, the list is capped: set `issues_complete: false` so no item is closed because its issue fell off the page.
+   - The issues the plan is linked to, and only those. For each item `show` lists with an `issue_id` and a status other than `done` or `dropped`, `get_issue` with that id, and put the `status` it answers into `issue_states` under that id. A read that fails (an error, `not_found`, no answer) stays out of `issue_states` and is named in the reply: an item closes only when its own issue was read and is not open, never on a failed read. Never read every open issue to find these.
+   - The counts: `list_issues` with `status: open` and `limit: 1`, once per severity (`critical`, `high`, `medium`, `low`), and put each answer's `total` into `issue_totals` under its severity. A count that fails is left out and named.
    - `list_page_changes` with `since` set to the date of the last run (or 30 days back on a first run), `limit: 100`, following `next_cursor`. Each row is a change row as Server sync maps it.
    - `list_applied_fixes` with `since` set the same way, `limit: 100`, following `next_cursor`: the fixes applied from the dashboard, each a change row as Server sync maps it. When the tool is not in the tool list, say the dashboard's fixes were not read this run and go on without them.
    - For each item that is `in_progress` with a linked change (`show` lists its `change`), call `list_page_changes` with its page and `change_kind`, no `since`, `limit: 100`, following `next_cursor` until it is null, and add every row of every page: its change may have been verified after the last run, and only a verified change closes it.
    Every change needs its `id`: the changelog keeps one row per id, and refreshes its state (a fix verified or rolled back later) instead of adding a second row.
    Never call `serp_rank_check`, `keyword_research`, `ranked_keywords`, or `competitor_domains` in this skill.
-4. Verdicts for open items. A week never changes an item that is `in_progress`, `waiting` before its date, `done`, or `dropped`: a person set it, or its wait has not run out. So call `check_change` only for an item that is `open` or `unchecked`, or `waiting` with an `until` on or before today (the UTC date), and names a page and a field, with that page and `change_kind` (rule 7 to find the page). Twenty calls at most; say when items were left unchecked. Map the result as `/seo-genius:content-plan` step 7 does: WAIT, `frozen`, or `pending_measurement` is `waiting` with its date; `would_revert` is `dropped`; `allow` changes nothing on an `open` item, so send no verdict for it (no status, no reason); on an `unchecked` item it is the check the item waited for, so send `{ "status": "open" }` with no reason, and the item opens; a failed call leaves the item as it was. A waiting item whose `until` has come opens again on that date by itself; send a verdict for it only when `check_change` blocks it again. The script holds to the same rule whatever verdicts it is given: what this week would have done to a kept item (an allow for an item in progress, say, or a closed issue) comes back in `held`, and is not applied. One thing does move an item in progress: its own linked change, verified live on the server, makes it done. Another change to the same page and field does not, and it never goes back to open.
+4. Verdicts for open items. A week never changes an item that is `in_progress`, `waiting` before its date, `done`, or `dropped`: a person set it, or its wait has not run out. So call `check_change` only for an item that is `open` or `unchecked`, or `waiting` with an `until` on or before today (the UTC date), and names a page and a field, with that page and `change_kind` (rule 7 to find the page). Twenty calls at most; say when items were left unchecked. Map the result as `/seo-genius:content-plan` step 8 does: WAIT, `frozen`, or `pending_measurement` is `waiting` with its date; `would_revert` is `dropped`; `allow` changes nothing on an `open` item, so send no verdict for it (no status, no reason); on an `unchecked` item it is the check the item waited for, so send `{ "status": "open" }` with no reason, and the item opens; a failed call leaves the item as it was. A waiting item whose `until` has come opens again on that date by itself; send a verdict for it only when `check_change` blocks it again. The script holds to the same rule whatever verdicts it is given: what this week would have done to a kept item (an allow for an item in progress, say, or a closed issue) comes back in `held`, and is not applied. One thing does move an item in progress: its own linked change, verified live on the server, makes it done. Another change to the same page and field does not, and it never goes back to open.
 5. Write the week. Put the readings into one JSON object and pass it to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" week --site <domain> --input -` on standard input:
 
    Leave `as_of` out: the script dates the run, its files, its commit, and every status change with the UTC date, and refuses an `as_of` that is any other date.
@@ -85,8 +87,8 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
      "run_id": "<a new id for this run>",
      "session_id": "<this session's id, when the client gives one>",
      "rankings": [{ "keyword": "", "location": "", "position": null, "pack_position": null, "change": null, "url": "", "checked_on": "" }],
-     "issues": [{ "id": "", "severity": "", "issue_type": "", "page_url": "" }],
-     "issues_complete": true,
+     "issue_states": { "<issue id>": "<status get_issue answered>" },
+     "issue_totals": { "critical": 0, "high": 0, "medium": 0, "low": 0 },
      "changes": [
        { "source": "reported", "id": "", "page_url": "", "change_kind": "", "old_value": "", "new_value": "", "on": "", "verification": "" },
        { "source": "coach_applied_fix", "id": "", "page_url": "", "change_kind": "", "old_value": "", "new_value": "", "on": "", "status": "" }
@@ -95,15 +97,15 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
    }
    ```
 
-   The script, not the model, decides: it keeps every item under its id, marks an item done when a change to its page and field went live after it was planned (a fix rolled back or failed, or a claim the reconcile did not observe, does not count), or when its issue is no longer open on a complete list, records a status history row only when a status changes, adds new changes to `changelog.md` once, compares rankings and issues with the newest earlier snapshot, and writes `weekly/<date>.md`. In a site folder outside a repository it also commits the run to that folder's own git history. It never commits to a site repository.
+   The script, not the model, decides: it keeps every item under its id, marks an item done when a change to its page and field went live after it was planned (a fix rolled back or failed, or a claim the reconcile did not observe, does not count), or when its own issue was read and is no longer open, records a status history row only when a status changes, adds new changes to `changelog.md` once, compares rankings with the newest earlier snapshot, counts the open issues by severity, and writes `weekly/<date>.md`. In a site folder outside a repository it also commits the run to that folder's own git history. It never commits to a site repository.
 6. Do the end of Server sync (the push).
-7. Show the result: the folder, the ranking moves and their basis (an earlier snapshot, or the change field the server recorded), issues opened and no longer open, items that changed status with the reason, the items in `held` with what this week found for each (a person changes them with `set-status`), changes added to the changelog by source, and what was left unchecked.
+7. Show the result: the folder, the ranking moves and their basis (an earlier snapshot, or the change field the server recorded), the open issues by severity, the linked issues that could not be read, items that changed status with the reason, the items in `held` with what this week found for each (a person changes them with `set-status`), changes added to the changelog by source, and what was left unchecked.
 
 ## Output
 
 - One line: site, domain, `can_write`.
 - The folder used, and its mode.
-- What moved, what opened and closed, and which items changed status, as the script returned them. No cause is claimed for a movement.
+- What moved, the open issues by severity, and which items changed status, as the script returned them. No cause is claimed for a movement.
 - Changes added to the changelog this run, by source.
 - Where the files were written, or that they were not.
 - Closing line per rule 9, which here always says no live calls were made.

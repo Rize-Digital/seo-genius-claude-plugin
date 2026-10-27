@@ -247,6 +247,41 @@ test("week: a rolled-back or unobserved change does not close an item; a capped 
   }
 });
 
+test("week: with issue_states an item closes only on its own issue answered as not open; issue_totals give the counts", () => {
+  // weekly reads get_issue for each linked id instead of every open issue. A read that failed
+  // is left out of issue_states and must close nothing.
+  const s = scratch();
+  try {
+    run("plan", { ...base(s), today: "2026-10-12", input: { items: [
+      { action: "improve", target_page: "/a", change_kind: "h1", issue_id: U(9) },
+      { action: "improve", target_page: "/b", change_kind: "h1", issue_id: U(8) },
+      { action: "improve", target_page: "/c", change_kind: "h1", issue_id: U(7) },
+    ] } });
+    // show lists each item's issue_id: weekly reads those ids, and only those.
+    assert.deepEqual(run("show", { ...base(s), today: "2026-10-12" }).items.map((i) => i.issue_id), [U(9), U(8), U(7)]);
+    const w = run("week", { ...base(s), today: "2026-10-19", input: { as_of: "2026-10-19", issue_states: { [U(9)]: "open", [U(8)]: "resolved" }, issue_totals: { critical: 1, low: 2 } } });
+    assert.deepEqual(w.status_changes.map((c) => [c.id, c.to, c.reason]), [["P-002", "done", "the issue it was planned for is no longer open"]]);
+    assert.deepEqual(ledgerOf(s).items.map((i) => [i.id, i.status]), [["P-001", "open"], ["P-002", "done"], ["P-003", "open"]]);
+    const weekFile = readFileSync(join(dirOf(s), "weekly", "2026-10-19.md"), "utf8");
+    assert.match(weekFile, /Open now by severity: critical 1, low 2./);
+    const snap = JSON.parse(readFileSync(join(dirOf(s), "snapshots", "2026-10-19.json"), "utf8"));
+    assert.deepEqual(snap.issue_totals, { critical: 1, low: 2 });
+    // The next week has an earlier snapshot but no issue list to compare: no opened or closed line.
+    run("week", { ...base(s), today: "2026-10-26", input: { as_of: "2026-10-26", issue_states: {}, issue_totals: { critical: 1 } } });
+    assert.doesNotMatch(readFileSync(join(dirOf(s), "weekly", "2026-10-26.md"), "utf8"), /Opened since|No longer open/);
+    assert.equal(ledgerOf(s).items.find((i) => i.id === "P-001").status, "open", "an id left out of issue_states closes nothing");
+    for (const input of [
+      { as_of: "2026-10-26", issue_states: {}, issues: [] },
+      { as_of: "2026-10-26", issue_states: [] },
+      { as_of: "2026-10-26", issue_states: { [U(9)]: null } },
+      { as_of: "2026-10-26", issue_totals: { critical: -1 } },
+      { as_of: "2026-10-26", issue_totals: [1] },
+    ]) assert.throws(() => run("week", { ...base(s), today: "2026-10-26", input }), (e) => e.code === "bad_input", JSON.stringify(input));
+  } finally {
+    s.done();
+  }
+});
+
 // ---------------------------------------------------------------- server sync
 
 const serverRow = (over) => ({ item_key: "P-001", kind: "improve", target_page: "https://bomannfencing.com/blog/escape-proof-goat-fencing", change_kind: "content_depth", status: "open", status_reason: null, status_until: null, change_id: null, issue_id: null, first_seen: "2026-10-12", ...over });
