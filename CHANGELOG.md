@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.5.1 (unreleased)
+
+Follow-ups carried over from #16, #19 and #17, and two findings from the 1.5.0 live smoke.
+
+- `report` records a merged change only once the live page shows it (#16). Before recording, it fetches the page's live URL with a cache-skipping query and looks for the new value: head fields (`title`, `meta_description`, `canonical`, `schema`) only in raw HTML, the `h1` text, every added link, the redirect's end URL, or one whole added line for `content_depth` and `readability`. A change merged and not live yet waits under "Waiting"; one it cannot check goes under "Needs a decision". `occurred_on` is the merge date only when the merge commit has a successful production deployment, and otherwise the date the change was first seen live, and the `reason` says which. The fetch is not a Data-for-SEO call. `schedule`'s "record merged changes" choice and the README say the same.
+- `competitors`, `keywords` and `quick-wins` say what their Data-for-SEO calls spend and wait for a yes before them, as the other paid skills do (#19).
+- An unattended run counts a timed-out live call toward `live_calls_per_run`, and sending a call again is a new call under the same budget (#19), in `scripts/canonical/unattended-runs.md` and its six copies.
+- `schedule` gives the routine intervals (research monthly, the weekly run weekly) and says `live_calls_per_run` caps each run, not how often runs repeat (#19, #17).
+- `sites` says how standing rules 1 and 2 apply to the whole-workspace view: no site is matched and no business context is read per site (#19, #17).
+- `competitor-dive` records a term with no reading from this run (skipped on `upstream_unavailable`, or left out once live calls stopped) as `unavailable` with a `reason`, never as lost or not found, and leaves it out of the picking and the counts (#17).
+- `content-plan`: a missing `get_site_briefing` no longer marks every item unchecked; each item is still checked with `check_change`. Only a missing `check_change` does that (#17).
+- Ledger input goes on standard input. When it has to be staged in a file, the file goes under `drafts_dir` and is deleted after the command, never in the system temp folder or elsewhere outside the site folder (`scripts/canonical/server-sync.md` and its three copies). In the 1.5.0 smoke a no-repo run staged it in the system temp folder.
+- `schedule`'s four prompts name the site ("Unattended run. Site: <domain>."). A site with no repository is found only by its domain, and in the 1.5.0 smoke a routine prompt without it skipped.
+- The 1.3.0 heading carries its release date, 2026-10-14 (#19).
+- Tests: `tests/check/carry-overs.test.mjs` pins each rule above in the skill text.
+
 ## 1.5.0 (2026-10-26)
 
 Stored ranks before live searches, a source stamp on every section that shows numbers, open issues in the content plan, and the report back in the weekly schedule.
@@ -62,7 +78,7 @@ A local ledger, so the plan and research carry over from week to week instead of
 - `next` no longer says the plan is renumbered on every rebuild.
 - The structural checker expects eighteen skills, `weekly` among the Unattended runs skills, the same folder-resolver line in every skill that uses `.seo-genius/`, and the same Server sync section in `content-plan`, `next`, and `weekly`. Ledger tests: `node --test tests/ledger/*.test.mjs tests/check/*.test.mjs` (set `SEO_GENIUS_TEST_OLD_NODES` to real Node builds older than 18 to run the old-Node test against them); mutations: `node tests/ledger/mutations.mjs`. The checker also requires the Node check before the first ledger command in every skill that keeps files.
 
-## 1.3.0 (2026-10-13)
+## 1.3.0 (2026-10-14)
 
 The pipeline on a schedule, and the last tools without a skill.
 

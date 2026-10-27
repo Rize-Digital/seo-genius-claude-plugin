@@ -16,6 +16,7 @@ get_my_tenant -> list_sites_summary (no arguments)
 - [ ] A site whose last crawl is more than 14 days old, or did not complete, carries a note.
 - [ ] The reply names the site that needs attention first, with the reason.
 - [ ] Prompt 3: the one row is shown and /seo-genius:brief is suggested.
+- [ ] No get_business_context call, for any site, and no question about which site.
 
 ## Fail conditions
 - The crawl's issues_found shown anywhere.
