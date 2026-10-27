@@ -61,6 +61,16 @@ test("the guide's approvals list names every write tool the skills call", () => 
   has(approvals, "so under `codex exec` it cannot finish");
 });
 
+test("the guide says, before its first section, that Codex support is a preview", () => {
+  // The ledger skills have not had a real Codex run; a reader has to learn that before installing.
+  const guide = read("codex/README.md");
+  const intro = guide.slice(0, guide.indexOf("\n## "));
+  has(intro, "Codex support is a preview.");
+  has(intro, "the ledger skills");
+  has(intro, "have not had a real Codex run yet");
+  has(intro, "report it");
+});
+
 test("the guide names only skills that exist and no stale skill count", () => {
   const guide = read("codex/README.md");
   assert.ok(!/\btwelve skills\b/.test(guide), "stale count");
