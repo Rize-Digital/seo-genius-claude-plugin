@@ -98,10 +98,10 @@ Pass: T1 and T2 come from `weekly/<today>.md` ("Rankings that moved", or "no mov
 ## Step 5: source stamps
 
 Check the report files of steps 2 to 4, and `/seo-genius:brief` (run A; `get_site_briefing` only):
-- Every part of `reports/<date>.md` (What changed, What moved, Waiting, Needs a decision, Next, Research age) opens with "Stored, as of <date>", using the date the data carries, or "Live, <n> calls, <date>". No part says Live.
+- Every part of `reports/<date>.md` that shows numbers (What changed, What moved, Waiting, Research age) opens with "Stored, as of <date>", using the date the data carries, or "Live, <n> calls, <date>". Needs a decision and Next carry no stamp. No part says Live.
 - The closing line counts the stored reads and says live calls 0.
 - `brief`: the briefing is shown under "Stored, as of <date>", and its closing line says live calls 0.
-- The weekly file and the `next` proposal carry stamps too.
+- The `next` proposal stamps each section that shows numbers. The weekly file is the ledger's record and carries none.
 
 ## Step 6: content-plan issue join (run A)
 

@@ -17,6 +17,8 @@ const step = (md, n) => {
   assert.ok(m, `step ${n} not found`);
   return m[0];
 };
+const canonical = (name) =>
+  readFileSync(fileURLToPath(new URL(`../../scripts/canonical/${name}`, import.meta.url)), "utf8").replace(/\r\n/g, "\n");
 const missing = (md) => md.match(/\n## If something is missing\n([\s\S]*?)(?=\n## )/)[1];
 
 test("place: a stored place is counted among the organic entries, never taken from site_position or a tracker position", () => {
@@ -52,7 +54,8 @@ test("location: a reading counts only at the location the config searches", () =
   assert.match(dive, /An entry counts for a term only at the location this research searches: its `location_code` is the config's `metro_location_code`, or, with no metro code, it has no location \(a national search\)\./);
   const report = step(skill("report"), 4);
   assert.match(report, /A reading counts for a term only at the location the config searches:/);
-  assert.match(report, /the label of the tracked location whose `location_code` is the config's `metro_location_code`/);
+  assert.match(report, /the config's `metro_location_code`, or, when it is null and `locations` holds exactly one tracked location, that location's `location_code`/);
+  assert.match(report, /A tracker reading counts when its `location` is the label of the tracked location with that code, a snapshot entry when its `location_code` is that code./);
   assert.match(report, /`locations`/);
 });
 
@@ -80,5 +83,45 @@ test("report: the server is asked only about the terms this run's files did not 
   const s = step(skill("report"), 4);
   assert.match(s, /only for the terms still without a reading that counts \(below\) after this run's files; never send it a term those files already answered\. `list_tracked_keywords` with `keywords` set to those terms/);
   assert.doesNotMatch(s, /`list_tracked_keywords` with `keywords` set to the terms[ ,(]/);
-  assert.match(s, /When this run's files answered every term, make neither call for a reading; only when the config has a `metro_location_code`, call `list_tracked_keywords` once with `limit: 1` and no `keywords`, for its `locations` alone/);
+  assert.match(s, /When this run's files answered every term, make neither call for a reading; call `list_tracked_keywords` once with `limit: 1` and no `keywords`, for its `locations` alone/);
+});
+
+// A sentence that must appear word for word.
+const has = (s, text, msg) => assert.ok(s.includes(text), msg ?? `missing: ${text}`);
+
+test("stamps: only a section that shows numbers carries a source stamp", () => {
+  // Live smoke 2026-10-27: rule 10 stamped "where its numbers came from" while report step 5
+  // stamped "each part", and Needs a decision, Next and Research age came out unstamped.
+  const rule = canonical("standing-rules.md");
+  has(rule, "10. Stamp every section that shows numbers. Each section of a reply or saved file that shows numbers opens with where they came from");
+  has(rule, "A section with no numbers carries no stamp.");
+  has(rule, "The files the ledger script writes as its own record (`weekly/`, `snapshots/`) are not sections.");
+  const s = step(skill("report"), 5);
+  has(s, "Each part that shows numbers (What changed, What moved, Waiting, and Research age) opens with its source stamp");
+  has(s, "Needs a decision and Next hold words, not numbers, and open without a stamp.");
+  has(s, "Research age: the dates of the research files, each research file stamped \"Stored, as of <date>\" with the date it carries");
+  assert.ok(!s.includes("Each part opens with its source stamp"));
+  has(skill("brief"), "\"Next moves\": three at most, each with the page, the field, and the briefing line it came from, under the briefing's \"Stored, as of <date>\" stamp when a move shows a number.");
+});
+
+test("metro: a null metro code does not throw away the tracker's readings", () => {
+  // Live smoke 2026-10-27: start saved metro_location_code null (no code in the business
+  // profile), so report counted only national readings and every Bonifay reading was dropped.
+  // list_tracked_keywords returns locations with label, location_code and is_primary.
+  const start = step(skill("start"), 5);
+  has(start, "when its `locations` holds exactly one tracked location, or one with `is_primary` true, offer that location (its `label` and `location_code`) as the metro location and record its code on a yes");
+  has(start, "An unattended run records `null` and says so; it never picks a code.");
+  const report = step(skill("report"), 4);
+  has(report, "when it is null and `locations` holds exactly one tracked location, that location's `location_code`");
+  has(report, "With no metro code and not exactly one tracked location, only a national reading (no location) counts: name the terms whose readings were left out for that reason");
+  assert.ok(!report.includes("only when the config has a `metro_location_code`, call `list_tracked_keywords`"));
+});
+
+test("weekly: open issues are read one severity at a time, never in one unfiltered call", () => {
+  // One unfiltered list_issues on Bomann (90 open issues) answered 216,277 characters, past
+  // what the client shows. The ledger closes an item whose issue is no longer open, so all
+  // four severities are still read.
+  const s = step(skill("weekly"), 3);
+  has(s, "`list_issues` with `status: open` and `limit: 100`, once per severity: `critical`, `high`, `medium`, then `low`, first page each. Never call it without a severity");
+  assert.ok(!s.includes("`list_issues` with `status: open`, `limit: 100`, first page only"));
 });

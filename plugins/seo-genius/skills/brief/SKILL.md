@@ -26,7 +26,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
-10. Stamp every section. Every section of a reply or saved file names where its numbers came from: "Stored, as of <date>" for values read from SEO Genius, or "Live, <n> calls, <date>" for values a Data-for-SEO call fetched in this run. The closing line totals the stored reads and the live calls.
+10. Stamp every section that shows numbers. Each section of a reply or saved file that shows numbers opens with where they came from: "Stored, as of <date>" for values read from SEO Genius, or "Live, <n> calls, <date>" for values a Data-for-SEO call fetched in this run. A section with no numbers carries no stamp. The files the ledger script writes as its own record (`weekly/`, `snapshots/`) are not sections. The closing line totals the stored reads and the live calls.
 
 ## Procedure
 
@@ -60,7 +60,7 @@ For "is it safe to change X on page Y" with no request for the full briefing, do
 
 - One line: site, domain, `can_write`.
 - The briefing markdown as returned, under its "Stored, as of <date>" stamp, then the notes on dropped and empty sections.
-- "Next moves": three at most, each with the page, the field, and the briefing line it came from.
+- "Next moves": three at most, each with the page, the field, and the briefing line it came from, under the briefing's "Stored, as of <date>" stamp when a move shows a number.
 - For a single-edit check: the verdict first (allow, warn, or block), then the reasons, the date it changes, and the page verdict, stamped "Stored, as of <date>" with the date of the newest change it rests on, or the day of the check when it names none.
 - Closing line per rules 9 and 10: stored reads counted, live calls 0.
 
