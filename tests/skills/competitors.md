@@ -12,6 +12,7 @@ get_my_tenant -> list_sites -> get_business_context -> ranked_keywords (location
 - [ ] At most five serp_rank_check calls, one per user-named term; zero when the user named none.
 - [ ] Every position carries the location used and the time of the check.
 - [ ] Competitors listed from competitor_domains, not from memory or the business context alone.
+- [ ] Before the first live call the reply says what steps 4 to 6 spend and waits for a yes; without a yes no live call is made.
 - [ ] The reply says which calls spent quota.
 - [ ] A term with no SERP result is reported as not found in the top results, with the depth used.
 
