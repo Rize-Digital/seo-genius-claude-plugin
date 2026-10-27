@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.5.2 (2026-10-27)
+
+Approvals and evidence from #11, carried onto 1.5.1, from the 2026-10-01 live smoke.
+
+- `start` proposes terms across the cities the business profile records or the user names, not ten on the primary city when the business also serves larger recorded cities, and says why each city is in the list. It never invents a service area or guesses demand.
+- `start` saves the config only on an explicit yes to the exact list shown. A request to run the next skill is not that yes, and no provisional config is saved. A chained start then competitor-dive asks once for the terms and the most the research can spend (one live search per term plus one more call), and that one yes covers both for the same list and budget; a change asks again.
+- `competitor-dive` accepts that yes from `start` in the same session for the same list and a budget at least as large; a queued request is never a yes.
+- `competitor-dive` records an unread page with `read: false`, a `read_error` saying what was seen, and every field it would have given `null`, never `false`, `""` or `[]`. A same-host redirect or meta refresh is followed once into `final_url`; a redirect to another host is not followed and is named. `page_counts` are `null` with `partial: true` when neither the sitemap nor the home page could be read, never 0, and `faq` is `null` when unknown. An on-page gap needs a page that was read to show the element missing.
+- `content-plan` reads a `null` count or an unread field as unknown, never as a missing page or section. A slot that a capped or failed page list cannot settle is marked unknown, gets no item, and is named in the plan header.
+- `list_pages` is read 25 rows a page, twenty pages at most, in `competitor-dive`, `content-plan`, `history`, `log-change` and `page-check`. A 100-row page of a 32-page site measured about 63 KB, too large to show in a session with no shell.
+- Tests: `tests/check/evidence-approval.test.mjs` pins these rules in the skill text, and parses the `competitors.json` example.
+
 ## 1.5.1 (2026-10-27)
 
 Follow-ups carried over from #16, #19 and #17, and two findings from the 1.5.0 live smoke.
