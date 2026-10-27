@@ -32,7 +32,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 1. Resolve the site (rule 1). Echo site, domain, `can_write`.
 2. `get_business_context` for city, state, metro, and any competitors the owner stored. Show stored competitors later, labeled "from your business context".
-3. Tell the user that steps 4 to 6 spend their quota.
+3. Say what steps 4 to 6 spend before any of them runs: one `ranked_keywords` call, one `competitor_domains` call, and one live search per named term (name the number). Wait for a yes. That yes covers all three steps. Without one, stop here and say no quota was spent.
 4. `ranked_keywords` with `domain: <site domain>`, `location_name: "<Country>"` (the customer's country from the business context, "United States" for a US business; never a city or state, which return nothing), `language_name: "English"`, `limit: 200`. One call only. This is the country-level baseline: count of ranking terms, how many at positions 1 to 3, 4 to 10, 11 to 20.
 5. `competitor_domains` with `domain: <site domain>`, `limit: 10`, `location_code: <country code>` (`2840` for the United States; never a city code). One call only. These are the organic rivals at country level.
 6. For each term the user named, five at most: `serp_rank_check` with `keyword: <term>`, `target_domain: <site domain>`, `depth: 100`, and `location_code` set to the metro code when the user or the business context provides one; otherwise use the country code and keep the city in the keyword. This is the only local call. Record the position, the URL that ranks, the top three domains on that page, the location used, and the time of the call. When the user named no terms, skip this step.
@@ -58,5 +58,5 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - At most five `serp_rank_check` calls.
 - Every position is stamped with location and time.
 - Competitors come from `competitor_domains`, with stored ones labeled.
-- The quota spend is stated.
+- The quota spend was stated and the user said yes before the first live call.
 - One `ranked_keywords` call and one `competitor_domains` call, both at country scope.
