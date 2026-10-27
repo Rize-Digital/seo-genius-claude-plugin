@@ -15,4 +15,5 @@ The SEO Genius skills were written for Claude Code. In Codex:
 - `/seo-genius:<skill>` means the `$seo-genius:<skill>` skill, for example `$seo-genius:brief`.
 - `/mcp` means `codex mcp login seo-genius`.
 - `WebFetch` means whatever web fetch tool this session has.
+- `${CLAUDE_PLUGIN_ROOT}` means the plugin's installed folder, the one that holds `skills/`, `scripts/`, and `.codex-plugin/`: two levels above the `SKILL.md` being followed. When the shell does not set the variable, write that folder's path in its place; never run a script from another copy.
 <!-- seo-genius:end -->
