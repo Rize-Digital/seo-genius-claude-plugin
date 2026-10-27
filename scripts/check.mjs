@@ -217,5 +217,42 @@ for (const [label, text] of listingCopy) {
   check(n === 0, `no em dashes in ${label} (${n})`);
 }
 
+// 7. Codex pack: the same skills folder, its own MCP entry, and the setup files
+const CODEX_MCP_URL = "https://api.seogenius.ai/api/mcp/v1?client=codex-plugin";
+const cpj = readJson(join(PLUGIN, ".codex-plugin", "plugin.json"));
+if (cpj) {
+  check(cpj.name === "seo-genius", "codex manifest name is seo-genius");
+  check(!!pj && cpj.version === pj.version, `codex manifest version matches plugin.json (${cpj.version})`);
+  check(cpj.skills === "./skills/", "codex manifest reads the same ./skills/ folder");
+  check(cpj.mcpServers === "./.codex-plugin/mcp.json", "codex manifest points at ./.codex-plugin/mcp.json");
+  check(!!pj && cpj.description === pj.description, "codex manifest description matches plugin.json");
+}
+const cmcp = readJson(join(PLUGIN, ".codex-plugin", "mcp.json"));
+if (cmcp) {
+  const s = cmcp.mcpServers && cmcp.mcpServers["seo-genius"];
+  check(!!s && s.url === CODEX_MCP_URL, `codex server url is ${CODEX_MCP_URL}`);
+  check(!!s && !("headers" in s), "codex server declares no headers (OAuth-first)");
+}
+const codexDir = join(ROOT, "codex");
+const toml = existsSync(join(codexDir, "config.toml")) ? readFileSync(join(codexDir, "config.toml"), "utf8") : "";
+// No TOML parser (no dependencies): every line that is not a comment or blank
+// must be exactly one of these two, so stray text cannot slip in.
+const tomlLines = toml.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+check(
+  JSON.stringify(tomlLines) === JSON.stringify(["[mcp_servers.seo-genius]", `url = "${CODEX_MCP_URL}"`]),
+  "codex/config.toml is exactly the seo-genius server and its url",
+);
+const agents = existsSync(join(codexDir, "AGENTS.md")) ? readFileSync(join(codexDir, "AGENTS.md"), "utf8") : "";
+const begins = agents.split("<!-- seo-genius:begin -->").length - 1;
+const ends = agents.split("<!-- seo-genius:end -->").length - 1;
+check(
+  begins === 1 && ends === 1 && agents.indexOf("<!-- seo-genius:begin -->") < agents.indexOf("<!-- seo-genius:end -->"),
+  "codex/AGENTS.md is one marked block",
+);
+for (const tool of ["get_site_briefing", "check_change", "log_page_change"]) {
+  check(agents.includes(`\`${tool}\``), `codex/AGENTS.md names ${tool}`);
+}
+check(existsSync(join(codexDir, "README.md")), "codex/README.md exists");
+
 console.log(failures === 0 ? "\nALL CHECKS PASSED" : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);
