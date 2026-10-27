@@ -14,7 +14,7 @@ const SKILLS = (repo) => join(repo, "plugins", "seo-genius", "skills");
 
 function copyRepo() {
   const dir = mkdtempSync(join(tmpdir(), "sg-check-"));
-  for (const part of [".claude-plugin", "plugins", "scripts"]) cpSync(join(ROOT, part), join(dir, part), { recursive: true });
+  for (const part of [".claude-plugin", "plugins", "scripts", "codex"]) cpSync(join(ROOT, part), join(dir, part), { recursive: true });
   return { dir, done: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
