@@ -1,11 +1,12 @@
 # SEO Genius for Codex
 
-The same twelve skills as the Claude Code plugin, read from the same files, plus the SEO Genius MCP server. Codex installs this repository as a plugin marketplace directly.
+The same skills as the Claude Code plugin, read from the same files, plus the SEO Genius MCP server. Codex installs this repository as a plugin marketplace directly.
 
 ## What you need
 
 - An SEO Genius account on Pro or above. Connecting an LLM uses the `mcp` scope, which the Free plan does not include.
 - The Codex CLI with the `codex plugin` and `codex mcp` commands.
+- Node.js 18 or later for the pipeline skills (`start`, `competitor-dive`, `keyword-gap`, `content-plan`, `weekly`, `report`, `next`, `schedule`). They keep the site's plan and research in a local ledger through the plugin's `scripts/ledger.mjs`.
 
 ## Install
 
@@ -29,7 +30,7 @@ $seo-genius:audit
 $seo-genius:page-check /services/
 ```
 
-The skills, the research pipeline, and what each one costs are described in the [plugin README](../plugins/seo-genius/README.md). Where it says `/seo-genius:<skill>`, type `$seo-genius:<skill>` in Codex. Where it says `/mcp`, run `codex mcp login seo-genius`.
+The skills, the research pipeline, and what each one costs are described in the [plugin README](../plugins/seo-genius/README.md). Where it says `/seo-genius:<skill>`, type `$seo-genius:<skill>` in Codex. Where it says `/mcp`, run `codex mcp login seo-genius`. Where a skill runs `node "${CLAUDE_PLUGIN_ROOT}/scripts/..."`, that is the plugin's installed folder; the AGENTS.md block says how to find it when the variable is not set.
 
 ## MCP server only
 
@@ -45,9 +46,9 @@ codex mcp list
 
 ## Approvals and unattended runs
 
-Codex asks before it calls an MCP tool unless the server marks that tool read-only. Tools that change data in SEO Genius (`log_page_change`, `mark_issue_fixed`, `create_issue`, `save_research`, `update_issue`, `reject_issue`, `update_business_context`, `trigger_crawl`) and tools that spend search-data quota always ask.
+Codex asks before it calls an MCP tool unless the server marks that tool read-only. Tools that change data in SEO Genius (`log_page_change`, `mark_issue_fixed`, `create_issue`, `save_research`, `update_issue`, `reject_issue`, `update_business_context`, `trigger_crawl`, `save_plan_items`) and tools that spend search-data quota always ask.
 
-`codex exec` has nobody to answer, so it refuses every call that would ask, with `MCP tool call requires approval, but approval policy is never`. In a non-interactive run, use the read-only skills (`brief`, `audit`, `page-check`, `history`), and run anything that writes or spends in an interactive session.
+`codex exec` has nobody to answer, so it refuses every call that would ask, with `MCP tool call requires approval, but approval policy is never`. In a non-interactive run, use the read-only skills (`brief`, `audit`, `page-check`, `history`), and run anything that writes or spends in an interactive session. The scheduled pipeline (`weekly`, `report`, `next`) syncs its plan with `save_plan_items`, so under `codex exec` it cannot finish; schedule it with Claude routines (`/seo-genius:schedule`), or run it by hand in an interactive Codex session.
 
 ## Updates
 
@@ -55,4 +56,4 @@ Codex asks before it calls an MCP tool unless the server marks that tool read-on
 codex plugin marketplace upgrade seo-genius-plugins
 ```
 
-Then remove the plugin and add it again to pick up the new version.
+Then remove the plugin and add it again to pick up the new version. Codex keeps each installed version in its own folder, named by the version in `.codex-plugin/plugin.json`.
