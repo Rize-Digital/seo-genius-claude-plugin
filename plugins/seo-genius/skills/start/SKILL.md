@@ -26,6 +26,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
+10. Stamp every section that shows numbers. Each section of a reply or saved file that shows numbers opens with where they came from: "Stored, as of <date>" for values read from SEO Genius, or "Live, <n> calls, <date>" for values a Data-for-SEO call fetched in this run. A section with no numbers carries no stamp. The files the ledger script writes as its own record (`weekly/`, `snapshots/`) are not sections. The closing line totals the stored reads and the live calls.
 
 ## Files
 
@@ -44,7 +45,8 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
    - Older than 14 days: say how old it is and make the same offer.
    - Continue the setup in both cases.
 4. Terms. Propose ten at most. Each is a service plus the primary city, phrased the way a customer searches ("fence installation boise"). Core services first. Show the list and let the user add, remove, or reword. These are the terms the competitor research checks.
-5. Location. Use a metro `location_code` only when the user or the business context gives one. Otherwise record `null`; later steps keep the city in the keyword and search at country level (rule 4). Never guess a code.
+5. Location. Use a metro `location_code` when the user or the business context gives one. Otherwise take it from the Tracking call below: when its `locations` holds exactly one tracked location, or one with `is_primary` true, offer that location (its `label` and `location_code`) as the metro location and record its code on a yes. On a no, or with no such location, record `null`: later steps keep the city in the keyword and search at country level (rule 4), and `report` counts a city's tracker readings only when the tracker has that one location. An unattended run records `null` and says so; it never picks a code. Never guess a code.
+   - Tracking. `list_tracked_keywords` (free, one call). Say which of the agreed terms the server tracks, at which locations, and which it does not. No MCP tool adds a term to the tracker, so do not try: tell the user to add the untracked terms in the SEO Genius dashboard's rank tracker, at the metro location when there is one, so the weekly check reads them and `competitor-dive` and `report` can use the stored readings instead of live searches. A term tracked at a different location than the config's is named too.
 6. Save `.seo-genius/config.json` through `save` (see Files):
 
    ```json
@@ -72,7 +74,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - One line: site, domain, `can_write`.
 - The business facts read, and the ones the user supplied, labeled.
 - The last crawl date, or that there is none.
-- The agreed terms.
+- The agreed terms, and which of them the server tracks.
 - Where the config was saved, or that it was not.
 - The pipeline order.
 - Closing line per rule 9.
@@ -82,6 +84,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" on any tool: connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
 - `trigger_crawl` fails with "Manual crawl not in your plan": say so and continue the setup; the next scheduled crawl will do.
+- `list_tracked_keywords` is not in the tool list, or fails: say the tracking status could not be read and continue the setup.
 - `trigger_crawl` fails with "sitewide_crawl_quota_exceeded": the site's crawl allowance is used for now. Say so and continue the setup.
 - No services or no city in the business context and the user does not supply them: stop. The terms cannot be built from guesses.
 - Rate limited (429) on any other tool: stop, say so, suggest retrying in a minute.
@@ -91,5 +94,6 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - The user confirmed the terms. Ten at most.
 - No crawl was started without a yes.
 - No `location_code` was guessed.
+- The reply says which terms are tracked on the server and how to add the rest; no tool was called to add one.
 - `.seo-genius/config.json` was saved, or the reply says it was not.
 - The business profile in SEO Genius was not written. The only change this skill can make in SEO Genius is starting a crawl, on a yes.

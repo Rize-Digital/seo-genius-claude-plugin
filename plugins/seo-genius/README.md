@@ -82,7 +82,7 @@ Three more commands turn the pipeline into something that runs on its own.
 | `/seo-genius:report` | The weekly report: what changed, what moved, what is waiting, and what needs a decision. |
 | `/seo-genius:next` | Takes the next item from the plan and writes the exact change as a proposal, or opens a pull request when you allow it. One item per run. |
 
-A usual setup is two routines: the research once a month (`competitor-dive`, `keyword-gap`, `content-plan`), and `weekly`, then `next` once a week. The weekly run reads stored data only and makes no live call; run `/seo-genius:report` by hand when you want the report.
+A usual setup is two routines: the research once a month (`competitor-dive`, `keyword-gap`, `content-plan`), and `weekly`, `report`, then `next` once a week. The weekly run reads stored data only and makes no live call: the report takes its positions from the weekly files and the stored rank readings. Run by hand, `/seo-genius:report` asks before any live search for a term with no stored reading.
 
 What an unattended run can and cannot do:
 

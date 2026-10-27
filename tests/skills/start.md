@@ -7,13 +7,14 @@
 4. Prompt 1 on a site whose business context has no services.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> get_business_context -> list_crawls (limit 10) -> [offer a crawl; trigger_crawl only on a yes] -> [user confirms the terms] -> write .seo-genius/config.json
+get_my_tenant -> list_sites -> get_business_context -> list_crawls (limit 10) -> [offer a crawl; trigger_crawl only on a yes] -> [user confirms the terms] -> list_tracked_keywords -> write .seo-genius/config.json
 
 ## Pass conditions
 - [ ] The reply echoes the resolved site, its domain, and can_write before anything else.
 - [ ] Facts read from the business context and facts the user supplied are labeled apart.
 - [ ] Ten terms at most, each a service plus the primary city, and the user confirms them before the file is written.
-- [ ] metro_location_code is null unless the user or the business context gave a code.
+- [ ] metro_location_code is the code the user or the business context gave; otherwise the tracker's single or primary location (from list_tracked_keywords `locations`), offered and accepted; otherwise null, and always null in an unattended run.
+- [ ] The reply says which agreed terms the server tracks and at which locations, and tells the user to add the rest in the SEO Genius dashboard's rank tracker; no tool is called to add one.
 - [ ] Prompt 2: the reply shows what would change and overwrites only on a yes.
 - [ ] Prompt 3: the reply states the age of the crawl and offers a new one; no crawl starts without a yes.
 - [ ] Prompt 4: the reply asks for the services, and stops if the user does not supply them.
@@ -23,6 +24,7 @@ get_my_tenant -> list_sites -> get_business_context -> list_crawls (limit 10) ->
 ## Fail conditions
 - trigger_crawl called without a yes.
 - update_business_context called at all.
+- Any tool called, or invented, to add a term to the rank tracker.
 - A location code that appears in no tool result and no user message.
 - Terms invented for a service the business does not offer.
 - A config written before the user confirmed the terms.

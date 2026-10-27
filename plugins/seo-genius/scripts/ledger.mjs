@@ -1545,6 +1545,8 @@ export function compareWeeks(prev, now) {
     const kind = from == null ? "entered" : to == null ? "dropped_out" : to < from ? "up" : "down";
     moves.push({ keyword: r.keyword, location: r.location ?? null, from, to, kind, basis });
   }
+  // With issue_totals, weekly read the counts and only the linked issues: no list to compare.
+  if (now.issue_totals !== undefined) return { previous_as_of: prev?.as_of ?? null, ranking_moves: moves, issues_opened: null, issues_closed: null, open_by_severity: { ...now.issue_totals } };
   const prevIssues = new Set((prev?.issues ?? []).map((i) => i.id));
   const nowIssues = new Set((now.issues ?? []).map((i) => i.id));
   const opened = prev ? (now.issues ?? []).filter((i) => !prevIssues.has(i.id)).map((i) => i.id) : [];
@@ -1640,6 +1642,18 @@ export function applyWeek(ledger, input, prev, today) {
 
   const openIssues = new Set((input.issues ?? []).map((i) => i.id));
   const issuesRead = Array.isArray(input.issues) && input.issues_complete !== false;
+  // issue_states: each linked issue weekly read with get_issue, by id, with the status the
+  // server answered. An id whose read failed is left out, so it closes nothing.
+  const states = input.issue_states;
+  if (states !== undefined && (states === null || typeof states !== "object" || Array.isArray(states) || Object.values(states).some((v) => typeof v !== "string"))) {
+    throw new LedgerError("bad_input", "issue_states must map each issue id read to the status the server answered");
+  }
+  if (states !== undefined && input.issues !== undefined) throw new LedgerError("bad_input", "pass issue_states or issues, not both");
+  const totals = input.issue_totals;
+  if (totals !== undefined && (totals === null || typeof totals !== "object" || Array.isArray(totals) || Object.values(totals).some((n) => !Number.isInteger(n) || n < 0))) {
+    throw new LedgerError("bad_input", "issue_totals must map each severity to a count of open issues");
+  }
+  const issueClosed = (id) => (states !== undefined ? Object.hasOwn(states, id) && states[id] !== "open" : issuesRead && !openIssues.has(id));
   for (const it of ledger.items) {
     if (TERMINAL.has(it.status)) continue;
     const before = it.status;
@@ -1670,7 +1684,7 @@ export function applyWeek(ledger, input, prev, today) {
       : null;
     let next = null;
     if (done) next = { status: "done", reason: `change recorded ${done.on} (${sourceLabel(done)})`, until: null, change: done.key };
-    else if (it.links.issue_id && issuesRead && !openIssues.has(it.links.issue_id)) next = { status: "done", reason: "the issue it was planned for is no longer open", until: null };
+    else if (it.links.issue_id && issueClosed(it.links.issue_id)) next = { status: "done", reason: "the issue it was planned for is no longer open", until: null };
     // An allow verdict (status open) changes nothing on an open item: no status, no reason. Only a block moves it.
     else if (input.verdicts?.[it.id] && input.verdicts[it.id].status !== "open") next = { status: input.verdicts[it.id].status, reason: input.verdicts[it.id].reason, until: input.verdicts[it.id].until };
     // An unchecked item waited for exactly this check: an allow opens it, with no reason.
@@ -1775,7 +1789,7 @@ export function renderWeek(ledger, week, asOf) {
   }
   lines.push("", "## Issues", "");
   lines.push(`Open now by severity: ${Object.entries(c.open_by_severity).map(([k, v]) => `${k} ${v}`).join(", ") || "none"}.`);
-  if (c.previous_as_of) lines.push(`Opened since ${c.previous_as_of}: ${c.issues_opened.length}. No longer open: ${c.issues_closed.length}.`);
+  if (c.previous_as_of && c.issues_opened) lines.push(`Opened since ${c.previous_as_of}: ${c.issues_opened.length}. No longer open: ${c.issues_closed.length}.`);
   lines.push("", "## Plan items that changed status", "");
   lines.push(week.status_changes.length === 0 ? "None." : week.status_changes.map((s) => `- ${s.id}: ${s.from} -> ${s.to} (${s.reason})`).join("\n"));
   if (week.held.length) {
@@ -2074,7 +2088,7 @@ function inputCommand(cmd, ledger, input, dir, today, write) {
   if (cmd === "week") {
     const asOf = today;
     const result = applyWeek(ledger, input, previousSnapshot(dir, asOf), today);
-    const snap = { format_version: FORMAT_VERSION, rankings: input.rankings ?? [], issues: (input.issues ?? []).map(({ id, severity, issue_type, page_url }) => ({ id, severity, issue_type, page_url })) };
+    const snap = { format_version: FORMAT_VERSION, rankings: input.rankings ?? [], issues: (input.issues ?? []).map(({ id, severity, issue_type, page_url }) => ({ id, severity, issue_type, page_url })), ...(input.issue_totals !== undefined && { issue_totals: input.issue_totals }) };
     write(`snapshots/${asOf}.json`, `${JSON.stringify(snap, null, 1)}\n`);
     write(`weekly/${asOf}.md`, renderWeek(ledger, result, asOf));
     write("changelog.md", renderChangelog(ledger, today));
@@ -2165,6 +2179,7 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
         change_kind: it.change_kind,
         until: it.until,
         change: it.links?.change ?? null,
+        issue_id: it.links?.issue_id ?? null,
         synced: sameState(it.synced, statusState(it)),
         ...(it.sync_error ? { sync_error: it.sync_error } : {}),
       })),
