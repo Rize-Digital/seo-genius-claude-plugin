@@ -9,18 +9,11 @@ The Claude Code plugin for [SEO Genius](https://seogenius.ai). This repository i
 
 Full instructions, commands, and troubleshooting: [plugins/seo-genius/README.md](plugins/seo-genius/README.md).
 
-Using Codex? See [codex/README.md](codex/README.md).
-
-Running it in Claude Code cloud sessions or routines? See [docs/cloud-routines.md](docs/cloud-routines.md).
-
 ## Layout
 
 ```text
 .claude-plugin/marketplace.json   the marketplace config file
-plugins/seo-genius/               the plugin: config, MCP server, twelve skills, README
-codex/                            Codex setup: guide, AGENTS.md block, MCP-only config.toml
-docs/cloud-routines.md            cloud sessions and routines: copy the skills into a site repository
-scripts/copy-skills.mjs           the copy, and --check for a stale one
+plugins/seo-genius/               the plugin: config, MCP server, eighteen skills, README
 scripts/check.mjs                 structural checks (node scripts/check.mjs)
 tests/skills/                     acceptance checklists per skill
 ```
