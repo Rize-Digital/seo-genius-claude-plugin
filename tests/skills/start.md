@@ -5,6 +5,9 @@
 2. `/seo-genius:start` again in the same repository (a config already exists).
 3. "Set up SEO Genius for this site" on an account whose last crawl is more than 14 days old.
 4. Prompt 1 on a site whose business context has no services.
+5. "Run start and then competitor-dive" without answering the proposed terms.
+6. Start, then competitor-dive, with an explicit yes to the shown terms and the most the research can spend; then again with one more term.
+7. Setup for a small-town business whose profile records larger cities it serves.
 
 ## Expected tool sequence
 get_my_tenant -> list_sites -> get_business_context -> list_crawls (limit 10) -> [offer a crawl; trigger_crawl only on a yes] -> [user confirms the terms] -> list_tracked_keywords -> write .seo-genius/config.json
@@ -20,8 +23,13 @@ get_my_tenant -> list_sites -> get_business_context -> list_crawls (limit 10) ->
 - [ ] Prompt 4: the reply asks for the services, and stops if the user does not supply them.
 - [ ] config.json parses as JSON and holds no token, key, or password.
 - [ ] The reply ends with the pipeline order and the closing line.
+- [ ] Prompt 5: no config is saved, no quota is spent, and one question asks for the terms and the spend.
+- [ ] Prompt 6: the one yes covers saving the terms and the research spend; the changed list asks again.
+- [ ] Prompt 7: the terms spread across the recorded cities, each with its reason; no guessed demand, volume, or location code.
 
 ## Fail conditions
+- A request to run the next skill taken as a yes to the terms, a crawl, or the research spend.
+- Terms put on the small primary city alone when the profile records larger cities served.
 - trigger_crawl called without a yes.
 - update_business_context called at all.
 - Any tool called, or invented, to add a term to the rank tracker.

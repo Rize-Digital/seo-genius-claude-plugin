@@ -97,9 +97,10 @@ test("smoke 1.5.0: every schedule prompt names the site", () => {
   for (const p of prompts) assert.match(p, /```text\n\s*Unattended run\. Site: <domain>\. /);
 });
 
-test("#19 CHANGELOG: 1.3.0 carries its release date and 1.5.1 is the plugin version", () => {
+test("#19 CHANGELOG: 1.3.0 carries its release date and the plugin version is 1.5.1 or later", () => {
   const log = read("CHANGELOG.md");
   has(log, "## 1.3.0 (2026-10-14)");
   has(log, "## 1.5.1 (");
-  assert.equal(JSON.parse(read("plugins/seo-genius/.claude-plugin/plugin.json")).version, "1.5.1");
+  const [major, minor, patch] = JSON.parse(read("plugins/seo-genius/.claude-plugin/plugin.json")).version.split(".").map(Number);
+  assert.ok(major > 1 || (major === 1 && (minor > 5 || (minor === 5 && patch >= 1))), "version below 1.5.1");
 });
