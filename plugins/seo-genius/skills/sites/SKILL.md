@@ -30,6 +30,8 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 ## Procedure
 
+This skill covers the whole workspace, so standing rules 1 and 2 apply differently here: resolve the workspace without matching one site, and do not call `get_business_context` for each site. The summary call in step 2 holds what the table needs. The other standing rules apply as written.
+
 1. `get_my_tenant`. This skill covers every site, so do not ask which site, and pass no `site`.
 2. `list_sites_summary` with no arguments. Each row has `id`, `name`, `domain`, `status`, `open_issues` (`critical`, `high`, `medium`, `low`, `total`), and `latest_crawl` (`id`, `status`, `started_at`, `completed_at`). An archived site has `status` "archived" and no counts. A site with no crawl has `latest_crawl` null.
 3. Order the active sites: first those with no crawl, then by `critical`, then by `high`, most first. Put archived sites last.
