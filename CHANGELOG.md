@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.5.1 (unreleased)
+## 1.5.1 (2026-10-27)
 
 Follow-ups carried over from #16, #19 and #17, and two findings from the 1.5.0 live smoke.
 
@@ -16,7 +16,7 @@ Follow-ups carried over from #16, #19 and #17, and two findings from the 1.5.0 l
 - The 1.3.0 heading carries its release date, 2026-10-14 (#19).
 - Tests: `tests/check/carry-overs.test.mjs` pins each rule above in the skill text.
 
-## 1.5.0 (2026-10-26)
+## 1.5.0 (2026-10-27)
 
 Stored ranks before live searches, a source stamp on every section that shows numbers, open issues in the content plan, and the report back in the weekly schedule.
 
