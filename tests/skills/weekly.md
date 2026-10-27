@@ -19,7 +19,7 @@
 16. Prompt 1 when `check_change` allows every item.
 
 ## Expected tool sequence
-node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan_items (every page) -> ledger.mjs pull -> [history_needed: list_page_changes and list_applied_fixes, every page, no since -> ledger.mjs history] -> ledger.mjs show -> list_tracked_keywords -> list_issues (status open, limit 100) -> list_page_changes (since the last run) -> list_applied_fixes (same since, every page) -> [check_change per item that is open, unchecked, or waiting with an until on or before today, twenty at most] -> ledger.mjs week -> ledger.mjs push-payload -> [save_plan_items -> ledger.mjs push-ack, when there is something to send]
+node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan_items (every page) -> ledger.mjs pull -> [history_needed: list_page_changes and list_applied_fixes, every page, no since -> ledger.mjs history] -> ledger.mjs show -> list_tracked_keywords -> list_issues (status open, limit 100, once per severity: critical, high, medium, low; first page each) -> list_page_changes (since the last run) -> list_applied_fixes (same since, every page) -> [check_change per item that is open, unchecked, or waiting with an until on or before today, twenty at most] -> ledger.mjs week -> ledger.mjs push-payload -> [save_plan_items -> ledger.mjs push-ack, when there is something to send]
 
 ## Pass conditions
 - [ ] The reply names the folder and its mode (repository folder or site folder).
