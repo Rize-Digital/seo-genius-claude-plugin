@@ -44,7 +44,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
    - No finished crawl: say the pipeline needs one. When `can_write` is true, offer `trigger_crawl`, say the crawl is queued and its results arrive later, that it counts against the plan's crawls, and call it only on a yes. Starting a crawl is the one thing this skill can change in SEO Genius.
    - Older than 14 days: say how old it is and make the same offer.
    - Continue the setup in both cases.
-4. Terms. Propose ten at most. Each is a service plus the primary city, phrased the way a customer searches ("fence installation boise"). Core services first. Show the list and let the user add, remove, or reword. These are the terms the competitor research checks.
+4. Terms. Propose ten at most, each a service plus a city, phrased the way a customer searches ("fence installation boise"). Use only the primary city and the other cities served that the business profile records or the user names; never invent a service area. The primary city is not an automatic majority: when the business also serves larger recorded cities, spread the terms across them, guided by the stored keywords and business context, without guessing search demand. Core services first. Show the exact list with one line on why each city is in it, and let the user add, remove, or reword. These are the terms the competitor research checks.
 5. Location. Use a metro `location_code` when the user or the business context gives one. Otherwise take it from the Tracking call below: when its `locations` holds exactly one tracked location, or one with `is_primary` true, offer that location (its `label` and `location_code`) as the metro location and record its code on a yes. On a no, or with no such location, record `null`: later steps keep the city in the keyword and search at country level (rule 4), and `report` counts a city's tracker readings only when the tracker has that one location. An unattended run records `null` and says so; it never picks a code. Never guess a code.
    - Tracking. `list_tracked_keywords` (free, one call). Say which of the agreed terms the server tracks, at which locations, and which it does not. No MCP tool adds a term to the tracker, so do not try: tell the user to add the untracked terms in the SEO Genius dashboard's rank tracker, at the metro location when there is one, so the weekly check reads them and `competitor-dive` and `report` can use the stored readings instead of live searches. A term tracked at a different location than the config's is named too.
 6. Save `.seo-genius/config.json` through `save` (see Files):
@@ -67,7 +67,11 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
    ```
 
    A config already exists: show what would change and overwrite only on a yes.
-7. Close with the order of the pipeline: `/seo-genius:brief`, then `/seo-genius:competitor-dive`, then `/seo-genius:keyword-gap`, then `/seo-genius:content-plan`.
+
+   Approval gate. Save the config only after the user accepts the exact list shown, or names that exact list in the request and asks for it to be saved. A request to run another skill afterwards ("then run competitor-dive") is not approval of the terms. Without approval, save nothing, not even a provisional config: show the proposed config and ask once.
+
+   A chained run (start, then competitor-dive): ask once for both the terms and the most the research can spend, one live search per term plus one more call (name the number). One explicit yes covers both, for that same list and that budget, in this session. When the list or the budget changes, ask again. Never spend quota while either approval is pending.
+7. Close with the order of the pipeline: `/seo-genius:brief`, then `/seo-genius:competitor-dive`, then `/seo-genius:keyword-gap`, then `/seo-genius:content-plan`. In a chained run, go on only after the approvals above; otherwise say which step waits and what still needs a yes.
 
 ## Output
 
@@ -91,7 +95,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 ## Done when
 
-- The user confirmed the terms. Ten at most.
+- The user confirmed the exact terms, ten at most, each city from the business profile or the user. A request to run the next skill was never taken as that confirmation, and no config was saved before it.
 - No crawl was started without a yes.
 - No `location_code` was guessed.
 - The reply says which terms are tracked on the server and how to add the rest; no tool was called to add one.

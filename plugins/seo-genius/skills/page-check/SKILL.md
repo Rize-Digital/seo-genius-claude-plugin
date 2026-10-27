@@ -38,7 +38,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
    - One clear match (for the homepage, the site-root row): confirm the URL in the reply and continue.
    - More than one plausible match: list the candidate URLs and ask which one. Stop until answered.
    - No match, the response's `mode` is `text`, and the query was the long phrase: search one more time, once only, with two or three words the page's title or H1 would carry (rule 7), so "the driveway page" becomes "driveway installation". Handle a match or several candidates as in the two branches above.
-   - Still no match, in either mode: page through `list_pages` without `q` (`limit: 100`, follow `next_cursor`, at most five pages) and match the URL or title. Still nothing: ask for the page URL. Stop.
+   - Still no match, in either mode: page through `list_pages` without `q` (`limit: 25`, follow `next_cursor`, at most twenty pages) and match the URL or title. Still nothing: ask for the page URL. Stop.
 4. `list_issues` with `page_id: <matched page id>`, `status: "open"`, `limit: 50`.
 5. `get_page` once with `page_id` for the current title, meta description, H1, headings, and schema types.
 
