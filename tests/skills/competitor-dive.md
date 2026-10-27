@@ -5,6 +5,9 @@
 2. "Who are my top three competitors and why do they outrank me?" in a folder with no config.
 3. `/seo-genius:competitor-dive` limited to two named terms.
 4. Prompt 3 in a session with no web fetch tool.
+5. A competitor page answers 403, and its sitemap and home page cannot be read.
+6. A ranking URL is a same-host HTML meta refresh to the real page; then one that redirects to another host.
+7. A chained run whose `/seo-genius:start` got a yes to these exact terms and budget; then the same with a larger budget.
 
 ## Expected tool sequence
 get_my_tenant -> list_sites -> [read config, or get_business_context] -> get_serp_snapshots (keywords set to the terms, since seven days back, limit 25, every page) -> [state the spend for the terms with no stored page from the last seven days at the config's location, wait for a yes] -> serp_rank_check (one per such term, depth 20, ten at most) -> [competitor_domains once, only when fewer than three businesses were found] -> web fetch (competitor ranking pages, three per competitor at most; sitemaps) -> search_pages / web fetch / get_page / list_pages (this site) -> write .seo-genius/competitors.md and competitors.json
@@ -38,8 +41,13 @@ get_my_tenant -> list_sites -> [read config, or get_business_context] -> get_ser
 - [ ] This site's place is "not found in the results read" when it is absent, never a number.
 - [ ] Statements about why a competitor ranks are worded as observations, and no ranking result is promised.
 - [ ] Unattended run: no question is asked, live calls stop at live_calls_per_run, and what was left out is stated. With no unattended block in the config, or enabled false, nothing is spent and the run says it was skipped.
+- [ ] Prompt 5: `read_error` records the 403, the page's fields are null (`faq`, `schema`, `title`), its `page_counts` are null with `partial: true`, not 0, and no on-page or topic row rests on that competitor.
+- [ ] Prompt 6: the same-host refresh is followed once and `final_url` holds the destination; the other-host redirect is not followed and `read_error` names it.
+- [ ] Prompt 7: the matching yes from start covers the spend; the larger budget asks again.
 
 ## Fail conditions
+- A queued request taken as a yes to spend quota.
+- An unread page stored as `faq: false`, `proof: []`, `title: ""`, or a count of 0 that nothing read showed.
 - A live search before the user agreed to the spend, or on a term that had a stored reading from the last seven days.
 - A competitor named that appears in no search result and is not labeled as a country-level rival.
 - A ranking explained by on-page factors alone, with no statement of what could not be seen.

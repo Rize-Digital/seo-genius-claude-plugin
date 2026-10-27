@@ -5,9 +5,10 @@
 2. "What pages should I build next?" in a repository that has only `keyword-gap.json`.
 3. `/seo-genius:content-plan` in a folder with neither research file.
 4. Prompt 1 on a site where one target page had its title logged with `/seo-genius:log-change` in the last few days.
+5. Prompt 1 with a competitor's `page_counts` and `faq` null, and a site page list cut short by the cap.
 
 ## Expected tool sequence
-get_my_tenant -> list_sites -> [read the research files and config] -> get_site_briefing -> list_pages (limit 100, five pages at most) -> list_issues (status open, severity critical, limit 100, every page) -> list_issues (status open, severity high, limit 100, every page) -> check_change (one per Improve item, and one with change_kind internal_links per page a Create item links from) -> write .seo-genius/plan.md
+get_my_tenant -> list_sites -> [read the research files and config] -> get_site_briefing -> list_pages (limit 25, twenty pages at most) -> list_issues (status open, severity critical, limit 100, every page) -> list_issues (status open, severity high, limit 100, every page) -> check_change (one per Improve item, and one with change_kind internal_links per page a Create item links from) -> write .seo-genius/plan.md
 
 ## Pass conditions
 - [ ] No Data-for-SEO call is made.
@@ -32,8 +33,11 @@ get_my_tenant -> list_sites -> [read the research files and config] -> get_site_
 - [ ] Prompt 3: the reply stops and names the two skills to run first.
 - [ ] The reply ends by saying how to act on an item: check with /seo-genius:brief, record with /seo-genius:log-change.
 - [ ] Unattended run: no question is asked, and anything that needs a person is listed under "Needs a decision".
+- [ ] Prompt 5: null counts and unread fields are shown as unknown and make no missing-page or missing-FAQ item; a slot the capped list cannot settle is marked unknown, gets no item, and is named in the plan header.
 
 ## Fail conditions
+- A null count or an unread page taken as proof that a competitor lacks a page or a section.
+- A capped page list read as complete.
 - A page of the user's site edited.
 - Any SEO Genius write tool called.
 - An open item on a frozen field, a page marked WAIT, or a field whose last change is still being measured.
