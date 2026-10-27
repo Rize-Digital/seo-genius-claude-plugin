@@ -12,7 +12,7 @@ get_my_tenant -> list_sites -> [read config.json] -> [ask where to run, the mode
 
 ## Pass conditions
 - [ ] The reply explains both ways to run before asking which one.
-- [ ] The user chooses the mode, the live calls per run, and the rule for recording merged changes, and each choice is explained first.
+- [ ] The user chooses the mode, the live calls per run, and the rule for recording merged changes, and each choice is explained first. The recording choice says a change is recorded only once the live page shows it, how it is dated, and the cap of three in a scheduled run.
 - [ ] The block is shown and written only on a yes, and only the `unattended` block in the config changes. For a cloud schedule the files step 5 writes are named with the block, and none is written before the yes.
 - [ ] Prompt 1: no file is written under `.claude/skills/`.
 - [ ] Prompt 2: six copies (competitor-dive, keyword-gap, content-plan, weekly, report, next) exist under `.claude/skills/seo-genius-<name>/SKILL.md`, each with its `name:` line changed and `${CLAUDE_PLUGIN_ROOT}/scripts/` replaced by `.claude/skills/seo-genius-scripts/` and nothing else, `ledger.mjs` and `node-check.cjs` are in `.claude/skills/seo-genius-scripts/`, and `skills_copied_from` holds the plugin version.
