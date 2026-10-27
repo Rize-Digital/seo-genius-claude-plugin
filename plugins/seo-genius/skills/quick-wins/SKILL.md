@@ -26,6 +26,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
+10. Stamp every section that shows numbers. Each section of a reply or saved file that shows numbers opens with where they came from: "Stored, as of <date>" for values read from SEO Genius, or "Live, <n> calls, <date>" for values a Data-for-SEO call fetched in this run. A section with no numbers carries no stamp. The files the ledger script writes as its own record (`weekly/`, `snapshots/`) are not sections. The closing line totals the stored reads and the live calls.
 
 ## Procedure
 
@@ -34,7 +35,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 3. `list_issues` with `status: "open"`, `severity: "critical"`, `limit: 100`, then the same with `severity: "high"`. First page each.
 4. Keep only single-field issues that carry a recommended value: title, meta description, H1, schema, image alt text. Drop anything that needs new copy, a new page, a redirect, or a code change.
 5. Rank the keepers: severity, then homepage and service pages before blog posts, then shortest edit. Take three. Call `get_page` only when the issue row does not name the page URL.
-6. `ranked_keywords` with `domain: <site domain>`, `location_name: "<Country>"` (the customer's country from the business context, "United States" for a US business; never a city or state, which return nothing), `language_name: "English"`, `limit: 200`. One call only. Say that this call spends quota and that the positions are country-level. Keep rows with position 4 to 20 whose keyword names one of the customer's services. Drop brand terms. Sort by search volume descending. Take five.
+6. `ranked_keywords` with `domain: <site domain>`, `location_name: "<Country>"` (the customer's country from the business context, "United States" for a US business; never a city or state, which return nothing), `language_name: "English"`, `limit: 200`. One call only. Before it, say that it spends quota and that the positions are country-level, and wait for a yes. Without one, give the three fixes, leave out the keywords, and say no quota was spent. Keep rows with position 4 to 20 whose keyword names one of the customer's services. Drop brand terms. Sort by search volume descending. Take five.
 7. For each keyword, name the ranking page from the row and one move: put the term and the city in the title, add an H2 that answers the query, add an FAQ, or add an internal link with the local anchor. One move per keyword.
 
 ## Output
@@ -56,4 +57,4 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 - Three single-field fixes with paste-ready values, none on an issue without a recommended value.
 - Five keywords at most, all at position 4 to 20, each with a ranking page and one move.
-- The `location_name`, that positions are country-level, and the quota spend are stated, and `ranked_keywords` was called once.
+- The `location_name`, that positions are country-level, and the quota spend are stated, and `ranked_keywords` was called once, after a yes.
