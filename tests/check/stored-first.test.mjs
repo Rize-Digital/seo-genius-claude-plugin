@@ -134,6 +134,21 @@ test("next: the history check runs on the exact text it proposes", () => {
   // Bomann smoke 2026-10-27: check_change ran on the issue's 48-character title while the
   // proposal recommended a 56-character one.
   const s = step(skill("next"), 6);
-  has(s, "run `check_change` again for the same page and `change_kind` with `proposed_value` set to the exact proposed text, character for character, and read the result as step 5 does. The proposal reports that check, on that text.");
-  has(step(skill("next"), 7), "the history check on the exact text proposed");
+  has(s, "the after of an Improve item, each value of a brief");
+  has(s, "and read the result as step 5 does.");
+  has(s, "The proposal reports each check, on the value it checked.");
+  has(step(skill("next"), 7), "the history check on each exact value proposed for an existing page");
+});
+
+test("next: a Create item's links and anchor text on existing pages are checked on their exact values", () => {
+  // Step 5 checks a Create item's linking pages with internal_links and no proposed_value.
+  // The server runs its revert check only on a given proposed_value (revert_not_checked
+  // allows), so a link that undoes an earlier change went into the proposal unchecked.
+  const s = step(skill("next"), 6);
+  has(s, "for a Create item each link it adds on an existing page (the link as it will be written, with its anchor text and target) and any other field it changes there");
+  has(s, "run `check_change` again for that page and `change_kind` with `proposed_value` set to the exact proposed value, character for character");
+  has(s, "(a revert, a freeze, a pending window, unreadable history, a failed call) holds that part of the proposal: leave it out, and name the page, the field, the value, and why, with its date. A held link leaves its page off the link list");
+  has(s, "The new page itself has no history and needs no check.");
+  assert.ok(!s.includes("(the after of an Improve item, or a brief's value)"), "the recheck must not be limited to Improve values and briefs");
+  has(step(skill("next"), 7), "(every link and anchor text of a Create item too) with any value it held and why");
 });
