@@ -69,7 +69,8 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
 2. Last run. Do the start of Server sync (the pull), then `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" show --site <domain>`. It lists the items with their ids, statuses, and whether each is synced, and how many runs there were and how many are not on the server yet. No items yet: say the plan is empty and that `/seo-genius:content-plan` fills it; continue, because the comparison and the changelog still work.
 3. Stored readings, no live search. All of these are reads that spend no Data-for-SEO quota:
    - `list_tracked_keywords` (`limit: 100`, follow `next_cursor`). One ranking per reading: `keyword`, `location`, `position`, `pack_position`, `change`, `url`, `checked_on`.
-   - `list_issues` with `status: open` and `limit: 100`, once per severity: `critical`, `high`, `medium`, then `low`, first page each. Never call it without a severity: one answer would carry every open issue at once. Together the four reads are the open list; the ledger needs all four, since an item is closed when its issue is no longer open. One issue per row: `id`, `severity`, `issue_type`, `page_url`. When any read's `total` is larger than its rows, the list is capped: set `issues_complete: false` so no item is closed because its issue fell off a page.
+   - The issues the plan is linked to, and only those. For each item `show` lists with an `issue_id` and a status other than `done` or `dropped`, `get_issue` with that id, and put the `status` it answers into `issue_states` under that id. A read that fails (an error, `not_found`, no answer) stays out of `issue_states` and is named in the reply: an item closes only when its own issue was read and is not open, never on a failed read. Never read every open issue to find these.
+   - The counts: `list_issues` with `status: open` and `limit: 1`, once per severity (`critical`, `high`, `medium`, `low`), and put each answer's `total` into `issue_totals` under its severity. A count that fails is left out and named.
    - `list_page_changes` with `since` set to the date of the last run (or 30 days back on a first run), `limit: 100`, following `next_cursor`. Each row is a change row as Server sync maps it.
    - `list_applied_fixes` with `since` set the same way, `limit: 100`, following `next_cursor`: the fixes applied from the dashboard, each a change row as Server sync maps it. When the tool is not in the tool list, say the dashboard's fixes were not read this run and go on without them.
    - For each item that is `in_progress` with a linked change (`show` lists its `change`), call `list_page_changes` with its page and `change_kind`, no `since`, `limit: 100`, following `next_cursor` until it is null, and add every row of every page: its change may have been verified after the last run, and only a verified change closes it.
@@ -86,8 +87,8 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
      "run_id": "<a new id for this run>",
      "session_id": "<this session's id, when the client gives one>",
      "rankings": [{ "keyword": "", "location": "", "position": null, "pack_position": null, "change": null, "url": "", "checked_on": "" }],
-     "issues": [{ "id": "", "severity": "", "issue_type": "", "page_url": "" }],
-     "issues_complete": true,
+     "issue_states": { "<issue id>": "<status get_issue answered>" },
+     "issue_totals": { "critical": 0, "high": 0, "medium": 0, "low": 0 },
      "changes": [
        { "source": "reported", "id": "", "page_url": "", "change_kind": "", "old_value": "", "new_value": "", "on": "", "verification": "" },
        { "source": "coach_applied_fix", "id": "", "page_url": "", "change_kind": "", "old_value": "", "new_value": "", "on": "", "status": "" }
@@ -96,15 +97,15 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
    }
    ```
 
-   The script, not the model, decides: it keeps every item under its id, marks an item done when a change to its page and field went live after it was planned (a fix rolled back or failed, or a claim the reconcile did not observe, does not count), or when its issue is no longer open on a complete list, records a status history row only when a status changes, adds new changes to `changelog.md` once, compares rankings and issues with the newest earlier snapshot, and writes `weekly/<date>.md`. In a site folder outside a repository it also commits the run to that folder's own git history. It never commits to a site repository.
+   The script, not the model, decides: it keeps every item under its id, marks an item done when a change to its page and field went live after it was planned (a fix rolled back or failed, or a claim the reconcile did not observe, does not count), or when its own issue was read and is no longer open, records a status history row only when a status changes, adds new changes to `changelog.md` once, compares rankings with the newest earlier snapshot, counts the open issues by severity, and writes `weekly/<date>.md`. In a site folder outside a repository it also commits the run to that folder's own git history. It never commits to a site repository.
 6. Do the end of Server sync (the push).
-7. Show the result: the folder, the ranking moves and their basis (an earlier snapshot, or the change field the server recorded), issues opened and no longer open, items that changed status with the reason, the items in `held` with what this week found for each (a person changes them with `set-status`), changes added to the changelog by source, and what was left unchecked.
+7. Show the result: the folder, the ranking moves and their basis (an earlier snapshot, or the change field the server recorded), the open issues by severity, the linked issues that could not be read, items that changed status with the reason, the items in `held` with what this week found for each (a person changes them with `set-status`), changes added to the changelog by source, and what was left unchecked.
 
 ## Output
 
 - One line: site, domain, `can_write`.
 - The folder used, and its mode.
-- What moved, what opened and closed, and which items changed status, as the script returned them. No cause is claimed for a movement.
+- What moved, the open issues by severity, and which items changed status, as the script returned them. No cause is claimed for a movement.
 - Changes added to the changelog this run, by source.
 - Where the files were written, or that they were not.
 - Closing line per rule 9, which here always says no live calls were made.

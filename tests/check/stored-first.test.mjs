@@ -117,11 +117,23 @@ test("metro: a null metro code does not throw away the tracker's readings", () =
   assert.ok(!report.includes("only when the config has a `metro_location_code`, call `list_tracked_keywords`"));
 });
 
-test("weekly: open issues are read one severity at a time, never in one unfiltered call", () => {
-  // One unfiltered list_issues on Bomann (90 open issues) answered 216,277 characters, past
-  // what the client shows. The ledger closes an item whose issue is no longer open, so all
-  // four severities are still read.
+test("weekly: only the issues the plan is linked to are read; a failed read closes nothing", () => {
+  // Bomann smoke 2026-10-27: the per-severity reads answered 63,149 and 102,306 characters
+  // (medium, low) only to learn whether each item's own issue was still open.
   const s = step(skill("weekly"), 3);
-  has(s, "`list_issues` with `status: open` and `limit: 100`, once per severity: `critical`, `high`, `medium`, then `low`, first page each. Never call it without a severity");
-  assert.ok(!s.includes("`list_issues` with `status: open`, `limit: 100`, first page only"));
+  has(s, "For each item `show` lists with an `issue_id` and a status other than `done` or `dropped`, `get_issue` with that id, and put the `status` it answers into `issue_states` under that id.");
+  has(s, "an item closes only when its own issue was read and is not open, never on a failed read. Never read every open issue to find these.");
+  has(s, "`list_issues` with `status: open` and `limit: 1`, once per severity (`critical`, `high`, `medium`, `low`), and put each answer's `total` into `issue_totals`");
+  assert.ok(!/`list_issues` with `status: open` and `limit: 100`/.test(s));
+  const w = step(skill("weekly"), 5);
+  has(w, "\"issue_states\": {");
+  assert.ok(!w.includes("\"issues_complete\""));
+});
+
+test("next: the history check runs on the exact text it proposes", () => {
+  // Bomann smoke 2026-10-27: check_change ran on the issue's 48-character title while the
+  // proposal recommended a 56-character one.
+  const s = step(skill("next"), 6);
+  has(s, "run `check_change` again for the same page and `change_kind` with `proposed_value` set to the exact proposed text, character for character, and read the result as step 5 does. The proposal reports that check, on that text.");
+  has(step(skill("next"), 7), "the history check on the exact text proposed");
 });
