@@ -19,7 +19,7 @@
 16. Prompt 1 when `check_change` allows every item.
 
 ## Expected tool sequence
-node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan_items (every page) -> ledger.mjs pull -> [history_needed: list_page_changes and list_applied_fixes, every page, no since -> ledger.mjs history] -> ledger.mjs show -> list_tracked_keywords -> list_issues (status open, limit 100, once per severity: critical, high, medium, low; first page each) -> list_page_changes (since the last run) -> list_applied_fixes (same since, every page) -> [check_change per item that is open, unchecked, or waiting with an until on or before today, twenty at most] -> ledger.mjs week -> ledger.mjs push-payload -> [save_plan_items -> ledger.mjs push-ack, when there is something to send]
+node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan_items (every page) -> ledger.mjs pull -> [history_needed: list_page_changes and list_applied_fixes, every page, no since -> ledger.mjs history] -> ledger.mjs show -> list_tracked_keywords -> get_issue (once per issue_id of an item not done or dropped) -> list_issues (status open, limit 1, once per severity, for total) -> list_page_changes (since the last run) -> list_applied_fixes (same since, every page) -> [check_change per item that is open, unchecked, or waiting with an until on or before today, twenty at most] -> ledger.mjs week -> ledger.mjs push-payload -> [save_plan_items -> ledger.mjs push-ack, when there is something to send]
 
 ## Pass conditions
 - [ ] The reply names the folder and its mode (repository folder or site folder).
@@ -42,7 +42,7 @@ node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan
 - [ ] A first run on a site with no repository: `prepare` created the folder and its git before anything else was written there, and `history` was read even with an empty plan.
 - [ ] Ranking moves name their basis: an earlier snapshot, or the change field the server recorded.
 - [ ] `changelog.md` lists changes logged through SEO Genius and fixes applied from the dashboard, each once with its row id and source.
-- [ ] A capped issue list is passed as `issues_complete: false`, and no item is closed because its issue was not on the page read.
+- [ ] Only the issues linked to plan items are read (get_issue); each answered status goes into `issue_states`, a failed read is left out and named, and no item is closed on a failed read. The counts come from `list_issues` totals with `limit: 1`; no call reads every open issue.
 - [ ] Every file the run writes starts with the `format_version` line.
 - [ ] The closing line says no live calls were made.
 

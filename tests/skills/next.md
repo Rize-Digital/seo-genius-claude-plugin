@@ -34,6 +34,7 @@ get_my_tenant -> list_sites -> [read plan.md] -> [list this repository's pull re
 - [ ] Prompt 7: nothing is changed, and the run says it was skipped and why.
 - [ ] A run started by a routine or a scheduled task whose prompt lacks "Unattended run." is still treated as unattended.
 - [ ] check_change runs before any change is written, and a result with unreadable history passes the item over.
+- [ ] The proposal's history check ran on the exact text proposed; when that differs from the item's or the issue's text, check_change ran again with it.
 - [ ] One change per run. No other file is touched.
 - [ ] An item on a page and field whose merged pull request is not yet recorded in SEO Genius waits, and is listed under "Needs a decision" with the pull request named.
 - [ ] An item that asks for the value a merged pull request replaced is dropped as a revert.
