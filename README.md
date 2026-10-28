@@ -9,11 +9,15 @@ The Claude Code plugin for [SEO Genius](https://seogenius.ai). This repository i
 
 Full instructions, commands, and troubleshooting: [plugins/seo-genius/README.md](plugins/seo-genius/README.md).
 
+Using Codex? See [codex/README.md](codex/README.md).
+
 ## Layout
 
 ```text
 .claude-plugin/marketplace.json   the marketplace config file
-plugins/seo-genius/               the plugin: config, MCP server, seventeen skills, README
+plugins/seo-genius/               the plugin: config, MCP server, eighteen skills, README
+plugins/seo-genius/.codex-plugin/ the same plugin for Codex: its manifest and MCP entry
+codex/                            Codex setup: guide, AGENTS.md block, MCP-only config.toml
 scripts/check.mjs                 structural checks (node scripts/check.mjs)
 tests/skills/                     acceptance checklists per skill
 ```

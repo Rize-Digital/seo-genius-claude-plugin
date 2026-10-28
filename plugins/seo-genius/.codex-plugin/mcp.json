@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "seo-genius": {
+      "url": "https://api.seogenius.ai/api/mcp/v1?client=codex-plugin"
+    }
+  }
+}

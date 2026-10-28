@@ -12,6 +12,7 @@ get_my_tenant -> list_sites -> get_business_context -> list_issues (critical, li
 - [ ] No fix on an issue that lacks a recommended value.
 - [ ] Five striking-distance keywords at most, each with position 4 to 20, the page that ranks, and one move.
 - [ ] The reply states the country location_name passed to ranked_keywords and that positions are country-level.
+- [ ] Before ranked_keywords the reply says it spends quota and waits for a yes; without a yes the three fixes still ship and no ranked_keywords call is made.
 - [ ] When ranked_keywords is empty, the fixes still ship and the reply says the ranking data was empty.
 - [ ] The closing line names what was capped.
 

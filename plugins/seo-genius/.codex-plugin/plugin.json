@@ -1,0 +1,12 @@
+{
+  "name": "seo-genius",
+  "version": "1.5.2",
+  "description": "SEO audit, keyword research, rankings, competitor analysis, and quick wins for your website, powered by the SEO Genius memory layer. Reads your crawled site data, open issues, tracked keywords, and business context over MCP, and logs every change you make so the next session starts smarter.",
+  "keywords": ["seo", "local-seo", "site-audit", "keyword-research", "rankings", "competitor-analysis", "mcp", "memory"],
+  "skills": "./skills/",
+  "mcpServers": "./.codex-plugin/mcp.json",
+  "interface": {
+    "displayName": "SEO Genius",
+    "shortDescription": "SEO audit, keywords, rankings, competitors, and quick wins from the SEO Genius memory layer."
+  }
+}
