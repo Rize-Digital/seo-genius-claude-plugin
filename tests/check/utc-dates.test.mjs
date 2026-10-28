@@ -42,6 +42,14 @@ test("report names its file by the UTC date and reads weekly's files under it", 
   assert.ok(lineWith(md, "- Reads `.seo-genius/config.json`").includes("the files `weekly` wrote today (the UTC date)"));
 });
 
+test("report's occurred_on fallback is today's UTC date", () => {
+  // A change first seen live in this run is recorded as seen today; the server compares
+  // that date with UTC crawl and deployment dates.
+  const md = skill("report");
+  assert.ok(md.includes("lists it as seen live, or else today's UTC date."), "occurred_on falls back to an unqualified today");
+  assert.ok(!md.includes("lists it as seen live, or else today. "), "the unqualified fallback is still there");
+});
+
 test("next names its proposal by the UTC date", () => {
   const md = skill("next");
   assert.ok(lineWith(md, "- Writes `.seo-genius/reports/<date>-next.md`").includes("`<date>` being today's UTC date"));
