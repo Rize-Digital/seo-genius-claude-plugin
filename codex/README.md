@@ -1,6 +1,6 @@
 # SEO Genius for Codex
 
-**Preview.** Codex support is a preview. The skills install and connect to SEO Genius, but the ledger skills (`start`, `competitor-dive`, `keyword-gap`, `content-plan`, `weekly`, `report`, `next`, `schedule`) have not had a real Codex run yet. If something does not work, report it at https://github.com/Rize-Digital/seo-genius-claude-plugin/issues.
+**Preview.** Codex support is a preview. The skills install and connect to SEO Genius, but the ledger skills (`start`, `competitor-dive`, `keyword-gap`, `content-plan`, `weekly`, `report`, `next`, `schedule`, `citations`) have not had a real Codex run yet. If something does not work, report it at https://github.com/Rize-Digital/seo-genius-claude-plugin/issues.
 
 The same skills as the Claude Code plugin, read from the same files, plus the SEO Genius MCP server. Codex installs this repository as a plugin marketplace directly.
 
@@ -8,7 +8,7 @@ The same skills as the Claude Code plugin, read from the same files, plus the SE
 
 - An SEO Genius account on Pro or above. Connecting an LLM uses the `mcp` scope, which the Free plan does not include.
 - The Codex CLI with the `codex plugin` and `codex mcp` commands.
-- Node.js 18 or later for the pipeline skills (`start`, `competitor-dive`, `keyword-gap`, `content-plan`, `weekly`, `report`, `next`, `schedule`). They keep the site's plan and research in a local ledger through the plugin's `scripts/ledger.mjs`.
+- Node.js 18 or later for the pipeline skills (`start`, `competitor-dive`, `keyword-gap`, `content-plan`, `weekly`, `report`, `next`, `schedule`) and `citations`. They keep the site's plan and research in a local ledger through the plugin's `scripts/ledger.mjs`.
 
 ## Install
 
