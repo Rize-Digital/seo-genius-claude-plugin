@@ -51,7 +51,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
    - `old_value`, `new_value`: the exact before and after, character for character, 4000 characters at most each. For `content_depth` and `readability`, give a short description of the before and after (word count, the section changed) instead of the full copy.
    - `added_links`, `anchor_text`: for `internal_links`, the link URLs added and their anchor text
    - `reason`: the user's reason in one or two sentences, 1000 characters at most
-   - `occurred_on`: `YYYY-MM-DD`, only when the change shipped on a day other than today
+   - `occurred_on`: `YYYY-MM-DD`, only when the change shipped on a day other than today (the UTC date)
    - `source_ref`: the pull request URL or commit SHA of the edit, 500 characters at most, only when the user gave one or this session made the commit. Never guess one.
    Do not send `changes_made`. It is deprecated, and `list_page_changes` never returns it, so a later session cannot read it back.
 9. If the user says the change clears a specific open issue: `list_issues` with `page_id`, `status: "open"`, `limit: 50`, show the matching issue, and on a second yes call `mark_issue_fixed` with `issue_id` and `resolution_note: "<what changed, logged via Claude Code plugin>"`.
