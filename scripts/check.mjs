@@ -130,7 +130,7 @@ check(rulesBlocks.length === found.length, "every skill has a Standing rules blo
 for (const [name, b] of rulesBlocks) check(b === RULES, `${name}: Standing rules block is the canonical text`);
 
 // 4b. Skills that can run unattended share one Unattended runs block, and each of them has it.
-const UNATTENDED_SKILLS = ["competitor-dive", "keyword-gap", "content-plan", "next", "report", "weekly"];
+const UNATTENDED_SKILLS = ["competitor-dive", "keyword-gap", "content-plan", "next", "report", "weekly", "citations"];
 const unattendedBlocks = [];
 for (const name of found) {
   const p = join(skillsDir, name, "SKILL.md");
