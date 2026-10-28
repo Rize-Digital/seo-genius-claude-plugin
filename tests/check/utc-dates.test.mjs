@@ -62,4 +62,23 @@ test("keyword-gap records a fresh pull under the UTC date, like cached_at", () =
   assert.ok(md.includes("the server pulled the list now: save today's UTC date"), "fresh pull saved under a local date");
   assert.ok(md.includes("is today (the UTC date) or one of the seven days before it"), "reuse window not in UTC dates");
   assert.ok(!/the server pulled the list now: save today[^']/.test(md), "an unqualified 'save today' is left");
+  assert.ok(md.includes("save the date part of `cached_at` as `pulled_on`, not today's UTC date"), "the cached_at rule contrasts with a bare today");
+});
+
+test("keyword-gap reuses and dates local-terms.json by the UTC date, like a domain list", () => {
+  // Step 7's local-terms branch had its own reuse window and fresh pulled_on, both a bare
+  // "today", while step 3's domain-list path said the UTC date.
+  const md = skill("keyword-gap");
+  const step = md.split("\n").find((l) => l.startsWith("7. Local terms nobody ranks for."));
+  assert.ok(step, "no step 7");
+  assert.ok(step.includes("is today (the UTC date) or one of the seven days before it"), "local-terms reuse window is not in UTC dates");
+  assert.ok(step.includes("today (the UTC date) when `fresh: true` was sent"), "local-terms fresh pulled_on is not the UTC date");
+  assert.ok(!/is today or one of the seven days before it/.test(step), "a bare today is left in the reuse window");
+  assert.ok(!/without it, today when `fresh: true` was sent/.test(step), "a bare today is left in the fresh pull");
+});
+
+test("log-change sends occurred_on only for a UTC day other than today's", () => {
+  // The server dates a change it is not given a date for by its own UTC day.
+  const md = skill("log-change");
+  assert.ok(md.includes("only when the change shipped on a day other than today (the UTC date)"), "occurred_on compared with a bare today");
 });
