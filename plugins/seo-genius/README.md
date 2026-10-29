@@ -6,10 +6,14 @@ SEO audit, keyword research, rankings, competitor analysis, and quick wins for y
 
 - An SEO Genius account on Pro or above. Connecting an LLM uses the `mcp` scope, which the Free plan does not include.
 - Claude Code with the `/plugin` command.
-- Context cost: about 642 tokens added to every session for the six skill descriptions in 1.0.0, plus roughly 1.1k to 1.4k tokens when a skill runs (measured with `claude plugin details` on 1.0.0). The six skills added in 1.1.0 and 1.2.0 add six more descriptions and have not been measured yet.
-- For competitor research: a web fetch tool in the session. A writable local folder is optional when the server research store is available; local `.seo-genius/` files remain an offline fallback.
+- Context cost: about 642 tokens added to every session for the six skill descriptions in 1.0.0, plus roughly 1.1k to 1.4k tokens when a skill runs (measured with `claude plugin details` on 1.0.0). The thirteen skills added since 1.0.0 add thirteen more descriptions and have not been measured yet.
+- For the research pipeline: a folder Claude can write to, ideally your site's repository, and a web fetch tool in the session so competitor pages can be read.
+- Node.js 18 or later, for every command that keeps files (`start`, `competitor-dive`, `keyword-gap`, `content-plan`, `weekly`, `report`, `next`, `schedule`, `citations`). Claude Code itself does not provide it: the native installer, Homebrew, WinGet and the Linux packages install a standalone `claude` binary, and even the npm package runs that binary rather than Node. Those commands check Node first and stop, with nothing written, when it is missing or older than 18. The read-only commands (`audit`, `brief`, `page-check`, `keywords`, `quick-wins`, `competitors`, `log-change`, `history`, `issues`, `sites`) do not need it.
 
 ## Install
+
+1. Check Node.js in a terminal: `node --version` should print `v18` or later. If it prints nothing, "not found", or a lower version, install the current LTS from https://nodejs.org (macOS: `brew install node`; Windows: `winget install OpenJS.NodeJS.LTS`; Linux: your package manager or nvm), then open a new terminal and restart Claude Code so it is on the PATH.
+2. Add the plugin:
 
 ```text
 /plugin marketplace add Rize-Digital/seo-genius-claude-plugin
@@ -35,47 +39,83 @@ Choose `plugin:seo-genius:seo-genius`, then Authenticate. Your browser opens the
 | `/seo-genius:quick-wins` | Three single-field fixes with paste-ready values, and the keywords within reach of page one. |
 | `/seo-genius:competitors <terms>` | Your local ranking baseline, your organic rivals, and a live position check for named terms. |
 | `/seo-genius:log-change <what you changed>` | Records a change you shipped, with the reason, so SEO Genius can measure it on the next crawl. |
-| `/seo-genius:history <page>` | Every logged change to a page or the site: date, before and after, the reason, who made it. |
+| `/seo-genius:citations` | Checks your Google Business Profile, then what search results show of you on the US business directories in the Yext and BrightLocal networks, and if the name, address and phone shown match. Opens no directory page; every directory comes with a link to check it yourself. Asks before it spends: up to 80 paid searches, with SEO Genius quota reserved up front (268 units on the server's usual engine, 2,000 on its fallback) and the unused part handed back. Saves the report in `research/`. |
+| `/seo-genius:history <page>` | Readable reported changes to a page or site, with dates, before and after, reasons, actors, and an explicit coverage limit. |
+| `/seo-genius:sites` | Every site in the workspace in one table, ordered by what needs attention first. |
+| `/seo-genius:issues <what to record or dismiss>` | Files a finding as an issue, corrects one, or dismisses a false positive, each after you confirm. |
 
 You can also just ask in plain words ("what's wrong with my homepage?") and Claude picks the right skill.
 
 ## The research pipeline
 
-Four more commands do the research a consultant does before touching a site. Run them in order. When the SEO Genius MCP research tools are available, each step reads the latest tenant-scoped research and saves an authorized, append-only document to the SEO Genius server. Local `.seo-genius/` files remain optional compatibility copies or an offline fallback. Saving research requires write access and explicit approval or a previously approved unattended scope; merely running a read-only audit never authorizes a save.
+Four more commands do the research a consultant does before touching a site. Run them in order. Each one saves its result to the site's folder, and the next one reads it.
+
+Where the folder is: inside the site's git repository it is `.seo-genius/` at the repository root. For a site with no repository (a WordPress site, say) it is `~/seo-genius/<domain>/` (or `$SEO_GENIUS_HOME/<domain>/`), one folder per site with its own git history, so two sites never share files and nothing is stored inside the site itself. Every skill finds it the same way, through `scripts/ledger.mjs`, which needs Node.js 18 or later. The script creates the folder (and its git history) before anything is written there, and every file goes in through it, so each save is one commit and a run that stops halfway leaves the last whole set of files. A folder whose owner cannot be read is left alone until you name its site with `ledger.mjs claim`.
+
+The plan's items are also indexed in SEO Genius (`save_plan_items`), so the dashboard and a run on another machine see the same ids and statuses. Each run reads the server's index first and sends what changed last. If SEO Genius cannot be reached, the run still finishes on your machine and the next one catches up; nothing is recorded twice. Only the index goes to the server (ids, statuses, pages, links, file hashes); the plan's text, research and changelog stay in the folder.
 
 | Step | Command | What it does | Live calls |
 |---|---|---|---|
-| 1 | `/seo-genius:start` | Confirms the site, services, target markets and search terms. Reads and optionally saves `pipeline_config` in persistent research memory. | none |
-| 2 | `/seo-genius:competitor-dive` | Finds local businesses outranking you on your weakest terms and compares actual page evidence. Reads and optionally saves `competitor_dive`. | one per term (ten at most), plus one possible competitor discovery call |
-| 3 | `/seo-genius:keyword-gap` | Uses the server's compact `keyword_gap` comparison, then filters for real local markets, builds topical opportunities, and optionally saves `keyword_gap` in persistent research memory. | one server comparison (up to four cached-or-paid ranked-keyword lists); optional keyword-volume batch |
-| 4 | `/seo-genius:content-plan` | Reuses saved competitor and keyword research plus prior planning history, checks edit freezes, and optionally saves a versioned `content_plan`. | none |
+| 1 | `/seo-genius:start` | Once per site. Confirms the site, the services, the city, and up to ten search terms you have to win. Saves `config.json`. | none |
+| 2 | `/seo-genius:competitor-dive` | Finds the three local businesses that outrank you on your terms, starting with the terms you are losing, reads the pages that rank, reads your own pages the same way, and reports what can be seen of why they rank, what your site is missing, and what to add. Saves `competitors.md` and `competitors.json`. | one per term (ten at most), plus one if fewer than three businesses turn up |
+| 3 | `/seo-genius:keyword-gap` | Pulls what you and those three rank for, removes brand and out-of-area terms, and groups the rest into topics where you are missing or behind. Saves `keyword-gap.md` and `keyword-gap.json`, and keeps each list it pulls in `keyword-lists/`. | one per domain (four at most), plus one for local terms nobody ranks for. A first pull may come from the server's shared cache with no date, so it is not reused and the next run pulls it again. A run reuses only a list saved in the last seven days that has a date: one from a fresh pull you asked for, or one the server dated as your own earlier pull. Ask for a fresh pull to get lists dated today |
+| 4 | `/seo-genius:content-plan` | Turns the research into an ordered backlog: pages to create, pages to improve, and pages to leave alone until an earlier change has been measured. Saves `plan.md`. Each item has an id (P-001) that stays the same on every later run. | none |
 
 Run `/seo-genius:brief` before step 2 and before acting on the plan. Repeat steps 2 to 4 about once a month.
 
 What to know before you rely on it:
 
 - Each step tells you how many live calls it can make, at most, and waits for your yes.
-- When supported, `save_research`, `get_research`, and `list_research` persist and retrieve tenant-scoped research across machines and cloud sessions. Earlier versions remain recorded, but `get_research` returns the latest document for a kind; it is not a full action-history reader. Local `.seo-genius/` files are optional and may contain competitor research. Keep them out of public repositories and never put credentials in them.
+- The `.seo-genius/` files are plain text and meant to be kept with your site, so a later session finds them. They hold no keys or passwords. They do hold your competitor research. If your site's repository is public, add `.seo-genius/` to `.gitignore` and keep the files on your machine.
 - The competitor research reads organic search results and public pages. It cannot see the map results, backlinks, or Google Business Profile data, and it says so in every report. For a local business those often decide who ranks first. It also cannot see a page's structured data unless the fetch tool returns raw HTML, so schema is compared only where it was seen on both sides.
 - Positions and volumes in the keyword gap are country-level, because the data source supports countries only. A position counts every block on the results page, not organic results alone.
-- The pipeline proposes. It does not edit website pages. With separate approval it can trigger a crawl, and with `can_write` plus research-save approval it can append research documents; neither operation proves SEO gains.
+- The pipeline proposes. It does not edit your pages. The only thing it can change in SEO Genius is starting a crawl from `start`, and only when you say yes.
 - It orders the work. It does not promise a ranking.
+
+## Run it on a schedule
+
+Three more commands turn the pipeline into something that runs on its own.
+
+| Command | What it does |
+|---|---|
+| `/seo-genius:schedule` | Sets up scheduled runs. Records what an unattended run may do, and gives you the prompts to paste into a routine. |
+| `/seo-genius:weekly` | The week-over-week update: compares this week's stored rankings and open issues with last week's, adds every recorded change to `changelog.md` (changes logged through SEO Genius and fixes applied from the dashboard), updates plan items in place under the same ids, and syncs them with SEO Genius. Stored data only, no live calls. |
+| `/seo-genius:report` | The weekly report: what changed, what moved, what is waiting, and what needs a decision. |
+| `/seo-genius:next` | Takes the next item from the plan and writes the exact change as a proposal, or opens a pull request when you allow it. One item per run. |
+
+A usual setup is two routines: the research once a month (`competitor-dive`, `keyword-gap`, `content-plan`), and `weekly`, `report`, then `next` once a week. The weekly run reads stored data only and makes no live call: the report takes its positions from the weekly files and the stored rank readings. Run by hand, `/seo-genius:report` asks before any live search for a term with no stored reading.
+
+What an unattended run can and cannot do:
+
+- It works inside limits you set once with `/seo-genius:schedule`, saved in `.seo-genius/config.json`: propose only or open pull requests, the most live calls per run, and if it may record a merged change. Set `enabled` to false there and a scheduled run stops at its first step. The prompts from `/seo-genius:schedule` start with "Unattended run.", which is what tells a run to read these limits; keep that line if you write your own prompt.
+- It never merges a pull request, never pushes to your default branch, and never writes to a live site. At most one pull request from the pipeline is open at a time.
+- A change is recorded in SEO Genius only after its pull request is merged and a check of the live page shows the new value. A merge alone does not show that the page changed. The record is dated by the merge date when the merge has a successful production deployment, and otherwise by the date the change was first seen live.
+- In propose-only mode, `next` proposes the same item each week until you apply it and record it with `/seo-genius:log-change`.
+- `next` changes only pages it has checked. An item whose file is shared with other pages (a template, a menu, a footer) is written up for you to apply, not edited.
+- `next` leaves a page alone while an earlier change to it is still being measured, and passes over an item when the page's history could not be read. A run that finds nothing ready says so. That is a normal result.
+- New pages are drafted from facts already on your site and in your business profile. Anything unknown is left as a visible placeholder. It does not invent reviews, prices, or claims.
+- The report shows changes and movements side by side and claims no cause.
+
+Two ways to schedule:
+
+- On your machine: a local routine in the Claude desktop app. It should load this plugin like any session on your machine; check that on the first run. It runs while the app is open and the computer is awake.
+- In the cloud: a routine on your Claude account, which runs when your computer is off. A cloud run does not install plugins, so `/seo-genius:schedule` copies the pipeline skills, and the two scripts they run, into your repository's `.claude/skills/` folder for you to commit. Run it again after a plugin update. SEO Genius has to be a connector on your Claude account. The default cloud environment blocks most outside sites, so competitor pages are marked "not read" unless you open its network access. A cloud run keeps nothing it does not push, and the research steps push nothing: after each monthly run you merge its research files from the run's session, or the weekly run keeps working from the old plan.
 
 ## How the skills behave
 
 - They confirm which site they are working on before doing anything.
-- They read what SEO Genius already stores before making any live call, and they say when a call spends your Data-for-SEO quota.
+- They read what SEO Genius already stores before making any live call, and they say what a live call spends and wait for your yes before making it.
 - Keyword volume, ranking baselines, and competitor lists come at country level, because the data source supports countries only. The skills make the keywords themselves local and use a live search check for your metro.
 - Every number comes from a tool result. Missing data is reported as missing, never guessed.
 - Lists are capped and paginated; the reply says what was capped.
 - Before an edit, `brief` checks the page's history. A field changed very recently is frozen for a short period, and the check blocks. After that, until the earlier change has finished being measured, the check warns that another edit throws the measurement away. A value the field held before is flagged as a revert. `brief` only checks. It never edits a page.
-- `log-change` records confirmed shipped edits and asks for permission. The four research skills can also append versioned research documents when authorized. `audit` and `start` can trigger a crawl on approval. Saving a plan or research is not a deployed change or a measured improvement.
+- Three skills write to SEO Genius, each only on a yes: `log-change` records a change you shipped, `issues` files, corrects, or dismisses an issue, and `report` records a change whose pull request was merged once the live page shows it. A scheduled run records merged changes only if you allowed that when you set the schedule, and three at most per run. Logging records that a change happened. It does not claim the change worked. `audit` and `start` can start a crawl, and only when you say yes.
 
 ## Data and privacy
 
 The plugin talks only to the SEO Genius server you authorized. It reads your site's crawl data, issues, keywords, and business context, and writes change-log entries when you ask it to. Live keyword and ranking calls are proxied by SEO Genius and count against your plan's quota.
 
-Competitor research uses the web fetch tool in Claude Code. When research persistence is approved, the structured findings are sent to the authorized SEO Genius tenant's server as research documents. Without approval or when the research-store tools are absent, results may remain only in local files or the conversation. Never assume cloud persistence without a verified research document ID.
+The research pipeline also reads public pages of competitor sites with Claude's own web fetch tool, and saves its findings to files in your folder. Those files stay on your machine and in your repository; the plugin does not send them anywhere.
 
 ## Using an API key instead
 
@@ -94,9 +134,8 @@ Register it under a different name from the plugin's own server entry, for examp
 | The commands exist but the tools are missing, or a 401 | Run `/mcp`, choose `plugin:seo-genius:seo-genius`, Authenticate. |
 | 403 "MCP scope required" or "feature_locked" | Your plan does not include LLM connections. Upgrade to Pro or above, then run `/mcp` again. |
 | "No sites in this workspace" | Add a site in the SEO Genius dashboard and run a crawl. |
-| `quota_exceeded` (429) | Monthly research quota is exhausted. Stop and report it; do not retry every minute. |
+| A rate-limit message | Wait a minute and try again. |
 | You also connected SEO Genius on claude.ai, and a call asks for permission on a tool whose name does not start with `mcp__plugin_seo-genius_seo-genius` | Both connections reach the same server. Allow the prompt, or use one connection at a time. The plugin's own tools always start with `mcp__plugin_seo-genius_seo-genius`; the claude.ai connector's tools carry a different prefix that varies by session. |
-| Research store tools missing or `upstream_unavailable` | The server may lack the research-store migration or tools. Use the disclosed same-site offline fallback, not a fabricated saved document. |
 | A skill says data is missing | It is. The skill will not fill the gap with a guess. |
 
 ## Updating
