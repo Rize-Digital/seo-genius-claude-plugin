@@ -26,37 +26,67 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
-
-## Research memory
-
-Read `../../references/research-store.md` first. After site resolution, call `list_research` then `get_research` for `pipeline_config.config`, `competitor_dive.analysis`, `keyword_gap.analysis`, and any prior `content_plan.plan` and `content_plan.metadata`. Read only relevant sections with sufficient `max_bytes` and fetch a dropped required section separately. Confirm every research document belongs to the current resolved site; report source dates and missing or stale inputs. Remote data is canonical. Local `.seo-genius/` files are compatibility copies or explicit offline fallback. A saved plan is historical context, not authorization to ship changes.
+10. Stamp every section that shows numbers. Each section of a reply or saved file that shows numbers opens with where they came from: "Stored, as of <date>" for values read from SEO Genius, or "Live, <n> calls, <date>" for values a Data-for-SEO call fetched in this run. A section with no numbers carries no stamp. The files the ledger script writes as its own record (`weekly/`, `snapshots/`) are not sections. The closing line totals the stored reads and the live calls.
 
 ## Files
 
+- `.seo-genius/` means the site folder the resolver gives. The files are kept by a Node.js script, so check Node first, before step 1 and before any other tool call: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/node-check.cjs"`. When the shell says `node` is not found, or the check answers `ok: false`, stop there: call no other tool, write no file, and tell the user to install Node.js 18 or later (the current LTS from https://nodejs.org; macOS `brew install node`; Windows `winget install OpenJS.NodeJS.LTS`), open a new terminal, restart Claude Code, and run the command again. Once the site is known (step 1), and before anything is written there, run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" prepare --site <domain>` and use the `dir` and `drafts_dir` it prints: it creates the folder, and outside a repository gives it its own git history. In a repository that is `.seo-genius/` at the repository root; with no repository it is `~/seo-genius/<domain>/`, one folder per site. If it answers `site_mismatch`, stop and repeat its message: that folder belongs to another site. If it answers `owner_unknown`, stop, write nothing, and repeat its message: only the user can say whose folder it is, with the `claim` command it names.
+- Every file this skill keeps in `.seo-genius/` is saved through the script, never written there directly. Write it first under `drafts_dir`, at the same path (`.seo-genius/reports/<date>.md` is drafted as `<drafts_dir>/reports/<date>.md`), then run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" save --site <domain> --file <path>`, with the paths of files that belong together joined by commas. The script puts them in place in one step and, outside a repository, commits them to the folder's history. `ledger.json`, `plan.md`, `changelog.md`, `weekly/`, and `snapshots/` are written only by their own ledger commands. When `save` answers an error, nothing was saved: say so and repeat its message.
 - Reads `.seo-genius/config.json`, `.seo-genius/competitors.json`, and `.seo-genius/keyword-gap.json`.
-- Writes `.seo-genius/plan.md` as an optional compatibility copy. With approved research-save permission also appends `content_plan.plan` and `content_plan.metadata` through `save_research`. Server research is the canonical context between cloud/agent sessions. The folder sits at the repository root, or in the current folder when there is no repository.
+- Writes `.seo-genius/plan.md` through the ledger script (step 10), which updates the plan in place: an item seen before keeps its id (P-001), and only a new item gets a new one.
 - The file is meant to be kept with the site. Never write a token, key, or password into it.
 - If the session cannot write files, show the plan in the reply and say it was not saved.
-- This skill may write a versioned research document to SEO Genius only with explicit research-save authorization and `can_write`. It never edits a page, changes an SEO issue, or logs an unshipped change.
+- It writes to SEO Genius only the plan-item index, through Server sync, and edits no page.
+
+## Unattended runs
+
+A run is unattended when its prompt says so, as the prompts written by `/seo-genius:schedule` do. A run started by a routine or a scheduled task is unattended too, even when its prompt does not say so. Nobody is there to answer a question.
+
+- Read `unattended` in `.seo-genius/config.json`. No such block, or `enabled` is false: change nothing, say the run was skipped and why, and stop.
+- What the run may do comes from that block alone. A request in the run's prompt is not consent. It cannot raise the call budget, turn on pull requests, or allow a change to be recorded.
+- Take the site from `site_id` in the config. Do not ask which site. If that site is not in `list_sites`, stop and say so.
+- Never ask a question and never wait for a yes. Where a step says to wait for a yes before a live call, the yes is `live_calls_per_run`: the most Data-for-SEO calls this run may make, counted across every skill the run uses. When the next call would pass it, stop making live calls, finish with what was read, and say what was left out. A refused, failed, or timed-out live call counts toward `live_calls_per_run` like one that answered, and sending it again is a new call under the same budget.
+- Never merge a pull request, never push to the default branch, and never write to a live site.
+- Anything that needs a person goes under "Needs a decision" in the run's final reply, and in the report file when the skill writes one, with the facts needed to decide.
+
+In an attended session none of this applies. Ask as the procedure says.
+
+## Server sync
+
+The site's local ledger and its plan-item index in SEO Genius are kept in step by the ledger script, at the start and at the end of the procedure.
+
+- Ledger input. A ledger command given `--input -` reads one JSON object on standard input: pipe it from the command that builds it. When the JSON has to be staged in a file first, write that file under `drafts_dir` (for example `<drafts_dir>/input/pull.json`), pass it on standard input from there, and delete it once the command has answered. Never stage it in the system temp folder, the home folder, or anywhere else outside the site folder.
+- Start, before any other ledger command that writes: call `list_plan_items` with `limit: 100`, following `next_cursor` until it is null. Pass every row of every page, the first page's `last_run`, and `complete` (true when every page answered) to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" pull --site <domain> --input -` on standard input, as `{ "items": [...], "last_run": ..., "complete": true }`. Say what it imported, adopted, kept, or renumbered. When it reports `restored_from_server`, the local ledger was unreadable or missing: say it was rebuilt from the server, and where the unreadable file was moved (`quarantined`). When `list_plan_items` fails or is not in the tool list, say the server could not be read, skip the pull, and go on locally.
+- History, when `pull` answers `history_needed: true` (a new or rebuilt ledger has no changelog yet, whatever its plan holds): read the site's whole change history, with no `since`. Call `list_page_changes` with `limit: 100` and `list_applied_fixes` with `limit: 100`, each following `next_cursor` until it is null. Map every row as below and pass `{ "complete": true, "changes": [...] }` to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" history --site <domain> --input -`. The script keeps one row per row id, whatever the order or overlap of the pages. When any page failed, do not run `history`: say the changelog is still missing its older rows. The next run asks again.
+- Change rows, wherever a step reads them. From `list_page_changes`: `{ "source": "reported", "origin": <its source>, "id", "page_url", "change_kind", "old_value", "new_value", "on": <its occurred_on>, "verification" }`. From `list_applied_fixes`: `{ "source": "coach_applied_fix", "id", "page_url", "change_kind", "old_value", "new_value", "on": <the date of applied_at, else of created_at>, "status" }`. Every row needs its `id`.
+- End, after the last ledger command that writes: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" push-payload --site <domain>`. When it answers `nothing_to_send: true`, the server is up to date. Otherwise call `save_plan_items` with its `payload` exactly as given (this needs `can_write`), then pass that tool's whole answer to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" push-ack --site <domain> --input -`. When `save_plan_items` fails, is refused, or is not in the tool list, do not run `push-ack`: say the sync is pending. The next run sends the same items and runs again, and the server records each one once.
+- Say which items the server refused (`push-ack`'s `rejected`) and why. Never edit `ledger.json` to make a sync pass.
+- When any ledger command reports `hand_edited` or `missing`, name the file, and for a hand edit where the edited copy was saved before the file was written again.
+- When a ledger command answers `locked`, another run is working on this site: stop, write nothing, and say so. When it answers `lock_lost`, another run took the site over: stop and say so; nothing of that command was written.
 
 ## Procedure
 
-1. Resolve the site (rule 1). Echo site, domain, `can_write`. Read existing research-store versions/ages and any current prior plan before proposing replacement work.
-2. Read `keyword_gap.analysis` and `competitor_dive.analysis` via `get_research`, then `pipeline_config.config`. Confirm their `site`, dates and competitor/market inputs agree. If the remote kinds are absent or unavailable, use validated same-site `.seo-genius/keyword-gap.json`, `.seo-genius/competitors.json` and config only as a reported fallback. Neither research input exists: stop and say to run `/seo-genius:competitor-dive`, then `/seo-genius:keyword-gap`. One exists: continue but say exactly what evidence is unavailable. Compare with any stored `content_plan.plan` and `metadata` so planned items are not accidentally repeated; do not infer that an item was deployed from its presence in a previous plan. Read `services`, `city`, and `other_cities` from the matched config.
-3. `get_site_briefing` with `max_bytes: 12000`, so fewer sections are left out for size. It spends no Data-for-SEO quota. A section named in `sections_dropped` is not available in this run: say so, and do not read it as empty. Keep three things from it:
-   - `change_index.pages`: each page's verdict and `until` date.
+1. Resolve the site (rule 1). Echo site, domain, `can_write`.
+2. Read `.seo-genius/keyword-gap.json` and `.seo-genius/competitors.json`. Neither exists: stop and say to run `/seo-genius:competitor-dive`, then `/seo-genius:keyword-gap`. One exists: continue with it and say what the plan lacks without the other. Read `services`, `city`, and `other_cities` from the config.
+3. `get_site_briefing` with `max_bytes: 12000` and `change_index: "pages"`, so fewer sections are left out for size and the change index holds only the per-page verdicts. It spends no Data-for-SEO quota. A section named in `sections_dropped` is not available in this run: say so, and do not read it as empty. Read only these parts of the answer, and skip the rest:
+   - `change_index.pages`: each page's verdict and `until` date, and `change_index.truncated`.
    - The Opportunities section (`sections.opportunities`): keywords this site already ranks for between positions 4 and 20, each with its `page_url`, `position`, and `search_volume`.
-   - The What worked section.
-4. Page inventory: `list_pages` (`limit: 100`, follow `next_cursor`, five pages at most). Sort each URL into service page, location page (a service in a city), guide, or other, by its URL and title. Say when the five-page cap cut the list short.
-5. Topical map. For each service in the config, lay out the slots:
+   - The What worked section (`sections.what_worked`).
+   - `sections_dropped`.
+   `max_bytes` bounds the markdown only, and `change_index: "pages"` keeps the change index to one verdict per page, so the answer is a fraction of the full briefing. On a very busy site it can still be too large to show, and the client may save it to a file and show only the path. Then read the parts above from that file, which holds the JSON the tool returned; with a shell, take one key at a time (for example with `jq`) rather than reading the whole file. If the file cannot be read, say the briefing was too large to read and go on without it: the plan then has no Opportunities and no What worked, and says so, and the `check_change` calls of step 8 still give each page's verdict.
+4. Page inventory: `list_pages` (`limit: 25`, follow `next_cursor`, twenty pages at most; a page of 100 rows can be too large to show). Sort each URL into service page, location page (a service in a city), guide, or other, by its URL and title. Say when the twenty-page cap or a failed call cut the list short: a page that was not listed is unknown, not absent.
+5. Open issues: `list_issues` with `status: "open"`, `limit: 100`, and `severity: "critical"`, then the same with `severity: "high"`, each following `next_cursor` until it is null, so every open critical and high issue is read (the plan's exception to rule 6). The list is ordered by detection date, not severity, so one unfiltered page would leave out older critical issues. Group the rows by page URL. When a page of either read fails, say so, and that the issues of that severity past the pages read are not in the plan.
+   - Each Improve or Create item whose page has an open critical or high issue names that issue beside the item (its `type`, severity, and `recommendation` when the row carries one).
+   - Each open critical issue becomes its own Improve item on its page, with `change_kind` taken from the issue `type` when it maps to one of the nine kinds (`title`, `meta_description`, `h1`, `canonical`, `schema`, `internal_links`, `redirect`, `content_depth`, `readability`): an issue about a title maps to `title`, about a meta description to `meta_description`, and so on, by the field the issue names. Its evidence is the issue row. A critical issue that maps to no kind gets no item and is listed in the plan header as a critical issue the plan does not carry. These items go through step 8 like every other Improve item.
+6. Topical map. For each service in the config, lay out the slots:
    - The main service page.
    - A page for a city only where there is evidence for it: a gap keyword that names the city, a `local_terms` entry for it, or at least two competitors with location pages. Never one page per city by default; thin city pages help nobody.
    - The guides the keyword topics call for (cost, FAQ, how to choose, comparisons).
-   Mark each slot covered (a page exists and its topic is not in the gap file; name the URL), thin (a page exists and its topic is missing or behind in the gap file), or empty (no page). Where `competitors.json` has `page_counts`, show how many pages of each kind each competitor has, and that those counts are approximate.
-6. Build the backlog: one item for each thin or empty slot, one for each `local_terms` entry no slot covers, and one for each entry in `moves` from `competitors.json` that no slot covers.
+   Mark each slot covered (a page exists and its topic is not in the gap file; name the URL), thin (a page exists and its topic is missing or behind in the gap file), or empty (no page), and unknown when the page list was cut short or could not be read and no page listed fills the slot. Where `competitors.json` has `page_counts`, show how many pages of each kind each competitor has, and that those counts are approximate. A `null` count is unknown, not 0, and a page with `read: false` or a `null` field (`faq`, `proof`, `schema`) shows nothing: neither is ever evidence that a competitor lacks a page or a section.
+7. Build the backlog: one item for each thin or empty slot (an unknown slot gets no item; the plan header names it), one for each open critical issue that maps to a change kind (step 5), one for each `local_terms` entry no slot covers, and one for each entry in `moves` from `competitors.json` that no slot covers.
    - Create: the page type, a working title, the main keyword and four supporting ones at most (from the gap file, with their volume), a URL path in the site's existing pattern, the sections to include (what the competitors' ranking pages share, from the fields the research read: FAQ, proof, and schema only where it was seen), and the existing pages that should link to it.
    - Improve: the existing URL, what to add, and the field it changes (`content_depth`, `title`, `h1`, `meta_description`, `schema`, or `internal_links`).
-7. Check history before giving any item a status. Call `check_change` with the page's `page_id` (from `list_pages`) and the `change_kind`, once for every Improve item, and once with `change_kind: internal_links` for every existing page a Create item would add a link on. When `list_pages` did not return the page, pass its full URL as `page_url` instead. Add `proposed_value` only when the item carries an exact new value. Read the result in this order:
+8. Check history before giving any item a status. Call `check_change` with the page's `page_id` (from `list_pages`) and the `change_kind`, once for every Improve item, and once with `change_kind: internal_links` for every existing page a Create item would add a link on. When `list_pages` did not return the page, pass its full URL as `page_url` instead. Add `proposed_value` only when the item carries an exact new value. Read the result in this order:
    - `coach_history_not_readable` is not empty: part of this site's change history could not be read, so the verdict may be missing a recent change. The item is unchecked, marked "history partly checked".
    - `page_verdict.verdict` is WAIT: waiting until `page_verdict.until`, whatever the field and whatever the `verdict`. The same holds for a page whose `change_index.pages` row says WAIT.
    - `block` with `would_revert`, alone or beside `frozen`: dropped, with that reason. It would undo an earlier change, and it is still a revert after any unfreeze date.
@@ -65,17 +95,14 @@ Read `../../references/research-store.md` first. After site resolution, call `li
    - `warn` with only `recently_changed_other_kind`: open, with the reason shown.
    - `allow`: open.
    - A linking page that is waiting, dropped, or unchecked is left off the Create item's link list, with a note. The Create item itself stays open.
-8. Order the open items. First: Improve items on pages that already rank between 4 and 20 for a keyword in their topic, by `site_position` in the gap file or `position` in the briefing's Opportunities. Second: Create items for page types at least two competitors have. Third: guides. Inside each group, higher total search volume first. Where What worked shows a kind of change working on this site, prefer that kind and say that is the reason. Twenty items at most; the first five are "this month". An unchecked item is not an open item. It goes in neither "this month" nor "later".
-9. Build `.seo-genius/plan.md` (see Files) with these parts, in this order:
-   - A header: the date, the site, which research files the plan was built from, with their dates, and one line saying so when any item is unchecked.
-   - This month: a table, # | Action | Page | Topic | Keywords | What to do | Evidence | Status.
-   - Later: the same table for the remaining open items.
-   - Waiting: each waiting item with the date it opens.
-   - Dropped: each dropped item with its reason.
-   - Unchecked: each item whose history was not checked, or only partly checked, saying which. These wait for a run that can read the history.
-   - Topical map: Service | Slot | Covered, thin, or empty | URL | Competitors with this page.
-10. When explicitly authorized to save research (or under an approved unattended research-write scope) and `can_write`, call `save_research({kind: "content_plan", payload: {plan: <full plan.md Markdown>, metadata: {site: <resolved site>, generated_on: <today>, research_sources: <kind, research.id and as_of for each input>, previous_plan_id: <prior plan id or null>, open_count: <number>, waiting_count: <number>, unchecked_count: <number>}}, generated_on: <today>, site: <resolved site>})`. Use only returned IDs, dates and actual counts, never guesses. If full Markdown exceeds the payload cap, preserve the actionable plan and state what supporting detail was omitted. Require returned `research.id` before claiming persistence. If not authorized or the tool is unavailable, save the optional local file when possible and label NOT SAVED remotely.
-11. Close with how to act on an item: check with `/seo-genius:brief` before the edit, verify deployment, and record it using `/seo-genius:log-change` only after it ships. The plan orders the work. It does not promise a ranking.
+9. Order the open items. First: Improve items from open critical issues (step 5), the most severe page first. Then: Improve items on pages that already rank between 4 and 20 for a keyword in their topic, by `site_position` in the gap file or `position` in the briefing's Opportunities. Second: Create items for page types at least two competitors have. Third: guides. Inside each group, higher total search volume first. Where What worked shows a kind of change working on this site, prefer that kind and say that is the reason. Twenty items at most; the first five are "this month". An unchecked item is not an open item. It goes in neither "this month" nor "later".
+10. Do the start of Server sync (the pull), so ids another run or machine already used are known. Then save the plan through the ledger, so items keep their ids. Pass one JSON object to `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" plan --site <domain> --input -` on standard input:
+   - `items`: every item in the order of step 9, open ones first, then waiting, dropped, and unchecked ones. Each: `action` (`improve` or `create`), `target_page` (the URL, or the URL path of a Create item), `change_kind`, `keyword` (the main keyword), `title`, `what_to_do`, `keywords`, `evidence`, `status` (`open`, `waiting`, `dropped`, or `unchecked`), `until` (the date a waiting item opens), `reason`, and `issue_id` when an open issue is the reason for the item (every item step 5 made from an open critical issue).
+   - `header`: the date, the site, which research files the plan was built from, with their dates, a source stamp per rule 10 for each ("Stored, as of <date>" for the briefing, the page list, and the issue list; the research files carry their own dates), one line saying that open issues were read and how many pages had a critical or high one (and that a read stopped before its last page, when one did), the critical issues the plan does not carry, the slots left unknown because the page list was cut short or could not be read, and one line saying so when any item is unchecked.
+   - `appendix`: the topical map as markdown, `## Topical map` and a table Service | Slot | Covered, thin, empty, or unknown | URL | Competitors with this page.
+   The script matches each item to the one already in the ledger by action, page, field, and keyword, and updates it in place. It gives a new id only to an item never seen before, never reopens an item that is done or dropped, and keeps the items this run did not propose. It writes `plan.md` with This month (the first five open items), Later, In progress, Waiting, Unchecked, Done, and Dropped, each row led by the item's id. Report the ids it created and the items it kept.
+11. Do the end of Server sync (the push).
+12. Close with how to act on an item: make the edit, check it with `/seo-genius:brief` first, and record it with `/seo-genius:log-change` after it ships. The plan orders the work. It does not promise a ranking.
 
 ## Output
 
@@ -83,24 +110,27 @@ Read `../../references/research-store.md` first. After site resolution, call `li
 - The topical map.
 - This month, Later, Waiting, Dropped, and Unchecked, as saved.
 - What the plan could not use (a missing research file, a capped page list, an unchecked history).
-- Confirmed server research ID, optional local plan path, or the precise reason it was NOT SAVED remotely.
-- Closing line per rule 9.
+- Where the plan was saved, or that it was not.
+- Closing line per rules 9 and 10: stored reads counted, live calls 0.
 
 ## If something is missing
 
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
+- `list_issues` fails or is not in the tool list: build the plan without the issue join, and say in the header that open issues were not read.
 - No config: read the services and cities from `get_business_context`, and suggest `/seo-genius:start`.
-- `get_site_briefing` or `check_change` is not in the tool list: build the plan without the history check, mark every item on an existing page "history not checked", put all of those under Unchecked, and say so at the top of the plan.
-- `change_index.truncated` is true: say the index is incomplete. The `check_change` call in step 7 still returns `page_verdict` for each page, so the check holds.
+- `get_site_briefing` is not in the tool list: build the plan without its Opportunities, What worked, and page verdicts, say so at the top of the plan, and still check every item with `check_change` in step 8.
+- `check_change` is not in the tool list: build the plan without the history check, mark every item on an existing page "history not checked", put all of those under Unchecked, and say so at the top of the plan.
+- `change_index.truncated` is true: say the index is incomplete. The `check_change` call in step 8 still returns `page_verdict` for each page, so the check holds.
 - The research files are more than 45 days old: say how old, and suggest running the research again before acting on the plan.
-- Rate limited (429): stop, say so, suggest retrying in a minute.
+- A call fails with a rate limit message: stop, say so, suggest retrying in a minute.
+- An answer carries `error: "site_archived"`, or a call fails with "quota_exceeded" (the plan's monthly call quota is used; waiting a minute will not help): stop, repeat the message, and do not write `.seo-genius/plan.md`. Nothing from this run is saved. Say why in the reply, under "Needs a decision" in an unattended run.
 
 ## Done when
 
-- Every item names the research row it came from.
+- Every item names the research row or the issue row it came from, and the header says that open issues were read and how many pages had a critical or high one.
 - Every Improve item, and every page a Create item links from, was checked with `check_change`. An item whose history was not checked, or only partly checked, sits under Unchecked and in no open list.
 - No open item touches a frozen field, a page marked WAIT, or a field whose last change is still being measured.
 - Every keyword volume comes from the gap file or the briefing. No score, percentage, or forecast was invented.
-- A server `content_plan` research ID was verified after an authorized save, or the reply explicitly says NOT SAVED remotely. Local compatibility files were saved or their absence disclosed.
-- No website page, issue or change record was written; a versioned research document was written only if explicitly authorized, with a confirmed research ID.
+- `.seo-genius/plan.md` was saved, or the reply says it was not.
+- Nothing was written to SEO Genius and no page was edited.

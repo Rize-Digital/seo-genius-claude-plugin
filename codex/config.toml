@@ -1,0 +1,5 @@
+# SEO Genius MCP server for Codex, without the plugin.
+# Add this to ~/.codex/config.toml, then run: codex mcp login seo-genius
+# Use either this entry or the plugin, not both: both define a server named seo-genius.
+[mcp_servers.seo-genius]
+url = "https://api.seogenius.ai/api/mcp/v1?client=codex-plugin"

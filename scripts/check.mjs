@@ -10,10 +10,20 @@ const PLUGIN = join(ROOT, "plugins", "seo-genius");
 const EXPECTED_SKILLS = [
   "audit", "brief", "page-check", "keywords", "quick-wins", "competitors", "log-change",
   "start", "competitor-dive", "keyword-gap", "content-plan", "history",
+  "next", "report", "schedule", "sites", "issues", "weekly", "citations",
 ];
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const MCP_URL = "https://api.seogenius.ai/api/mcp/v1?client=claude-code-plugin";
+
+// The one expected text of each block that every skill carrying it must hold,
+// word for word. Comparing the copies only with each other would pass a required
+// instruction missing from all of them alike.
+const CANONICAL = join(ROOT, "scripts", "canonical");
+function canonical(name) {
+  const p = join(CANONICAL, name);
+  return existsSync(p) ? readFileSync(p, "utf8").replace(/\r\n/g, "\n").trim() : null;
+}
 
 let failures = 0;
 const ok = (msg) => console.log(`PASS  ${msg}`);
@@ -110,14 +120,84 @@ for (const name of found) {
   check(!/: /.test(d) && !/^["']/.test(d), `${name}: description has no colon-space and is not quoted (YAML-safe)`);
   const block = md.match(/\n## Standing rules[^\n]*\n([\s\S]*?)(?=\n## )/);
   check(!!block, `${name}: has a Standing rules section`);
-  if (block) rulesBlocks.push(block[1].trim());
+  if (block) rulesBlocks.push([name, block[1].trim()]);
   check(/\n## Done when/.test(md), `${name}: has a Done when section`);
   check(/Do not call `search_recommendations`; it returns an empty set today\./.test(md), `${name}: carries the search_recommendations prohibition`);
 }
+const RULES = canonical("standing-rules.md");
+check(!!RULES, "scripts/canonical/standing-rules.md exists");
+check(rulesBlocks.length === found.length, "every skill has a Standing rules block");
+for (const [name, b] of rulesBlocks) check(b === RULES, `${name}: Standing rules block is the canonical text`);
+
+// 4b. Skills that can run unattended share one Unattended runs block, and each of them has it.
+const UNATTENDED_SKILLS = ["competitor-dive", "keyword-gap", "content-plan", "next", "report", "weekly", "citations"];
+const unattendedBlocks = [];
+for (const name of found) {
+  const p = join(skillsDir, name, "SKILL.md");
+  if (!existsSync(p)) continue;
+  const md = readFileSync(p, "utf8").replace(/\r\n/g, "\n");
+  const block = md.match(/\n## Unattended runs\n([\s\S]*?)(?=\n## )/);
+  if (block) unattendedBlocks.push([name, block[1].trim()]);
+}
 check(
-  rulesBlocks.length === found.length && rulesBlocks.every((b) => b === rulesBlocks[0]),
-  "Standing rules block is byte-identical across all skills",
+  JSON.stringify(unattendedBlocks.map(([n]) => n).sort()) === JSON.stringify([...UNATTENDED_SKILLS].sort()),
+  `Unattended runs section is present in exactly ${UNATTENDED_SKILLS.join(", ")}`,
 );
+const UNATTENDED = canonical("unattended-runs.md");
+check(!!UNATTENDED, "scripts/canonical/unattended-runs.md exists");
+for (const [name, b] of unattendedBlocks) check(b === UNATTENDED, `${name}: Unattended runs block is the canonical text`);
+
+// 4c. One folder resolver. Every skill that reads or writes .seo-genius/ carries the same
+// Files bullet pointing at scripts/ledger.mjs, so no skill falls back to its own rule and two
+// sites can never land in one folder.
+const FOLDER = canonical("folder-bullet.md");
+const SAVE = canonical("save-bullet.md");
+check(!!FOLDER && !!SAVE, "scripts/canonical/folder-bullet.md and save-bullet.md exist");
+// A line that has the model write or save a file in .seo-genius/ must send it
+// through the ledger; only a line that forbids the write is exempt.
+const DIRECT_WRITE = /\b(write|writes|save|saves)\b[^.\n]{0,60}`\.seo-genius\/[^`]*`/i;
+const ROUTED = /through `save`|through the ledger|ledger\.mjs|\b(do not|never|neither|nor|no)\b/i;
+const resolverBullets = [];
+for (const name of found) {
+  const p = join(skillsDir, name, "SKILL.md");
+  if (!existsSync(p)) continue;
+  const md = readFileSync(p, "utf8").replace(/\r\n/g, "\n");
+  if (!md.includes(".seo-genius/")) continue;
+  const bullet = md.match(/\n(- `\.seo-genius\/` means the site folder the resolver gives\.[^\n]*)/);
+  check(!!bullet, `${name}: uses the shared folder resolver`);
+  // The Node.js check comes first in that line, so no skill writes a file or
+  // calls a tool before it knows the ledger script can run.
+  check(!!bullet && /node-check\.cjs/.test(bullet[1]) && bullet[1].indexOf("node-check.cjs") < bullet[1].indexOf("ledger.mjs"), `${name}: checks Node.js before the first ledger command`);
+  check(!/in the current folder when there is no repository/.test(md), `${name}: no current-folder fallback`);
+  if (bullet) resolverBullets.push(bullet[1]);
+  check(!!bullet && bullet[1] === FOLDER, `${name}: folder bullet is the canonical text (prepare before any write)`);
+  const save = md.match(/\n(- Every file this skill keeps in `\.seo-genius\/` is saved through the script[^\n]*)/);
+  check(!!save && save[1] === SAVE, `${name}: save bullet is the canonical text`);
+  const direct = md.split("\n").filter((line) => DIRECT_WRITE.test(line) && line !== SAVE && !ROUTED.test(line));
+  check(direct.length === 0, `${name}: every write into .seo-genius/ goes through save${direct.length ? ` (not: ${direct.map((l) => l.trim().slice(0, 70)).join(" | ")})` : ""}`);
+}
+check(resolverBullets.length > 0, "the skills that use .seo-genius/ carry the folder bullet");
+check(existsSync(join(PLUGIN, "scripts", "ledger.mjs")), "scripts/ledger.mjs exists");
+check(existsSync(join(PLUGIN, "scripts", "node-check.cjs")), "scripts/node-check.cjs exists");
+
+// 4d. The skills that write the ledger share one Server sync section, so the pull at the
+// start and the push at the end are the same everywhere.
+const SYNC_SKILLS = ["content-plan", "next", "weekly"];
+const syncBlocks = [];
+for (const name of found) {
+  const p = join(skillsDir, name, "SKILL.md");
+  if (!existsSync(p)) continue;
+  const md = readFileSync(p, "utf8").replace(/\r\n/g, "\n");
+  const block = md.match(/\n## Server sync\n([\s\S]*?)(?=\n## )/);
+  if (block) syncBlocks.push([name, block[1].trim()]);
+}
+check(
+  JSON.stringify(syncBlocks.map(([n]) => n).sort()) === JSON.stringify(SYNC_SKILLS),
+  `Server sync section is present in exactly ${SYNC_SKILLS.join(", ")}`,
+);
+const SYNC = canonical("server-sync.md");
+check(!!SYNC, "scripts/canonical/server-sync.md exists");
+for (const [name, b] of syncBlocks) check(b === SYNC, `${name}: Server sync block is the canonical text`);
 
 // 5. Verify the server-side research integration is included in the distributed plugin.
 // These are static instruction/contracts checks. Runtime behavior is exercised separately.
@@ -159,6 +239,43 @@ for (const [label, text] of listingCopy) {
   const n = (text.match(/\u2014/g) || []).length;
   check(n === 0, `no em dashes in ${label} (${n})`);
 }
+
+// 7. Codex pack: the same skills folder, its own MCP entry, and the setup files
+const CODEX_MCP_URL = "https://api.seogenius.ai/api/mcp/v1?client=codex-plugin";
+const cpj = readJson(join(PLUGIN, ".codex-plugin", "plugin.json"));
+if (cpj) {
+  check(cpj.name === "seo-genius", "codex manifest name is seo-genius");
+  check(!!pj && cpj.version === pj.version, `codex manifest version matches plugin.json (${cpj.version})`);
+  check(cpj.skills === "./skills/", "codex manifest reads the same ./skills/ folder");
+  check(cpj.mcpServers === "./.codex-plugin/mcp.json", "codex manifest points at ./.codex-plugin/mcp.json");
+  check(!!pj && cpj.description === pj.description, "codex manifest description matches plugin.json");
+}
+const cmcp = readJson(join(PLUGIN, ".codex-plugin", "mcp.json"));
+if (cmcp) {
+  const s = cmcp.mcpServers && cmcp.mcpServers["seo-genius"];
+  check(!!s && s.url === CODEX_MCP_URL, `codex server url is ${CODEX_MCP_URL}`);
+  check(!!s && !("headers" in s), "codex server declares no headers (OAuth-first)");
+}
+const codexDir = join(ROOT, "codex");
+const toml = existsSync(join(codexDir, "config.toml")) ? readFileSync(join(codexDir, "config.toml"), "utf8") : "";
+// No TOML parser (no dependencies): every line that is not a comment or blank
+// must be exactly one of these two, so stray text cannot slip in.
+const tomlLines = toml.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+check(
+  JSON.stringify(tomlLines) === JSON.stringify(["[mcp_servers.seo-genius]", `url = "${CODEX_MCP_URL}"`]),
+  "codex/config.toml is exactly the seo-genius server and its url",
+);
+const agents = existsSync(join(codexDir, "AGENTS.md")) ? readFileSync(join(codexDir, "AGENTS.md"), "utf8") : "";
+const begins = agents.split("<!-- seo-genius:begin -->").length - 1;
+const ends = agents.split("<!-- seo-genius:end -->").length - 1;
+check(
+  begins === 1 && ends === 1 && agents.indexOf("<!-- seo-genius:begin -->") < agents.indexOf("<!-- seo-genius:end -->"),
+  "codex/AGENTS.md is one marked block",
+);
+for (const tool of ["get_site_briefing", "check_change", "log_page_change"]) {
+  check(agents.includes(`\`${tool}\``), `codex/AGENTS.md names ${tool}`);
+}
+check(existsSync(join(codexDir, "README.md")), "codex/README.md exists");
 
 console.log(failures === 0 ? "\nALL CHECKS PASSED" : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

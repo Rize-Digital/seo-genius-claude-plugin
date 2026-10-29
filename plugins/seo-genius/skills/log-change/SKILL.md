@@ -26,6 +26,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
+10. Stamp every section that shows numbers. Each section of a reply or saved file that shows numbers opens with where they came from: "Stored, as of <date>" for values read from SEO Genius, or "Live, <n> calls, <date>" for values a Data-for-SEO call fetched in this run. A section with no numbers carries no stamp. The files the ledger script writes as its own record (`weekly/`, `snapshots/`) are not sections. The closing line totals the stored reads and the live calls.
 
 ## Procedure
 
@@ -33,9 +34,9 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 2. Find the page. If the user gave a URL, match on it.
    - The homepage: five results are often not enough to reach it, so ask for 50 and pick it by URL. `search_pages` with the site's name from `list_sites`, `match_count: 50`, in either mode, and take the row whose URL is the site root: the site's domain, with or without `www`, and nothing after it except an optional `/`. More than one such row: list them and ask which. Leave out role words ("home page", "landing page"); they do not help. No such row: search once more with the business's tagline from `get_business_context`, `match_count: 50`, and take the site-root row. Still none, or no tagline: go to the `list_pages` branch below. This lookup sets rule 7's query advice aside: send the name as it is, even when it is one word.
    - Any other page: `search_pages` with a descriptive phrase built from the user's words, `match_count: 5`. If an earlier search in this session already showed `mode: text`, send the two or three words from rule 7 in place of the phrase. More than one candidate: ask. None, the response's `mode` is `text`, and the query was the long phrase: search one more time, once only, with two or three words the page's title or H1 would carry (rule 7).
-   - Still none, in either mode: page through `list_pages` without `q` (`limit: 100`, follow `next_cursor`, at most five pages) and match the URL or title. Still nothing: ask for the URL.
+   - Still none, in either mode: page through `list_pages` without `q` (`limit: 25`, follow `next_cursor`, at most twenty pages) and match the URL or title. Still nothing: ask for the URL.
 3. `get_page` with `page_id` to read the current stored value of the field. If the user did not state the "before", use the stored value and say so.
-4. `list_crawls` with `limit: 20`; take the most recent completed crawl's id as `crawl_id`.
+4. `list_crawls` with `limit: 20`; take as `crawl_id` the id of the newest crawl that finished. A crawl finished when its `status` is `issues_ready` or `completed`; skip `failed`, `cancelled`, and a crawl still running (any other status, `analyzing_issues` included). `completed_at` does not tell them apart: failed, cancelled, and analyzing crawls carry one too. Among finished crawls take the newest whose `issue_detection` is `ok` (a row without the field counts as `ok`). Skip one whose `issue_detection` is `degraded`: its issue detection finished partially, so its issue list is incomplete; say it was skipped. When no finished crawl is `ok`, use the newest finished one and say its issue detection was partial.
 5. Pick the `change_kind`. The kind is exactly one of `title`, `meta_description`, `h1`, `canonical`, `schema`, `internal_links`, `redirect`, `content_depth` (copy added or expanded), `readability` (copy rewritten, same scope). If the edit fits none of them (image alt text, for example), say SEO Genius has no change kind for it yet, return the entry as text, and do not write. Never force an edit into the nearest kind, and do not offer to. In that text, leave any before or after the user did not state as "not given".
 6. `check_change` with `page_id`, `change_kind`, and `proposed_value` set to the exact "after" (leave `proposed_value` out for `internal_links`, `content_depth`, and `readability`). The change has already shipped, so the verdict never stops the log: a shipped change left unrecorded is worse than one recorded with a warning. Show the verdict to the user as a history note, in the entry they confirm and again in the reply. The note is not sent to `log_page_change`; SEO Genius already holds the history it describes.
    - `allow`: no note.
@@ -50,7 +51,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
    - `old_value`, `new_value`: the exact before and after, character for character, 4000 characters at most each. For `content_depth` and `readability`, give a short description of the before and after (word count, the section changed) instead of the full copy.
    - `added_links`, `anchor_text`: for `internal_links`, the link URLs added and their anchor text
    - `reason`: the user's reason in one or two sentences, 1000 characters at most
-   - `occurred_on`: `YYYY-MM-DD`, only when the change shipped on a day other than today
+   - `occurred_on`: `YYYY-MM-DD`, only when the change shipped on a day other than today (the UTC date)
    - `source_ref`: the pull request URL or commit SHA of the edit, 500 characters at most, only when the user gave one or this session made the commit. Never guess one.
    Do not send `changes_made`. It is deprecated, and `list_page_changes` never returns it, so a later session cannot read it back.
 9. If the user says the change clears a specific open issue: `list_issues` with `page_id`, `status: "open"`, `limit: 50`, show the matching issue, and on a second yes call `mark_issue_fixed` with `issue_id` and `resolution_note: "<what changed, logged via Claude Code plugin>"`.
@@ -65,7 +66,7 @@ The SEO Genius MCP server, connected and authorized, on an account where `get_my
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above.
 - 403 on the write itself: the account's role cannot write. Return the entry as text.
 - The write returns an error: say "this did not save" and repeat the error text. Never claim success.
-- No completed crawl: say a crawl is needed before a change can be logged against it.
+- No finished crawl: say a crawl is needed before a change can be logged against it.
 - Rate limited (429): stop, say so, suggest retrying in a minute.
 
 ## Done when

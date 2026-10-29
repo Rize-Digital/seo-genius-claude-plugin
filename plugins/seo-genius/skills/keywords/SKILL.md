@@ -26,6 +26,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 7. Search to fit the mode. `search_pages` is a vector search on some accounts and a text search on others; the response's `mode` says which ran, so remember it. In `vector` mode, or before the mode is known, send a descriptive phrase ("concrete driveway installation service page"), never a single word. In `text` mode every word has to match the page's title, meta description, H1 or URL, so send two or three words the title or H1 would carry ("driveway installation"); after a long phrase missed, search once more that way, once only. Still no match: page through `list_pages` without `q`; `q` there is the same text search.
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
+10. Stamp every section that shows numbers. Each section of a reply or saved file that shows numbers opens with where they came from: "Stored, as of <date>" for values read from SEO Genius, or "Live, <n> calls, <date>" for values a Data-for-SEO call fetched in this run. A section with no numbers carries no stamp. The files the ledger script writes as its own record (`weekly/`, `snapshots/`) are not sections. The closing line totals the stored reads and the live calls.
 
 ## Procedure
 
@@ -34,7 +35,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 3. `list_keywords` with `limit: 100`. These are free to read and already tracked.
 4. Build the candidate list, 200 at most, in this order: the user's terms; tracked terms that match the user's topic; for each generic term, one local variant "<term> <city>"; for each service in the business context without a tracked term, "<service> <city>". Remove duplicates and brand terms.
 5. Pick the location: the customer's country code (`2840` for the United States). A city code returns nothing on this tool, so locality comes from the geo-modified variants in step 4. Write down which country code was used.
-6. One call: `keyword_research` with `keywords: [<candidates>]`, `location_code: <country code>`, `language_code: "en"`. Tell the user before the call that it spends their quota.
+6. One call: `keyword_research` with `keywords: [<candidates>]`, `location_code: <country code>`, `language_code: "en"`. Before the call, say that it spends their quota (one call, and how many terms) and wait for a yes. Without one, show the candidate list and stop; no quota was spent.
 7. Rank by search volume descending, break ties by lower competition. Mark intent when the tool returns it.
 8. Shortlist five: highest volume terms with competition below the median of the set, one sentence each on where they fit (existing page, new page, or FAQ).
 
@@ -59,5 +60,5 @@ Competition is a 0 to 1 score from the tool, not true keyword difficulty. Say so
 
 - Exactly one `keyword_research` call.
 - Every number in the table traces to a returned row.
-- The location used and the quota spend are stated.
+- The location used and the quota spend are stated, and the user said yes before the call.
 - Five-term shortlist with a reason each.
