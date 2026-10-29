@@ -100,13 +100,13 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
 
    The script, not the model, decides: it keeps every item under its id, marks an item done when a change to its page and field went live after it was planned (a fix rolled back or failed, or a claim the reconcile did not observe, does not count), or when its own issue was read and is no longer open, records a status history row only when a status changes, adds new changes to `changelog.md` once, compares rankings with the newest earlier snapshot, counts the open issues by severity, and writes `weekly/<date>.md`. In a site folder outside a repository it also commits the run to that folder's own git history. It never commits to a site repository.
 6. Do the end of Server sync (the push).
-7. Show the result: the folder, the ranking moves and their basis (an earlier snapshot, or the change field the server recorded), the open issues by severity, the linked issues that could not be read, items that changed status with the reason, the items in `held` with what this week found for each (a person changes them with `set-status`), changes added to the changelog by source, and what was left unchecked.
+7. Show the result: the folder, the ranking moves and their basis (an earlier snapshot, or the change field the server recorded), the open issues by severity, the linked issues that could not be read, items that changed status with the reason, the items in `held` with what this week found for each (a person changes them with `set-status`), changes added to the changelog by source, and what was left unchecked. A tracker `position` counts every block on the page (the map pack, answer boxes): call it the place on the page, never the organic place, and show `pack_position` as the map pack place.
 
 ## Output
 
 - One line: site, domain, `can_write`.
 - The folder used, and its mode.
-- What moved, the open issues by severity, and which items changed status, as the script returned them. No cause is claimed for a movement.
+- What moved, the open issues by severity, and which items changed status, as the script returned them. Each ranking is a place on the page, never an organic place. No cause is claimed for a movement.
 - Changes added to the changelog this run, by source.
 - Where the files were written, or that they were not.
 - Closing line per rule 9, which here always says no live calls were made.
