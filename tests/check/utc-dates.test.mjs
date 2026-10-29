@@ -69,7 +69,7 @@ test("keyword-gap reuses and dates local-terms.json by the UTC date, like a doma
   // Step 7's local-terms branch had its own reuse window and fresh pulled_on, both a bare
   // "today", while step 3's domain-list path said the UTC date.
   const md = skill("keyword-gap");
-  const step = md.split("\n").find((l) => l.startsWith("7. Local terms nobody ranks for."));
+  const step = md.split("\n").find((l) => l.startsWith("7. Local terms"));
   assert.ok(step, "no step 7");
   assert.ok(step.includes("is today (the UTC date) or one of the seven days before it"), "local-terms reuse window is not in UTC dates");
   assert.ok(step.includes("today (the UTC date) when `fresh: true` was sent"), "local-terms fresh pulled_on is not the UTC date");
