@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `keyword-gap` uses the server's `keyword_gap` tool when the connection offers it (#15): one call joins this site's ranked-keyword list with up to three competitors' on the server and answers only the candidates, in place of up to four `ranked_keywords` calls whose whole lists the skill read and joined. The server reserves four lists' quota, reuses at no cost a list this site's own request fetched in the last seven days, and hands back unsent slots, reused lists and failed lists. The skill reads each row by its column names, in the order of `compared` (which leaves out a failed competitor), still removes brand, out-of-area and unrelated keywords itself, dates each list by `cached_at` as before, and saves `keyword-gap.md` and `keyword-gap.json` through the ledger with `source` and `rows_left_out`; no `keyword-lists/` file is written on this path. Once the call was sent it never falls back to `ranked_keywords` in the same run. An unattended run counts one live call per list the call may fetch. Without the tool, the `ranked_keywords` path is unchanged. Tests: `tests/check/server-keyword-gap.test.mjs`.
+
 ## 1.6.0 (2026-10-28)
 
 The citations skill (#22), Codex support as a preview (#18), and UTC dates in every ledger file (#25).

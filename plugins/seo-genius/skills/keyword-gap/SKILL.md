@@ -1,6 +1,6 @@
 ---
 name: keyword-gap
-description: Keyword gap analysis against the top competitors, using SEO Genius. Use for "what keywords do my competitors rank for that I don't", "keyword gap", "find keyword opportunities against my competitors", "where am I behind my competitors", or as the monthly step after competitor-dive. Pulls the ranking keywords of the site and of its three competitors, removes brand and out-of-area terms, and groups what is left into topics that show where the site is missing or behind, with search volume. Saves the result to .seo-genius/ for content-plan. Spends Data-for-SEO quota, one call per domain (four at most) plus one optional call. It reuses a list saved in the last seven days only when the list has a pull date; a first ordinary pull comes back undated, so the next run pulls it again. Requires the SEO Genius MCP server, connected and authorized.
+description: Keyword gap analysis against the top competitors, using SEO Genius. Use for "what keywords do my competitors rank for that I don't", "keyword gap", "find keyword opportunities against my competitors", "where am I behind my competitors", or as the monthly step after competitor-dive. Pulls the ranking keywords of the site and of its three competitors, removes brand and out-of-area terms, and groups what is left into topics that show where the site is missing or behind, with search volume. Saves the result to .seo-genius/ for content-plan. Spends Data-for-SEO quota, one `keyword_gap` call when the server offers it (it compares up to four lists on the server), otherwise one call per domain (four at most), plus one optional call. Without `keyword_gap` it reuses a list saved in the last seven days only when the list has a pull date; a first ordinary pull comes back undated, so the next run pulls it again. Requires the SEO Genius MCP server, connected and authorized.
 ---
 
 # SEO Genius: keyword gap
@@ -34,7 +34,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - Every file this skill keeps in `.seo-genius/` is saved through the script, never written there directly. Write it first under `drafts_dir`, at the same path (`.seo-genius/reports/<date>.md` is drafted as `<drafts_dir>/reports/<date>.md`), then run `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs" save --site <domain> --file <path>`, with the paths of files that belong together joined by commas. The script puts them in place in one step and, outside a repository, commits them to the folder's history. `ledger.json`, `plan.md`, `changelog.md`, `weekly/`, and `snapshots/` are written only by their own ledger commands. When `save` answers an error, nothing was saved: say so and repeat its message.
 - Reads `.seo-genius/config.json` (from `/seo-genius:start`) and `.seo-genius/competitors.json` (from `/seo-genius:competitor-dive`).
 - Writes `.seo-genius/keyword-gap.md` and `.seo-genius/keyword-gap.json` through `save`, in one save, replacing the previous run.
-- Reads `.seo-genius/keyword-lists/`, and writes it through `save`: one `<domain>.json` per domain, and `local-terms.json`. Each holds every row of one list in a compact form, with the date it was pulled when that date is known, so a later run can read a dated list instead of paying for the same call (step 3).
+- Reads `.seo-genius/keyword-lists/`, and writes it through `save`, on the `ranked_keywords` path only: one `<domain>.json` per domain, and `local-terms.json`. Each holds every row of one list in a compact form, with the date it was pulled when that date is known, so a later run can read a dated list instead of paying for the same call (step 3).
 - The files are meant to be kept with the site. Never write a token, key, or password into them.
 - If the session cannot write files, show the report in the reply and say it was not saved.
 - This skill writes nothing to SEO Genius and edits no page.
@@ -52,7 +52,24 @@ A run is unattended when its prompt says so, as the prompts written by `/seo-gen
 
 In an attended session none of this applies. Ask as the procedure says.
 
+## Server comparison
+
+The server's `keyword_gap` tool joins this site's ranked-keyword list with up to three competitors' on the server, and answers only the candidates, in columns and rows. It replaces steps 3 and 4. Without `keyword_gap` in the tool list, steps 3 and 4 run as written.
+
+- Spend. Say what the run spends before spending it: one `keyword_gap` call, which fetches up to one ranked-keyword list for this site and one for each competitor sent, four at most. A list this site's own request fetched in the last seven days is reused at no cost. The server reserves four lists' quota before it starts and hands back the slots of competitors not sent, every list it reused, and every list the provider failed. Say this, plus the possible `keyword_research` call of step 7, and wait for a yes. That yes covers both.
+- Call. `keyword_gap` with `competitors` set to the domains of step 2 (three at most), `location_name: "<Country>"`, `language_name: "English"`, `limit: 200`, and `fresh: true` only when the user asked for a fresh pull, which fetches every list again. Leave `max_position` (20) and `max_rows` (120) at their defaults. Country level only (rule 4).
+- Read each row by the names in `columns`, never by a fixed position. `c1_position` and `c1_url` belong to the first domain in `compared`, `c2_` to the second, and so on. `compared` leaves out a competitor whose list failed, so never pair the columns with the order the domains were sent. A `url` is a path on that column's own domain and a full URL otherwise. A domain in `ignored` was not compared (it is this site's own, or not a domain): say so.
+- Classes. Each row is a keyword a competitor ranks for at position 20 or better, with its `class` set by the server: `missing`, `behind`, or `holding`, as step 6 defines them. The server does not remove brand, out-of-area, or unrelated keywords: step 5 still does, on these rows, with its counts. Then keep the server's `class` for each keyword left (a missing keyword is strong when two or more competitors have a position), count the holding ones, and go on with step 7.
+- Lists. `lists` gives each domain's `rows_read`, `cap_hit`, and `status`. A competitor whose list has `status: "failed"` was not compared: name it. `rows_left_out` rows were cut by the server's 120-row cap, lowest search volume first: say how many. `cap_hit` on this site's own list keeps the caveat of step 6.
+- Dates. A list with `cached_at` was reused from this site's own earlier request: its `pulled_on` is the date part of `cached_at` and its `reused` is true. Without `cached_at`, `pulled_on` is today's UTC date when `fresh: true` was sent, and `null` (date unknown) otherwise. Positions and volumes are as of each list's date.
+- Files. Save `keyword-gap.md` and `keyword-gap.json` as step 10 says, through `save`, with two more keys in `keyword-gap.json`: `"source": "keyword_gap"` and `rows_left_out`. `rows_read` and `cap_hit` come from `lists`. Save no `keyword-lists/` file and not the answer itself: it holds the candidates, not whole lists.
+- No second path. Once a `keyword_gap` call was sent, make no `ranked_keywords` call in this run, whatever it answered: the same lists would be paid for twice.
+- Errors. 502 `upstream_unavailable`: the provider failed this site's list, or every competitor's, so nothing was compared. Stop as for a timeout below; the failed lists are not charged. 400 "no competitor domain to compare": every domain sent was this site's own or not a domain; nothing was fetched or charged. The stops under "If something is missing" apply to this call as to `ranked_keywords`.
+- In an unattended run the call counts toward `live_calls_per_run` as one live call per list it may fetch: one for this site and one per competitor sent. Send no more competitors than what is left of the budget minus one, and make no call when fewer than two are left. `calls_spent` counts it the same way.
+
 ## Procedure
+
+When `keyword_gap` is in the tool list, steps 3 and 4 run as Server comparison says, in place of the saved lists and `ranked_keywords`; steps 5 to 10 are the same.
 
 1. Resolve the site (rule 1). Echo site, domain, `can_write`.
 2. Competitors. Read the `domain` of each entry in `competitors` from `.seo-genius/competitors.json`. No file: use the domains the user names, three at most. None named: stop and say to run `/seo-genius:competitor-dive` first. Read `services`, `city`, `other_cities`, `country`, `country_code`, and `terms` from the config; with no config, read the same facts from `get_business_context`.
@@ -192,8 +209,9 @@ In an attended session none of this applies. Ask as the procedure says.
 ## Done when
 
 - The user agreed to the spend, including the possible `keyword_research` call, before the first live call.
+- On the `keyword_gap` path, one `keyword_gap` call, no `ranked_keywords` call, and at most one `keyword_research` call. Its rows were read by column name, in the order of `compared`.
 - At most one `ranked_keywords` call per domain, four domains at most, none for a domain whose saved list was reused, and at most one `keyword_research` call.
-- Every list pulled in this run was saved under `.seo-genius/keyword-lists/` with every row, in the compact form, and every reused list is named with the date it was pulled.
+- On the `ranked_keywords` path, every list pulled in this run was saved under `.seo-genius/keyword-lists/` with every row, in the compact form, and every reused list is named with the date it was pulled.
 - Every kept keyword is in exactly one class, and the number holding is stated.
 - Every volume and position comes from a tool result and is labeled country-level.
 - The counts of removed rows and the capped domains are stated.

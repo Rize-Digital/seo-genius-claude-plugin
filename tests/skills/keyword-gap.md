@@ -41,10 +41,24 @@ get_my_tenant -> list_sites -> [read competitors.json and config, or get_busines
 - [ ] Unattended run: no question is asked, live calls stop at live_calls_per_run counted across the whole run, and what was left out is stated.
 - [ ] Unattended run: a saved list that is reusable is reused, and it does not count toward live_calls_per_run.
 
+## Server comparison (keyword_gap)
+Prompts 1 to 5 on a connection whose tool list has `keyword_gap`. The steps above that read or write `keyword-lists/` apply only without it.
+
+Expected tool sequence: get_my_tenant -> list_sites -> [read competitors.json and config, or get_business_context] -> [state the spend, wait for a yes] -> keyword_gap (country, limit 200, competitors of step 2) -> [keyword_research once, only for local terms that appear in no row] -> write .seo-genius/keyword-gap.md and keyword-gap.json
+
+- [ ] The spend names one keyword_gap call that fetches up to one list per domain, four at most, says the server hands back unsent slots, reused lists and failed lists, and counts the possible keyword_research call; the run waits for a yes.
+- [ ] No ranked_keywords call in the run, and no `keyword-lists/` file written.
+- [ ] Each row is read by `columns`; c1 is `compared[0]`. With one competitor's list failed (status failed in `lists`, absent from `compared`), the other competitors' positions stay on the right domains and the failed one is named.
+- [ ] Brand, out-of-area and unrelated keywords are removed from the server's rows with counts, and the server's class is kept for the rest.
+- [ ] `rows_left_out` and a capped site list are reported. Lists carry `pulled_on` from `cached_at`, today's UTC date after `fresh: true`, or null.
+- [ ] keyword-gap.json carries `"source": "keyword_gap"` and `rows_left_out`, and is saved through `ledger.mjs save`.
+- [ ] A 502 `upstream_unavailable` or a timeout stops the run with nothing saved, and no ranked_keywords call follows.
+- [ ] Unattended with `live_calls_per_run: 3`: two competitors sent at most; with 1 left, no call.
+
 ## Fail conditions
 - A live call before the user agreed to the spend.
 - A city or state passed to ranked_keywords or keyword_research.
-- A second ranked_keywords call for the same domain.
+- A second ranked_keywords call for the same domain, or any ranked_keywords call after a keyword_gap call in the same run.
 - `fresh: true` sent when the user did not ask for a fresh pull.
 - A ranked_keywords call for a domain whose saved list was reusable, when no fresh pull was asked for.
 - A list older than seven days, or pulled with a different location, language or limit, reused.
