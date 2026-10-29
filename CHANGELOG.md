@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `weekly` calls a rank tracker `position` the place on the page, never the organic place, as `report` does: the tracker counts every block on the results page (the map pack, answer boxes). The 1.6.0 smoke on 2026-10-29 headed an attended run's rankings table "Organic". Tests: `tests/check/weekly-place-on-page.test.mjs`.
+
 ## 1.6.0 (2026-10-28)
 
 The citations skill (#22), Codex support as a preview (#18), and UTC dates in every ledger file (#25).
