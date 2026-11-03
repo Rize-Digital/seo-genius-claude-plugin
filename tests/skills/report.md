@@ -17,7 +17,7 @@ get_my_tenant -> list_sites -> ledger.mjs prepare -> get_site_briefing (max_byte
 - [ ] The report has its parts in order: What changed, What moved, Waiting, Needs a decision, Next, Research age.
 - [ ] Every change shown carries its state as the briefing returned it.
 - [ ] Every position reading shows its source (stored or live), its date and location, beside the earlier reading and its date, and is called a reading.
-- [ ] A term with a stored reading from the last seven days at the config's location is not searched live; its stored place, URL, and map pack place are used. A reading at another location, or older, does not count.
+- [ ] A term with a stored reading from the last seven days at the config's location is not searched live; its stored place, URL, and map pack entry's place on the page are used, the last never called a map pack place or a place inside the pack. A reading at another location, or older, does not count.
 - [ ] A snapshot entry's place is counted among its organic results; a rank tracker position is called the place on the page. An organic place is set beside site_place in competitors.json, a place on the page beside the previous snapshot's, and never one beside the other.
 - [ ] When `weekly` ran today, the positions come from its `snapshots/<date>.json` first (or `weekly/<date>.md` when the snapshot cannot be read), and only the terms not found there are sent to list_tracked_keywords and get_serp_snapshots; a term the files answered is never sent. Neither file is written by report.
 - [ ] An unattended run makes no live search, whatever `live_calls_per_run` allows; each term with no stored reading is named, with the note that it is added in the dashboard's rank tracker.
@@ -56,6 +56,7 @@ get_my_tenant -> list_sites -> ledger.mjs prepare -> get_site_briefing (max_byte
 - A report file or a change record written in a run that stopped.
 - A movement explained as the result of a change.
 - A position reading with no date, location, or source.
+- A `pack_position` or `site_pack_position` called a map pack place or given as a place inside the map pack.
 - A live search on a term that had a stored reading from the last seven days.
 - More live searches than the run's budget, or more than ten.
 - Any live search in an unattended run.
