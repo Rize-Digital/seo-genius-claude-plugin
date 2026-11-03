@@ -41,6 +41,7 @@ node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan
 - [ ] The week input carries no `as_of`; the weekly file, the run and its commit carry the same UTC date.
 - [ ] A first run on a site with no repository: `prepare` created the folder and its git before anything else was written there, and `history` was read even with an empty plan.
 - [ ] Ranking moves name their basis: an earlier snapshot, or the change field the server recorded.
+- [ ] Each tracker `position` is called the place on the page, never an organic place, and each `pack_position` is called the map pack entry's place on the page (where that entry sits on the whole results page), never a map pack place or a place inside the map pack.
 - [ ] `changelog.md` lists changes logged through SEO Genius and fixes applied from the dashboard, each once with its row id and source.
 - [ ] Only the issues linked to plan items are read (get_issue); each answered status goes into `issue_states`, a failed read is left out and named, and no item is closed on a failed read. The counts come from `list_issues` totals with `limit: 1`; no call reads every open issue.
 - [ ] Every file the run writes starts with the `format_version` line.
@@ -55,3 +56,4 @@ node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan
 - An item in progress, waiting before its date, done, or dropped changed status in the week.
 - A file written into the site's repository history by the ledger, or into the site's CMS.
 - `log_page_change`, `update_issue`, or any write to SEO Genius other than `save_plan_items`.
+- A tracker `position` called organic, or a `pack_position` called a map pack place or given as a place inside the map pack (for example "map pack place 15", "2nd in the map pack").
