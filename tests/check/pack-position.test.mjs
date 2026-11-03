@@ -108,5 +108,19 @@ test("keyword-gap says its holding count covers the returned rows only", () => {
 test("the CHANGELOG says the ranked_keywords path gained the status key", () => {
   const log = read("CHANGELOG.md");
   assert.ok(!log.includes("Without the tool, the `ranked_keywords` path is unchanged. Tests:"));
-  assert.ok(log.includes("Without the tool, the `ranked_keywords` path is unchanged, except that each entry in `keyword-gap.json` `lists` now carries `\"status\": \"ok\"`."));
+  assert.ok(log.includes("Without the tool, the `ranked_keywords` path makes the same calls and saves the same lists as before, with two differences: each entry in `keyword-gap.json` `lists` now carries `\"status\": \"ok\"`, and step 7 no longer says that no competitor ranks for a local term missing from the lists"));
+});
+
+test("competitor-dive names the stored pack's businesses in no order, as kept by the stored page", () => {
+  const step10 = skill("competitor-dive").split("\n").find((l) => l.startsWith("10. What can be seen"));
+  assert.ok(step10, "no step 10");
+  assert.ok(!step10.includes("which businesses the pack held"), step10);
+  assert.ok(step10.includes("the businesses with a website that the stored page kept from the pack, named in no order (an entry with no domain, or past the first 20, was not kept), and this site's map pack entry's place on the page, never a place inside the pack"), step10);
+});
+
+test("the README says map results are unseen only for a term searched live", () => {
+  const md = read("plugins/seo-genius/README.md");
+  assert.ok(!md.includes("It cannot see the map results, backlinks, or Google Business Profile data"));
+  assert.ok(md.includes("It cannot see backlinks or Google Business Profile data, or the map results for a term it searches live, and it says so in every report."));
+  assert.ok(md.includes("where your map pack entry sits on the whole results page, not your place inside the pack."));
 });
