@@ -20,12 +20,14 @@ const lineWith = (start) => {
 test("step 7 calls a tracker position the place on the page, never the organic place", () => {
   const step7 = lineWith("7. Show the result:");
   assert.ok(
-    step7.includes("A tracker `position` counts every block on the page (the map pack, answer boxes): call it the place on the page, never the organic place, and show `pack_position` as the map pack place."),
+    // The pack_position half of this sentence changed after the 1.6.1 release smoke: see
+    // tests/check/pack-position.test.mjs.
+    step7.includes("A tracker `position` counts every block on the page (the map pack, answer boxes): call it the place on the page, never the organic place."),
     step7,
   );
 });
 
 test("the Output bullet for what moved carries the same rule", () => {
   const out = lineWith("- What moved, the open issues by severity");
-  assert.ok(out.includes("Each ranking is a place on the page, never an organic place."), out);
+  assert.ok(out.includes("Each ranking is a place on the page, never an organic place"), out);
 });
