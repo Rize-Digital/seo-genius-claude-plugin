@@ -29,6 +29,7 @@ Node.js 18 or later, for `node "${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs"`. With
 8. Writes need `can_write`. On a read-only account, return the change as text so it is not lost. Logging records status; it does not prove a result.
 9. Say what was capped. Every reply ends with one line naming which lists were first-page only and which calls spent quota.
 10. Stamp every section that shows numbers. Each section of a reply or saved file that shows numbers opens with where they came from: "Stored, as of <date>" for values read from SEO Genius, or "Live, <n> calls, <date>" for values a Data-for-SEO call fetched in this run. A section with no numbers carries no stamp. The files the ledger script writes as its own record (`weekly/`, `snapshots/`) are not sections. The closing line totals the stored reads and the live calls.
+11. One id for each run. When this skill starts, make one new id (a UUID) and send it as `run_id` on every SEO Genius tool call that offers the field, so the server can group this run's calls. Never reuse an id. Each skill in a chained run makes its own. `save_plan_items` gets its `payload` exactly as given and no other `run_id`.
 
 ## Files
 
@@ -75,6 +76,7 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
    - `list_page_changes` with `since` set to the date of the last run (or 30 days back on a first run), `limit: 100`, following `next_cursor`. Each row is a change row as Server sync maps it.
    - `list_applied_fixes` with `since` set the same way, `limit: 100`, following `next_cursor`: the fixes applied from the dashboard, each a change row as Server sync maps it. When the tool is not in the tool list, say the dashboard's fixes were not read this run and go on without them.
    - For each item that is `in_progress` with a linked change (`show` lists its `change`), call `list_page_changes` with its page and `change_kind`, no `since`, `limit: 100`, following `next_cursor` until it is null, and add every row of every page: its change may have been verified after the last run, and only a verified change closes it.
+   - Search Console, to check the tracker: `gsc_query` with `dimensions: ["query", "page"]`, `limit: 250`, following `next_cursor` until it is null, and one filter on the tracked terms from the first read: `dimension: "query"`, `operator: "includingRegex"`, `expression` of the form `^(term one|term two)$`, in lower case with regular expression characters escaped. A long list goes in several calls, each expression under 4,000 characters. Keep each row's `query`, `page`, `impressions`, and `position`, and the answer's `start_date` and `end_date`. This is a free Google read, not a Data-for-SEO call, so it spends no quota and is not a live call under rule 10. With no tracked terms, skip it. When any call is refused or fails, or `gsc_query` is not in the tool list, leave `search_console` out of the week: part of the rows can name the wrong top page.
    Every change needs its `id`: the changelog keeps one row per id, and refreshes its state (a fix verified or rolled back later) instead of adding a second row.
    Never call `serp_rank_check`, `keyword_research`, `ranked_keywords`, or `competitor_domains` in this skill.
 4. Verdicts for open items. A week never changes an item that is `in_progress`, `waiting` before its date, `done`, or `dropped`: a person set it, or its wait has not run out. So call `check_change` only for an item that is `open` or `unchecked`, or `waiting` with an `until` on or before today (the UTC date), and names a page and a field, with that page and `change_kind` (rule 7 to find the page). Twenty calls at most; say when items were left unchecked. Map the result as `/seo-genius:content-plan` step 8 does: WAIT, `frozen`, or `pending_measurement` is `waiting` with its date; `would_revert` is `dropped`; `allow` changes nothing on an `open` item, so send no verdict for it (no status, no reason); on an `unchecked` item it is the check the item waited for, so send `{ "status": "open" }` with no reason, and the item opens; a failed call leaves the item as it was. A waiting item whose `until` has come opens again on that date by itself; send a verdict for it only when `check_change` blocks it again. The script holds to the same rule whatever verdicts it is given: what this week would have done to a kept item (an allow for an item in progress, say, or a closed issue) comes back in `held`, and is not applied. One thing does move an item in progress: its own linked change, verified live on the server, makes it done. Another change to the same page and field does not, and it never goes back to open.
@@ -85,9 +87,10 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
    ```json
    {
      "site_id": "<id from list_sites>",
-     "run_id": "<a new id for this run>",
+     "run_id": "<this run's id, rule 11>",
      "session_id": "<this session's id, when the client gives one>",
      "rankings": [{ "keyword": "", "location": "", "position": null, "pack_position": null, "change": null, "url": "", "checked_on": "" }],
+     "search_console": { "start_date": "", "end_date": "", "rows": [{ "query": "", "page": "", "impressions": 0, "position": 0 }] },
      "issue_states": { "<issue id>": "<status get_issue answered>" },
      "issue_totals": { "critical": 0, "high": 0, "medium": 0, "low": 0 },
      "changes": [
@@ -98,15 +101,16 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
    }
    ```
 
-   The script, not the model, decides: it keeps every item under its id, marks an item done when a change to its page and field went live after it was planned (a fix rolled back or failed, or a claim the reconcile did not observe, does not count), or when its own issue was read and is no longer open, records a status history row only when a status changes, adds new changes to `changelog.md` once, compares rankings with the newest earlier snapshot, counts the open issues by severity, and writes `weekly/<date>.md`. In a site folder outside a repository it also commits the run to that folder's own git history. It never commits to a site repository.
+   The script, not the model, decides: it keeps every item under its id, marks an item done when a change to its page and field went live after it was planned (a fix rolled back or failed, or a claim the reconcile did not observe, does not count), or when its own issue was read and is no longer open, records a status history row only when a status changes, adds new changes to `changelog.md` once, compares rankings with the newest earlier snapshot, counts the open issues by severity, and writes `weekly/<date>.md`. In a site folder outside a repository it also commits the run to that folder's own git history. It never commits to a site repository. It also compares each ranking with Search Console and lists any disagreement as `page_flags`: Search Console's top page differs from the tracker's page, or the tracker has no position for a term searchers see in the top 20, on terms with at least 10 impressions. Pass the rows as read, and let the script make the comparison.
 6. Do the end of Server sync (the push).
-7. Show the result: the folder, the ranking moves and their basis (an earlier snapshot, or the change field the server recorded), the open issues by severity, the linked issues that could not be read, items that changed status with the reason, the items in `held` with what this week found for each (a person changes them with `set-status`), changes added to the changelog by source, and what was left unchecked. A tracker `position` counts every block on the page (the map pack, answer boxes): call it the place on the page, never the organic place. A `pack_position` is where this site's map pack entry sits on the whole results page, counting every block above it, as `position` does: call it the map pack entry's place on the page. It is not a place inside the map pack, which the server does not store, so never state or imply one.
+7. Show the result: the folder, the ranking moves and their basis (an earlier snapshot, or the change field the server recorded), the open issues by severity, the linked issues that could not be read, items that changed status with the reason, the items in `held` with what this week found for each (a person changes them with `set-status`), changes added to the changelog by source, and what was left unchecked. A tracker `position` counts every block on the page (the map pack, answer boxes): call it the place on the page, never the organic place. A `pack_position` is where this site's map pack entry sits on the whole results page, counting every block above it, as `position` does: call it the map pack entry's place on the page. It is not a place inside the map pack, which the server does not store, so never state or imply one. When `page_flags` has rows, show them under the stamp "Search Console, <start_date> to <end_date>", each as a question to check, not proof that the wrong page ranks: the tracker is one search from one place on one day, and Search Console is what real searchers saw. When `search_console` is null, say Search Console was not read.
 
 ## Output
 
 - One line: site, domain, `can_write`.
 - The folder used, and its mode.
 - What moved, the open issues by severity, and which items changed status, as the script returned them. Each ranking is a place on the page, never an organic place, and a `pack_position` is the map pack entry's place on the page, never a place inside the map pack. No cause is claimed for a movement.
+- Where the tracker and Search Console disagree, or that they were not compared.
 - Changes added to the changelog this run, by source.
 - Where the files were written, or that they were not.
 - Closing line per rule 9, which here always says no live calls were made.
@@ -117,6 +121,7 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
 - A call is refused with "MCP scope required" or "MCP not in your plan": connecting Claude needs Pro or above. Upgrade in SEO Genius settings, then run `/mcp` again.
 - The script answers `site_mismatch`, `newer_format`, `bad_ledger`, or `unsafe_path`: stop, repeat its message, and write nothing.
 - `get_site_briefing` is not in the tool list: say dashboard fixes were not read this run, and continue with the rest.
+- Search Console could not be read: say which call failed or that the tool is missing, and go on. A refusal that names the Google connection means the user reconnects Google in SEO Genius. The week is written without the check, and its file says so.
 - No tracked keywords: say the rank tracker has no terms for this site, and that they are added in the dashboard's rank tracker. Continue with issues and changes.
 - An answer carries `error: "site_archived"`: stop and say the site is archived.
 - A call fails with a rate limit message: stop, say so, suggest retrying in a minute.
@@ -127,6 +132,7 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
 - Every item kept its id. A new id was given only by `content-plan`, never here.
 - Rankings and issues came from stored reads, and no Data-for-SEO call was made.
 - The changelog holds both sources, or the reply says which one could not be read.
+- The tracker was compared with Search Console, or the reply says it was not.
 - `ledger.json`, `plan.md`, `changelog.md`, and `weekly/<date>.md` were written by the script, or the reply says they were not.
 - Nothing was written to SEO Genius but the plan-item index, and nothing to a page or inside the site's CMS.
 - The run ended with a push that the server acknowledged, or the reply says the sync is pending.

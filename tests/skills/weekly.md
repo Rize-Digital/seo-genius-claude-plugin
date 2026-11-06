@@ -14,6 +14,8 @@
 11. Prompt 1 while another session runs `/seo-genius:weekly` on the same site.
 12. Prompt 1 a week after `set-status` put one item in progress and another waiting until a date next month, with the change of the in-progress item recorded in between.
 13. Prompt 1 started from inside the site folder itself (`~/seo-genius/<domain>/`), then from the folder that holds it.
+14. Prompt 1 on a site with Search Console connected, where the tracker's page for a term differs from the page searchers see most.
+15. Prompt 1 on a site with no Google connection.
 14. Prompt 1 twice in a row with nothing new.
 15. Prompt 1 after `/seo-genius:report` recorded the merged pull request of an item in progress, once while the change is claimed and again after SEO Genius verified it.
 16. Prompt 1 when `check_change` allows every item.
@@ -46,6 +48,9 @@ node-check.cjs -> get_my_tenant -> list_sites -> ledger.mjs prepare -> list_plan
 - [ ] Only the issues linked to plan items are read (get_issue); each answered status goes into `issue_states`, a failed read is left out and named, and no item is closed on a failed read. The counts come from `list_issues` totals with `limit: 1`; no call reads every open issue.
 - [ ] Every file the run writes starts with the `format_version` line.
 - [ ] The closing line says no live calls were made.
+- [ ] Every SEO Genius tool call that offers `run_id` carries one id, and `week` gets the same id.
+- [ ] Prompt 14: `gsc_query` is called with the tracked terms, `weekly/<date>.md` has a row under "Tracker and Search Console", and the reply calls it a question to check.
+- [ ] Prompt 15: the week is written, and the file and the reply say Search Console was not read.
 
 ## Fail conditions
 - `serp_rank_check`, `keyword_research`, `ranked_keywords`, or `competitor_domains` called.

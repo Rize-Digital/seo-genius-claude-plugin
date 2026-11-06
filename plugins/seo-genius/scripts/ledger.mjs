@@ -1523,6 +1523,53 @@ function previousSnapshot(dir, asOf) {
   return null;
 }
 
+// A term needs this many impressions before Search Console's top page means anything.
+const MIN_TERM_IMPRESSIONS = 10;
+// The weekly file calls a tracker reading with no position "not in top 20".
+const TRACKER_DEPTH = 20;
+
+/**
+ * Where the rank tracker and Search Console disagree on a tracked term. A flag is a question to
+ * check, not a finding: the tracker is one search from one place on one day. Pages compare by
+ * path, so www and non-www are one page, and a page's position is weighted by its impressions.
+ */
+export function pageFlags(rankings, rows) {
+  const byTerm = new Map();
+  for (const row of rows) {
+    const { query, page, impressions, position } = row ?? {};
+    if (!query || !page || !Number.isFinite(impressions) || impressions <= 0 || !Number.isFinite(position)) continue;
+    const term = norm(query);
+    if (!byTerm.has(term)) byTerm.set(term, new Map());
+    const pages = byTerm.get(term);
+    const key = pageKey(page);
+    const p = pages.get(key) ?? { page: key, impressions: 0, weighted: 0 };
+    p.impressions += impressions;
+    p.weighted += impressions * position;
+    pages.set(key, p);
+  }
+  const at = (p) => p.weighted / p.impressions;
+  const flags = [];
+  for (const r of rankings ?? []) {
+    const pages = [...(byTerm.get(norm(r.keyword))?.values() ?? [])];
+    if (pages.reduce((n, p) => n + p.impressions, 0) < MIN_TERM_IMPRESSIONS) continue;
+    const top = pages.sort((a, b) => b.impressions - a.impressions || at(a) - at(b) || (a.page < b.page ? -1 : 1))[0];
+    const missed = r.position == null;
+    const kind = missed ? (at(top) <= TRACKER_DEPTH ? "tracker_missed" : null) : r.url && pageKey(r.url) !== top.page ? "different_page" : null;
+    if (!kind) continue;
+    flags.push({
+      keyword: r.keyword,
+      location: r.location ?? null,
+      kind,
+      tracker_page: missed || !r.url ? null : pageKey(r.url),
+      tracker_position: r.position ?? null,
+      search_console_page: top.page,
+      search_console_position: Math.round(at(top) * 10) / 10,
+      search_console_impressions: top.impressions,
+    });
+  }
+  return flags;
+}
+
 /** Rankings and issues now, against the previous snapshot (or, with none, the server's own change field). */
 export function compareWeeks(prev, now) {
   const moves = [];
@@ -1634,6 +1681,9 @@ export function weekMayChange(it, today) {
 
 export function applyWeek(ledger, input, prev, today) {
   checkAsOf(input, today);
+  if (input.search_console !== undefined && !Array.isArray(input.search_console?.rows)) {
+    throw new LedgerError("bad_input", "search_console must hold a rows list; leave it out when Search Console was not read");
+  }
   for (const [id, v] of Object.entries(input.verdicts ?? {})) {
     if (v?.until != null && !isCalendarDate(v.until)) throw new LedgerError("bad_input", `the verdict for ${id} has an until that is not a date (YYYY-MM-DD): ${JSON.stringify(v.until)}`);
   }
@@ -1705,6 +1755,9 @@ export function applyWeek(ledger, input, prev, today) {
   }
 
   out.compare = compareWeeks(prev, input);
+  const sc = input.search_console;
+  out.search_console = sc ? { start_date: sc.start_date ?? null, end_date: sc.end_date ?? null } : null;
+  out.page_flags = sc ? pageFlags(input.rankings, sc.rows) : [];
   return out;
 }
 
@@ -1786,6 +1839,20 @@ export function renderWeek(ledger, week, asOf) {
   else {
     lines.push("| Keyword | Location | From | To | Move | Basis |", "|---|---|---|---|---|---|");
     for (const m of c.ranking_moves) lines.push(`| ${cell(m.keyword)} | ${cell(m.location)} | ${m.from ?? "not in top 20"} | ${m.to ?? "not in top 20"} | ${m.kind} | ${m.basis} |`);
+  }
+  lines.push("", "## Tracker and Search Console", "");
+  const sc = week.search_console;
+  const window = sc ? `Search Console, ${sc.start_date ?? "unknown"} to ${sc.end_date ?? "unknown"}` : null;
+  if (!sc) lines.push("Search Console was not read this run, so the tracker was not checked against it.");
+  else if (week.page_flags.length === 0) lines.push(`${window}: no tracked term shows a different page, on terms with at least ${MIN_TERM_IMPRESSIONS} impressions.`);
+  else {
+    lines.push(`${window}. The tracker is one search from one place on one day. Search Console is what real searchers saw. A row here is a question to check, not proof that the wrong page ranks.`, "");
+    lines.push("| Keyword | Location | Tracker | Search Console | Flag |", "|---|---|---|---|---|");
+    for (const f of week.page_flags) {
+      const tracker = f.kind === "tracker_missed" ? `not in top ${TRACKER_DEPTH}` : `${f.tracker_page} at ${f.tracker_position}`;
+      const label = f.kind === "tracker_missed" ? "tracker missed it" : "different page";
+      lines.push(`| ${cell(f.keyword)} | ${cell(f.location)} | ${cell(tracker)} | ${cell(f.search_console_page)} at ${f.search_console_position}, ${f.search_console_impressions} impressions | ${label} |`);
+    }
   }
   lines.push("", "## Issues", "");
   lines.push(`Open now by severity: ${Object.entries(c.open_by_severity).map(([k, v]) => `${k} ${v}`).join(", ") || "none"}.`);
@@ -2088,7 +2155,7 @@ function inputCommand(cmd, ledger, input, dir, today, write) {
   if (cmd === "week") {
     const asOf = today;
     const result = applyWeek(ledger, input, previousSnapshot(dir, asOf), today);
-    const snap = { format_version: FORMAT_VERSION, rankings: input.rankings ?? [], issues: (input.issues ?? []).map(({ id, severity, issue_type, page_url }) => ({ id, severity, issue_type, page_url })), ...(input.issue_totals !== undefined && { issue_totals: input.issue_totals }) };
+    const snap = { format_version: FORMAT_VERSION, rankings: input.rankings ?? [], issues: (input.issues ?? []).map(({ id, severity, issue_type, page_url }) => ({ id, severity, issue_type, page_url })), ...(input.issue_totals !== undefined && { issue_totals: input.issue_totals }), ...(result.search_console && { search_console: result.search_console, page_flags: result.page_flags }) };
     write(`snapshots/${asOf}.json`, `${JSON.stringify(snap, null, 1)}\n`);
     write(`weekly/${asOf}.md`, renderWeek(ledger, result, asOf));
     write("changelog.md", renderChangelog(ledger, today));
