@@ -190,6 +190,15 @@ const MUTATIONS = [
   ["every recorded file is guarded, rewritten or not", "    if (!rewriting.has(rel)) continue;\n", ""],
   ["the guard reads the hashes this command just recorded", "  let recorded = { ...ledger.files };", "  let recorded = ledger.files;"],
   ["a run id already in the ledger is recorded again", "  if (runEntry && input?.run_id && ledger.runs.some(", "  if (false && ledger.runs.some("],
+  ["a thin term is flagged", "n + p.impressions, 0) < MIN_TERM_IMPRESSIONS) continue;", "n + p.impressions, 0) < 0) continue;"],
+  ["www and non-www are two pages", "    const key = pageKey(page);\n", "    const key = String(page);\n"],
+  ["the top page is the first one read", "pages.sort((a, b) => b.impressions - a.impressions || at(a) - at(b) || (a.page < b.page ? -1 : 1))[0]", "pages[0]"],
+  ["a tie goes to the first row read", "b.impressions - a.impressions || at(a) - at(b) || (a.page < b.page ? -1 : 1)", "b.impressions - a.impressions"],
+  ["a page's position ignores its impressions", "    p.weighted += impressions * position;\n", "    p.weighted += p.impressions === impressions ? impressions * position : 0;\n"],
+  ["any term with no tracker position is flagged", "at(top) <= TRACKER_DEPTH ? \"tracker_missed\" : null", "\"tracker_missed\""],
+  ["a ranking with no page is flagged", ": r.url && pageKey(r.url) !== top.page ? \"different_page\"", ": pageKey(r.url) !== top.page ? \"different_page\""],
+  ["a week with no Search Console reads as checked", "out.search_console = sc ? { start_date: sc.start_date ?? null, end_date: sc.end_date ?? null } : null;", "out.search_console = { start_date: sc?.start_date ?? null, end_date: sc?.end_date ?? null };"],
+  ["a search_console with no rows list is taken", "  if (input.search_console !== undefined && !Array.isArray(input.search_console?.rows)) {", "  if (false) {"],
   ["a stray file in .txn stops every command", "    if (!lstatSync(tdir).isDirectory()) continue;\n", ""],
   ["git stages and commits everything in the folder", "    const added = git(\"add\", \"--\", ...present.map(lit));\n    if (added.error || added.status !== 0) return null;\n  }\n  const r = git(\"commit\", \"-q\", \"-m\", message, \"--\", ...paths.map(lit));", "    const added = git(\"add\", \"-A\");\n    if (added.error || added.status !== 0) return null;\n  }\n  const r = git(\"commit\", \"-q\", \"-m\", message);", { tests: ["tests/ledger/round11.test.mjs"] }],
   ["a commit takes the whole index", "  const r = git(\"commit\", \"-q\", \"-m\", message, \"--\", ...paths.map(lit));", "  const r = git(\"commit\", \"-q\", \"-m\", message);", { tests: ["tests/ledger/round11.test.mjs"] }],
@@ -279,7 +288,8 @@ try {
     writeFileSync(join(work, file), text.replace(from, () => to));
     const r = await runTests(tests);
     writeFileSync(join(work, file), text);
-    const failed = Number((r.out.match(/^ℹ fail (\d+)/m) ?? [])[1] ?? 0);
+    // Node prints "ℹ fail N" on a terminal and "# fail N" (TAP) when its output is piped.
+    const failed = Number((r.out.match(/^(?:ℹ|#) fail (\d+)/m) ?? [])[1] ?? 0);
     const verdict = r.timedOut ? "TIMED OUT" : r.code !== 0 && failed > 0 ? `CAUGHT (${failed} failing)` : "MISSED";
     results.push([name, verdict]);
     console.log(`${tag} ${verdict.padEnd(18)} | ${name} (${secs(t0)})`);

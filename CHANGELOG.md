@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+Runs carry an id, `weekly` checks the rank tracker against Search Console, and `next` stops on an empty plan.
+
+- Standing rule 11: each skill run makes one id and sends it as `run_id` on every SEO Genius tool call that offers the field, so the server can group a run's calls. `weekly` and `content-plan` pass the same id to the ledger, so the plan push joins them. Each skill in a chained run makes its own, because the ledger refuses an id it has already recorded.
+- `weekly` reads Search Console through `gsc_query` for the tracked terms, and the ledger script writes any disagreement to a new section of `weekly/<date>.md` and to the snapshot as `page_flags`: Search Console's top page differs from the tracker's page, or the tracker has no position for a term searchers see in the top 20, on terms with at least 10 impressions. A flag is a question to check. The read is free and is not a live call under rule 10. When any call fails, the week is written without the check and says so.
+- `next` stops and points to `content-plan` when `show` lists no items. The pull writes `plan.md` even for an empty plan, so a site with no plan used to read as one whose every item was done.
+- Tests: `tests/ledger/page-flags.test.mjs` and `tests/check/run-id-and-flags.test.mjs`.
+
 ## 1.6.1 (2026-11-03)
 
 Tracker positions in `weekly` read as the place on the page (#26), `keyword-gap` uses the server's `keyword_gap` tool (#15), and the map pack reading is the map pack entry's place on the page, never a place inside the pack (#28).
