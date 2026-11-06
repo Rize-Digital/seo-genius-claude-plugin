@@ -79,11 +79,11 @@ Three more commands turn the pipeline into something that runs on its own.
 | Command | What it does |
 |---|---|
 | `/seo-genius:schedule` | Sets up scheduled runs. Records what an unattended run may do, and gives you the prompts to paste into a routine. |
-| `/seo-genius:weekly` | The week-over-week update: compares this week's stored rankings and open issues with last week's, adds every recorded change to `changelog.md` (changes logged through SEO Genius and fixes applied from the dashboard), updates plan items in place under the same ids, and syncs them with SEO Genius. Stored data only, no live calls. |
+| `/seo-genius:weekly` | The week-over-week update: compares this week's stored rankings and open issues with last week's, adds every recorded change to `changelog.md` (changes logged through SEO Genius and fixes applied from the dashboard), updates plan items in place under the same ids, and syncs them with SEO Genius. It also flags where the rank tracker and Search Console disagree on a page. Stored data plus a free Search Console read, no live calls. |
 | `/seo-genius:report` | The weekly report: what changed, what moved, what is waiting, and what needs a decision. |
 | `/seo-genius:next` | Takes the next item from the plan and writes the exact change as a proposal, or opens a pull request when you allow it. One item per run. |
 
-A usual setup is two routines: the research once a month (`competitor-dive`, `keyword-gap`, `content-plan`), and `weekly`, `report`, then `next` once a week. The weekly run reads stored data only and makes no live call: the report takes its positions from the weekly files and the stored rank readings. Run by hand, `/seo-genius:report` asks before any live search for a term with no stored reading.
+A usual setup is two routines: the research once a month (`competitor-dive`, `keyword-gap`, `content-plan`), and `weekly`, `report`, then `next` once a week. The weekly run reads stored data and a free Search Console report, and makes no live call: the report takes its positions from the weekly files and the stored rank readings. Run by hand, `/seo-genius:report` asks before any live search for a term with no stored reading.
 
 What an unattended run can and cannot do:
 
