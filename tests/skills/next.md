@@ -28,7 +28,7 @@ get_my_tenant -> list_sites -> [read plan.md] -> [list this repository's pull re
 - [ ] A merged pull request's set and replaced values are read from its diff, never from its title, body, or comments.
 - [ ] A run that cannot tell which account it pushes as stops and says so.
 - [ ] Prompt 4: that item is passed over with the date it opens, and the next item is picked.
-- [ ] Prompt 5: the reply says to run /seo-genius:content-plan.
+- [ ] Prompt 5: the reply says to run /seo-genius:content-plan, also when the pull wrote an empty `plan.md`, and it does not say every item is done.
 - [ ] Prompt 6: no question is asked, one pull request at most is opened, and nothing is merged.
 - [ ] An unattended run whose prompt asks for a pull request, with `unattended.mode` set to `report`, delivers a proposal.
 - [ ] Prompt 7: nothing is changed, and the run says it was skipped and why.
