@@ -971,12 +971,18 @@ function quarantineWrites(dir) {
 /**
  * Files the ledger wrote whose content changed since (edited by hand) or that
  * are gone. An edited file gets a copy, written in the same transaction as the
- * rewrite, so it is never lost.
+ * rewrite, so it is never lost. So does a file the ledger never wrote that this
+ * command would replace: a plan from before the ledger has no hash to compare.
  */
 function guardFiles(dir, recorded, rewriting) {
   const hand_edited = [];
   const missing = [];
   const writes = [];
+  const keep = (rel, data) => {
+    const saved = rel.replace(/(\.[a-z]+)?$/, (ext) => `.hand-edit-${stamp()}${ext || ""}`);
+    writes.push({ rel: saved, data });
+    hand_edited.push({ file: rel, saved_as: saved });
+  };
   for (const [rel, hash] of Object.entries(recorded ?? {})) {
     // The list comes from ledger.json or, on a restore, from the server: a name that
     // is not a file inside the site folder is never read, whatever it says.
@@ -993,11 +999,14 @@ function guardFiles(dir, recorded, rewriting) {
     }
     if (!rewriting.has(rel)) continue;
     const data = readFileSync(p);
-    if (sha256(data) !== hash) {
-      const saved = rel.replace(/(\.[a-z]+)?$/, (ext) => `.hand-edit-${stamp()}${ext || ""}`);
-      writes.push({ rel: saved, data });
-      hand_edited.push({ file: rel, saved_as: saved });
-    }
+    if (sha256(data) !== hash) keep(rel, data);
+  }
+  for (const [rel, next] of rewriting) {
+    if (Object.hasOwn(recorded ?? {}, rel)) continue;
+    const p = target(dir, rel);
+    if (!existsSync(p)) continue;
+    const data = readFileSync(p);
+    if (sha256(data) !== sha256(next)) keep(rel, data);
   }
   return { hand_edited, missing, writes };
 }
@@ -2400,7 +2409,7 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
   }
   // A file the ledger wrote and someone edited since is copied aside when this
   // command rewrites it; one it does not rewrite keeps the edit and is left alone.
-  const guarded = guardFiles(dir, recorded, new Set(writes.filter((w) => !w.remove).map((w) => w.rel)));
+  const guarded = guardFiles(dir, recorded, new Map(writes.filter((w) => !w.remove).map((w) => [w.rel, w.data])));
   writes.push(...guarded.writes);
   if (!movedLedger) writes.push({ rel: "ledger.json", data: `${JSON.stringify(ledger, null, 1)}\n` });
   const runId = runEntry ? ledger.runs[ledger.runs.length - 1].run_id : null;
