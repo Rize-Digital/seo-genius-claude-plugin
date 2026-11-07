@@ -199,6 +199,8 @@ const MUTATIONS = [
   ["a ranking with no page is flagged", ": r.url && pageKey(r.url) !== top.page ? \"different_page\"", ": pageKey(r.url) !== top.page ? \"different_page\""],
   ["a week with no Search Console reads as checked", "out.search_console = sc ? { start_date: sc.start_date ?? null, end_date: sc.end_date ?? null } : null;", "out.search_console = { start_date: sc?.start_date ?? null, end_date: sc?.end_date ?? null };"],
   ["a search_console with no rows list is taken", "  if (input.search_console !== undefined && !Array.isArray(input.search_console?.rows)) {", "  if (false) {"],
+  ["a file the ledger never wrote is replaced with no copy", "    if (sha256(data) !== sha256(next)) keep(rel, data);\n", ""],
+  ["a file with the same bytes as the write is copied aside", "    if (sha256(data) !== sha256(next)) keep(rel, data);\n", "    keep(rel, data);\n"],
   ["a stray file in .txn stops every command", "    if (!lstatSync(tdir).isDirectory()) continue;\n", ""],
   ["git stages and commits everything in the folder", "    const added = git(\"add\", \"--\", ...present.map(lit));\n    if (added.error || added.status !== 0) return null;\n  }\n  const r = git(\"commit\", \"-q\", \"-m\", message, \"--\", ...paths.map(lit));", "    const added = git(\"add\", \"-A\");\n    if (added.error || added.status !== 0) return null;\n  }\n  const r = git(\"commit\", \"-q\", \"-m\", message);", { tests: ["tests/ledger/round11.test.mjs"] }],
   ["a commit takes the whole index", "  const r = git(\"commit\", \"-q\", \"-m\", message, \"--\", ...paths.map(lit));", "  const r = git(\"commit\", \"-q\", \"-m\", message);", { tests: ["tests/ledger/round11.test.mjs"] }],
