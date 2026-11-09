@@ -5,7 +5,7 @@
 // keywords.ts stores it as the local_pack row's position). The server stores no place inside
 // the map pack. weekly (#26) said "show `pack_position` as the map pack place", report and
 // competitor-dive said the same of site_pack_position, and the 1.6.1 release smoke on
-// 2026-11-03 (Example, attended weekly) answered that a term "holds map pack place 15".
+// 2026-11-03 (attended weekly) answered that a term "holds map pack place 15".
 // Also pinned here: the README's keyword-gap row on both paths, the holding count on the
 // keyword_gap path, and the CHANGELOG line on the ranked_keywords path's new `status` key.
 // Every test fails on main at 9ebdc30.

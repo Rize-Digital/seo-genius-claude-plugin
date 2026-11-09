@@ -62,7 +62,7 @@ test("owner: a folder whose ledger.json and config.json cannot be read is neithe
         const r = cli(s, cmd, opts);
         assert.equal(r.code, 2, `${cmd} with config ${config}`);
         assert.equal(r.out.error, "owner_unknown", `${cmd}: ${JSON.stringify(r.out)}`);
-        assert.match(r.out.message, /claim --site Example Fence Co\.com --confirm Example Fence Co\.com/);
+        assert.match(r.out.message, /claim --site example\.net --confirm example\.net/);
         assert.deepEqual(snapshot(s.siteDir), frozen, `${cmd} changed nothing`);
       }
     } finally {
@@ -187,7 +187,7 @@ test("save: every file a skill keeps goes in through the ledger, one commit per 
   const s = scratch();
   try {
     cli(s, "prepare");
-    writeDraft(s, "config.json", JSON.stringify({ site: "www.example.net", terms: ["post fencing exampleville"] }));
+    writeDraft(s, "config.json", JSON.stringify({ site: "www.example.net", terms: ["wood fencing springfield"] }));
     const c = cli(s, "save", { args: ["--file", "config.json"] });
     assert.equal(c.code, 0, JSON.stringify(c.out));
     writeDraft(s, "keyword-lists/example.net.json", JSON.stringify({ domain: "example.net", rows: [] }));

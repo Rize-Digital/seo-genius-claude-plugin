@@ -82,9 +82,9 @@ async function crashAtEveryStep(name, prepare, cmd, opts, { oldRefusal = null } 
 const weekInput = {
   as_of: "2026-10-26",
   run_id: "run-week-2",
-  rankings: [{ keyword: "post fencing", location: "Exampleville, FL", position: 9 }],
+  rankings: [{ keyword: "wood fencing", location: "Springfield, IL", position: 9 }],
   issues: [{ id: U(12), severity: "low" }],
-  changes: [{ source: "reported", id: U(1), page_url: "https://example.net/blog/example-post-one", change_kind: "title", on: "2026-10-20", verification: "verified" }],
+  changes: [{ source: "reported", id: U(1), page_url: "https://example.net/blog/how-deep-to-set-fence-posts", change_kind: "title", on: "2026-10-20", verification: "verified" }],
 };
 
 test("crash: a week stopped at any step leaves the old generation or the new one whole, and the next run is clean", async () => {
@@ -92,7 +92,7 @@ test("crash: a week stopped at any step leaves the old generation or the new one
     "week",
     (s) => {
       assert.equal(cli(s, "plan", { input: { ...PLAN, run_id: "run-plan-1" }, today: "2026-10-12" }).code, 0);
-      assert.equal(cli(s, "week", { input: { as_of: "2026-10-19", run_id: "run-week-1", rankings: [{ keyword: "post fencing", location: "Exampleville, FL", position: 14 }], issues: [{ id: U(11), severity: "high" }] } }).code, 0);
+      assert.equal(cli(s, "week", { input: { as_of: "2026-10-19", run_id: "run-week-1", rankings: [{ keyword: "wood fencing", location: "Springfield, IL", position: 14 }], issues: [{ id: U(11), severity: "high" }] } }).code, 0);
       // A hand edit, so the run also writes the copy that keeps it.
       writeFileSync(join(s.siteDir, "plan.md"), `${readFileSync(join(s.siteDir, "plan.md"), "utf8")}\nmy note\n`);
     },

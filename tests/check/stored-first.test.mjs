@@ -106,7 +106,7 @@ test("stamps: only a section that shows numbers carries a source stamp", () => {
 
 test("metro: a null metro code does not throw away the tracker's readings", () => {
   // Live smoke 2026-10-27: start saved metro_location_code null (no code in the business
-  // profile), so report counted only national readings and every Exampleville reading was dropped.
+  // profile), so report counted only national readings and every local reading was dropped.
   // list_tracked_keywords returns locations with label, location_code and is_primary.
   const start = step(skill("start"), 5);
   has(start, "when its `locations` holds exactly one tracked location, or one with `is_primary` true, offer that location (its `label` and `location_code`) as the metro location and record its code on a yes");
@@ -118,7 +118,7 @@ test("metro: a null metro code does not throw away the tracker's readings", () =
 });
 
 test("weekly: only the issues the plan is linked to are read; a failed read closes nothing", () => {
-  // Example smoke 2026-10-27: the per-severity reads answered 63,149 and 102,306 characters
+  // Smoke 2026-10-27: the per-severity reads answered 63,149 and 102,306 characters
   // (medium, low) only to learn whether each item's own issue was still open.
   const s = step(skill("weekly"), 3);
   has(s, "For each item `show` lists with an `issue_id` and a status other than `done` or `dropped`, `get_issue` with that id, and put the `status` it answers into `issue_states` under that id.");
@@ -131,7 +131,7 @@ test("weekly: only the issues the plan is linked to are read; a failed read clos
 });
 
 test("next: the history check runs on the exact text it proposes", () => {
-  // Example smoke 2026-10-27: check_change ran on the issue's 48-character title while the
+  // Smoke 2026-10-27: check_change ran on the issue's 48-character title while the
   // proposal recommended a 56-character one.
   const s = step(skill("next"), 6);
   has(s, "the after of an Improve item, each value of a brief");
