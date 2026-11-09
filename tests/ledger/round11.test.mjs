@@ -96,11 +96,11 @@ test("git: a file the command removes leaves the history too, named exactly like
   const s = scratch();
   try {
     ok(cli(s, "plan", { input: PLAN, today: "2026-10-12" }));
-    writeDraft(s, "config.json", JSON.stringify({ site: "bomannfencing.com" }));
+    writeDraft(s, "config.json", JSON.stringify({ site: "example.net" }));
     ok(cli(s, "save", { args: ["--file", "config.json"] }));
     assert.ok(committed(s).includes("config.json"));
     writeFileSync(join(s.siteDir, "config.json"), "not json");
-    const c = ok(cli(s, "claim", { args: ["--confirm", "bomannfencing.com"] }));
+    const c = ok(cli(s, "claim", { args: ["--confirm", "example.net"] }));
     const head = committed(s);
     assert.ok(!head.includes("config.json"), JSON.stringify(head));
     assert.ok(head.includes(c.moved_aside[0].saved_as), JSON.stringify(head));

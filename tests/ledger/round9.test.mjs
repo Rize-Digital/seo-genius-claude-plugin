@@ -19,8 +19,8 @@ const ok = (r) => {
 };
 const setStatus = (s, id, status, extra = [], today = "2026-10-12") => ok(cli(s, "set-status", { args: ["--id", id, "--status", status, ...extra], today }));
 const skill = (name) => readFileSync(fileURLToPath(new URL(`../../plugins/seo-genius/skills/${name}/SKILL.md`, import.meta.url)), "utf8");
-const BARBED = "https://bomannfencing.com/blog/how-many-strands-barbed-wire-cattle/";
-const titleChange = (n, verification, on = "2026-10-18", page_url = BARBED) => ({ source: "reported", id: U(n), page_url, change_kind: "title", on, verification });
+const POSTS = "https://example.net/blog/how-deep-to-set-fence-posts/";
+const titleChange = (n, verification, on = "2026-10-18", page_url = POSTS) => ({ source: "reported", id: U(n), page_url, change_kind: "title", on, verification });
 const ACK_ALL = (p) => ({ data: p.payload.items.map((i) => ({ item_key: i.item_key, result: "created" })), runs: p.payload.runs.map((r) => ({ run_id: r.run_id, result: "recorded" })) });
 
 // 1 ---------------------------------------------------------------------------
@@ -95,7 +95,7 @@ test("no writes: a no-op or refused command creates no folder, git, .gitignore o
       ["set-status", { args: ["--id", "P-001", "--status", "finished"] }],
       ["push-ack", { input: { data: [], runs: [] } }],
       ["save", { args: ["--file", "notes.md"] }],
-      ["claim", { args: ["--confirm", "bomannfencing.com"] }],
+      ["claim", { args: ["--confirm", "example.net"] }],
       ["week", { input: { as_of: "2026-10-24" }, today: "2026-10-23" }],
       ["plan", { input: { items: [{ action: "improve" }] } }],
       ["pull", { input: { complete: true } }],
@@ -130,7 +130,7 @@ test("linked change past the first page: the weekly re-read follows next_cursor,
   try {
     ok(cli(s, "plan", { input: PLAN, today: "2026-10-12" }));
     setStatus(s, "P-002", "in_progress", ["--change", U(1150)]);
-    const rows = Array.from({ length: 250 }, (_, i) => titleChange(1000 + i, "verified", "2026-10-18", `https://bomannfencing.com/other-${i}`));
+    const rows = Array.from({ length: 250 }, (_, i) => titleChange(1000 + i, "verified", "2026-10-18", `https://example.net/other-${i}`));
     rows[150] = titleChange(1150, "verified");
     ok(cli(s, "week", { input: { changes: rows }, today: "2026-10-19" }));
     assert.equal(item(s, "P-002").status, "done");
@@ -234,15 +234,15 @@ test("allow: an allow verdict sets no reason and changes no item; the weekly ski
 test("week over week on two dates: the second compares with the first one's snapshot, rankings and issues both", () => {
   const s = scratch();
   try {
-    const first = ok(cli(s, "week", { input: { rankings: [{ keyword: "goat fencing", location: "Bonifay, FL", position: 14 }, { keyword: "barbed wire roll", location: "Bonifay, FL", position: 9 }, { keyword: "farm fence", location: "Bonifay, FL", position: 18 }], issues: [{ id: U(1), severity: "high" }, { id: U(2), severity: "low" }] }, today: "2026-10-19" }));
+    const first = ok(cli(s, "week", { input: { rankings: [{ keyword: "wood fencing", location: "Springfield, IL", position: 14 }, { keyword: "fence post depth", location: "Springfield, IL", position: 9 }, { keyword: "pasture fence", location: "Springfield, IL", position: 18 }], issues: [{ id: U(1), severity: "high" }, { id: U(2), severity: "low" }] }, today: "2026-10-19" }));
     assert.equal(first.compare.previous_as_of, null);
-    const second = ok(cli(s, "week", { input: { rankings: [{ keyword: "Goat Fencing", location: "Bonifay, FL", position: 10 }, { keyword: "barbed wire roll", location: "Bonifay, FL", position: 12 }, { keyword: "farm fence", location: "Bonifay, FL", position: null }], issues: [{ id: U(2), severity: "low" }, { id: U(3), severity: "critical" }] }, today: "2026-10-26" }));
+    const second = ok(cli(s, "week", { input: { rankings: [{ keyword: "Wood Fencing", location: "Springfield, IL", position: 10 }, { keyword: "fence post depth", location: "Springfield, IL", position: 12 }, { keyword: "pasture fence", location: "Springfield, IL", position: null }], issues: [{ id: U(2), severity: "low" }, { id: U(3), severity: "critical" }] }, today: "2026-10-26" }));
     const c = second.compare;
     assert.equal(c.previous_as_of, "2026-10-19");
     assert.deepEqual(c.ranking_moves.map((m) => [m.keyword, m.from, m.to, m.kind, m.basis]), [
-      ["Goat Fencing", 14, 10, "up", "snapshot 2026-10-19"],
-      ["barbed wire roll", 9, 12, "down", "snapshot 2026-10-19"],
-      ["farm fence", 18, null, "dropped_out", "snapshot 2026-10-19"],
+      ["Wood Fencing", 14, 10, "up", "snapshot 2026-10-19"],
+      ["fence post depth", 9, 12, "down", "snapshot 2026-10-19"],
+      ["pasture fence", 18, null, "dropped_out", "snapshot 2026-10-19"],
     ]);
     assert.deepEqual([c.issues_opened, c.issues_closed], [[U(3)], [U(1)]]);
     assert.deepEqual(c.open_by_severity, { low: 1, critical: 1 });

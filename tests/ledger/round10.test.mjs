@@ -221,7 +221,7 @@ test("no-op: a claim with nothing to take over, and a set-status that changes no
     setStatus(s, "P-001", "waiting", ["--reason", "client review", "--until", "2026-11-01"]);
     const before = [snapshot(s.siteDir), commits(s.siteDir), statSync(join(s.siteDir, "ledger.json")).mtimeMs, statSync(join(s.siteDir, "plan.md")).mtimeMs];
     const same = () => [snapshot(s.siteDir), commits(s.siteDir), statSync(join(s.siteDir, "ledger.json")).mtimeMs, statSync(join(s.siteDir, "plan.md")).mtimeMs];
-    const c = ok(cli(s, "claim", { args: ["--confirm", "bomannfencing.com"] }));
+    const c = ok(cli(s, "claim", { args: ["--confirm", "example.net"] }));
     assert.deepEqual([c.claimed, c.commit], [false, null]);
     assert.deepEqual(same(), before, "claim");
     const st = setStatus(s, "P-001", "waiting");
@@ -236,12 +236,12 @@ test("no-op: a claim with nothing to take over, and a set-status that changes no
   const t = scratch();
   try {
     ok(cli(t, "prepare"));
-    writeDraft(t, "config.json", JSON.stringify({ site: "bomannfencing.com" }));
+    writeDraft(t, "config.json", JSON.stringify({ site: "example.net" }));
     ok(cli(t, "save", { args: ["--file", "config.json"] }));
     // save made a ledger.json too; without it the folder holds only config.json.
     unlinkSync(join(t.siteDir, "ledger.json"));
     const log = commits(t.siteDir);
-    const c = ok(cli(t, "claim", { args: ["--confirm", "bomannfencing.com"] }));
+    const c = ok(cli(t, "claim", { args: ["--confirm", "example.net"] }));
     assert.deepEqual([c.claimed, c.commit], [false, null]);
     assert.equal(existsSync(join(t.siteDir, "ledger.json")), false, "no ledger made");
     assert.deepEqual(commits(t.siteDir), log);
@@ -400,7 +400,7 @@ test("review 1: a site folder that is itself a link (a home junction, or .seo-ge
     junction(out2, join(repo, ".seo-genius"));
     const env = { ...process.env };
     for (const k of Object.keys(env)) if (k.startsWith("SEO_GENIUS_")) delete env[k];
-    const r = spawnSync(process.execPath, [SCRIPT, "plan", "--site", "bomannfencing.com", "--cwd", repo, "--input", "-", "--today", "2026-10-19"], { input: JSON.stringify(PLAN), encoding: "utf8", env });
+    const r = spawnSync(process.execPath, [SCRIPT, "plan", "--site", "example.net", "--cwd", repo, "--input", "-", "--today", "2026-10-19"], { input: JSON.stringify(PLAN), encoding: "utf8", env });
     assert.equal(r.status, 2, r.stdout);
     assert.equal(JSON.parse(r.stdout).error, "unsafe_path");
     assert.deepEqual(readdirSync(out2), ["x.md"]);

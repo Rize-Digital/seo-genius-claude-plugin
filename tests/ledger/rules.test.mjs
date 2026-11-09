@@ -22,14 +22,14 @@ const setStatus = (s, id, status, extra = [], today = "2026-10-12") => ok(cli(s,
 const SIX = {
   items: [
     ...PLAN.items,
-    { action: "improve", target_page: "https://bomannfencing.com/services/farm-fencing", change_kind: "meta_description", keyword: "farm fencing", what_to_do: "Rewrite the description" },
-    { action: "improve", target_page: "https://bomannfencing.com/services/vinyl-fencing", change_kind: "h1", keyword: "vinyl fencing", what_to_do: "Name the service in the H1" },
-    { action: "improve", target_page: "https://bomannfencing.com/services/chain-link", change_kind: "title", keyword: "chain link fence", what_to_do: "Local title" },
+    { action: "improve", target_page: "https://example.net/services/pasture-fencing", change_kind: "meta_description", keyword: "pasture fencing", what_to_do: "Rewrite the description" },
+    { action: "improve", target_page: "https://example.net/services/aluminum-fencing", change_kind: "h1", keyword: "aluminum fencing", what_to_do: "Name the service in the H1" },
+    { action: "improve", target_page: "https://example.net/services/split-rail", change_kind: "title", keyword: "split rail fence", what_to_do: "Local title" },
   ],
 };
 // Every verdict says allow (open), and P-001's change went live: what a week would do to all of them.
 const ALLOW_ALL = Object.fromEntries(["P-001", "P-002", "P-003", "P-004", "P-005", "P-006"].map((id) => [id, { status: "open", reason: "check_change: allow" }]));
-const P1_LIVE = { source: "reported", id: U(1), page_url: "https://bomannfencing.com/blog/escape-proof-goat-fencing", change_kind: "content_depth", on: "2026-10-15", verification: "verified" };
+const P1_LIVE = { source: "reported", id: U(1), page_url: "https://example.net/blog/rot-resistant-wood-fencing", change_kind: "content_depth", on: "2026-10-15", verification: "verified" };
 
 test("week: rule table: only open, unchecked, or waiting whose until has come may change", () => {
   const today = "2026-10-19";
@@ -109,7 +109,7 @@ test("resolver: from the site repo, a subfolder, the site folder itself, a folde
     const home = join(s.dir, "ledgers");
     const user = join(s.dir, "user");
     const ws = join(home, site);
-    const repo = join(s.dir, "sites", "bomann");
+    const repo = join(s.dir, "sites", "acme");
     const sub = join(repo, "wp-content", "themes");
     const elsewhere = join(s.dir, "elsewhere");
     for (const d of [user, sub, elsewhere]) mkdirSync(d, { recursive: true });
@@ -288,8 +288,8 @@ test("set-status: a left-out reason is kept while the status stays, cleared when
 
 // --- an item in progress and its own change ----------------------------------
 
-const BARBED = "https://bomannfencing.com/blog/how-many-strands-barbed-wire-cattle/";
-const titleChange = (n, verification, on = "2026-10-18") => ({ source: "reported", id: U(n), page_url: BARBED, change_kind: "title", on, verification });
+const POSTS = "https://example.net/blog/how-deep-to-set-fence-posts/";
+const titleChange = (n, verification, on = "2026-10-18") => ({ source: "reported", id: U(n), page_url: POSTS, change_kind: "title", on, verification });
 
 test("week: in_progress -> done on its own verified change, not before it is verified, and never back to open", () => {
   const s = scratch();

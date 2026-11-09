@@ -35,7 +35,7 @@ async function crashAtEveryStep(name, prepare, cmd, opts, { oldRefusal = null } 
 
     const fresh = (tag) => {
       const t = { ...s, home: join(s.dir, tag) };
-      t.siteDir = join(t.home, "bomannfencing.com");
+      t.siteDir = join(t.home, "example.net");
       cpSync(oldDir, t.siteDir, { recursive: true });
       return t;
     };
@@ -82,9 +82,9 @@ async function crashAtEveryStep(name, prepare, cmd, opts, { oldRefusal = null } 
 const weekInput = {
   as_of: "2026-10-26",
   run_id: "run-week-2",
-  rankings: [{ keyword: "goat fencing", location: "Bonifay, FL", position: 9 }],
+  rankings: [{ keyword: "wood fencing", location: "Springfield, IL", position: 9 }],
   issues: [{ id: U(12), severity: "low" }],
-  changes: [{ source: "reported", id: U(1), page_url: "https://bomannfencing.com/blog/how-many-strands-barbed-wire-cattle", change_kind: "title", on: "2026-10-20", verification: "verified" }],
+  changes: [{ source: "reported", id: U(1), page_url: "https://example.net/blog/how-deep-to-set-fence-posts", change_kind: "title", on: "2026-10-20", verification: "verified" }],
 };
 
 test("crash: a week stopped at any step leaves the old generation or the new one whole, and the next run is clean", async () => {
@@ -92,7 +92,7 @@ test("crash: a week stopped at any step leaves the old generation or the new one
     "week",
     (s) => {
       assert.equal(cli(s, "plan", { input: { ...PLAN, run_id: "run-plan-1" }, today: "2026-10-12" }).code, 0);
-      assert.equal(cli(s, "week", { input: { as_of: "2026-10-19", run_id: "run-week-1", rankings: [{ keyword: "goat fencing", location: "Bonifay, FL", position: 14 }], issues: [{ id: U(11), severity: "high" }] } }).code, 0);
+      assert.equal(cli(s, "week", { input: { as_of: "2026-10-19", run_id: "run-week-1", rankings: [{ keyword: "wood fencing", location: "Springfield, IL", position: 14 }], issues: [{ id: U(11), severity: "high" }] } }).code, 0);
       // A hand edit, so the run also writes the copy that keeps it.
       writeFileSync(join(s.siteDir, "plan.md"), `${readFileSync(join(s.siteDir, "plan.md"), "utf8")}\nmy note\n`);
     },
@@ -110,10 +110,10 @@ test("crash: a save of two research files stopped at any step saves both or neit
     (s) => {
       assert.equal(cli(s, "prepare").code, 0);
       writeDraft(s, "competitors.md", "# Competitors\n\nold\n");
-      writeDraft(s, "competitors.json", JSON.stringify({ site: "bomannfencing.com", generated: "2026-10-12", competitors: [] }));
+      writeDraft(s, "competitors.json", JSON.stringify({ site: "example.net", generated: "2026-10-12", competitors: [] }));
       assert.equal(cli(s, "save", { args: ["--file", "competitors.md,competitors.json"] }).code, 0);
       writeDraft(s, "competitors.md", "# Competitors\n\nnew\n");
-      writeDraft(s, "competitors.json", JSON.stringify({ site: "bomannfencing.com", generated: "2026-10-19", competitors: [{ domain: "a.com" }] }));
+      writeDraft(s, "competitors.json", JSON.stringify({ site: "example.net", generated: "2026-10-19", competitors: [{ domain: "a.com" }] }));
     },
     "save",
     { args: ["--file", "competitors.md,competitors.json"] },
@@ -138,9 +138,9 @@ const PULL_ONE = { complete: true, last_run: null, items: [{ item_key: "P-001", 
 // stays known, so pull may move it aside and rebuild it.
 function incompleteLedger(s) {
   assert.equal(cli(s, "plan", { input: PLAN, today: "2026-10-12" }).code, 0);
-  writeDraft(s, "config.json", JSON.stringify({ site: "bomannfencing.com" }));
+  writeDraft(s, "config.json", JSON.stringify({ site: "example.net" }));
   assert.equal(cli(s, "save", { args: ["--file", "config.json"] }).code, 0);
-  writeFileSync(join(s.siteDir, "ledger.json"), JSON.stringify({ format_version: 1, site: "bomannfencing.com", items: "lost" }));
+  writeFileSync(join(s.siteDir, "ledger.json"), JSON.stringify({ format_version: 1, site: "example.net", items: "lost" }));
 }
 
 // A folder whose owner files do not parse: only claim takes it over.
@@ -155,7 +155,7 @@ test("crash: rebuilding an incomplete ledger stopped at any step keeps it or mov
 });
 
 test("crash: a claim stopped at any step is finished by the next show, never read as owner_unknown once committed", async () => {
-  const trace = await crashAtEveryStep("claim", unreadableOwner, "claim", { args: ["--confirm", "bomannfencing.com"] }, { oldRefusal: "owner_unknown" });
+  const trace = await crashAtEveryStep("claim", unreadableOwner, "claim", { args: ["--confirm", "example.net"] }, { oldRefusal: "owner_unknown" });
   // Two copies and two removals: the reported case is a crash at txn:applied#2.
   assert.ok(trace.includes("txn:applied#2"), trace.join(", "));
 });
@@ -167,7 +167,7 @@ const EVERY_COMMAND = [
   ["resolve", {}],
   ["show", {}],
   ["prepare", {}],
-  ["claim", { args: ["--confirm", "bomannfencing.com"] }],
+  ["claim", { args: ["--confirm", "example.net"] }],
   ["pull", { input: PULL_ONE }],
   ["plan", { input: PLAN }],
   ["week", { input: { as_of: "2026-10-26" }, today: "2026-10-26" }],
@@ -187,7 +187,7 @@ async function everyCommandAfterEveryCrash(name, prepare, cmd, opts, { distinct 
     let n = 0;
     const fresh = (from) => {
       const t = { ...s, home: join(s.dir, `c${n++}`) };
-      t.siteDir = join(t.home, "bomannfencing.com");
+      t.siteDir = join(t.home, "example.net");
       cpSync(from, t.siteDir, { recursive: true });
       writeDraft(t, "notes.md", "# notes\n");
       return t;
@@ -231,7 +231,7 @@ async function everyCommandAfterEveryCrash(name, prepare, cmd, opts, { distinct 
 }
 
 test("crash: after a claim stopped at any step, every command recovers first and answers as on the whole generation", async () => {
-  await everyCommandAfterEveryCrash("claim", unreadableOwner, "claim", { args: ["--confirm", "bomannfencing.com"] }, { distinct: true });
+  await everyCommandAfterEveryCrash("claim", unreadableOwner, "claim", { args: ["--confirm", "example.net"] }, { distinct: true });
 });
 
 test("crash: after a week stopped at any step, every command recovers first and answers as on the whole generation", async () => {
@@ -254,7 +254,7 @@ test("crash: a recovery stopped at any step is finished by the next command", ()
     cpSync(s.siteDir, base, { recursive: true });
     const fresh = (tag) => {
       const t = { ...s, home: join(s.dir, tag) };
-      t.siteDir = join(t.home, "bomannfencing.com");
+      t.siteDir = join(t.home, "example.net");
       cpSync(base, t.siteDir, { recursive: true });
       return t;
     };
