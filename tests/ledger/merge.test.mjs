@@ -9,7 +9,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { run, mergeItemState, SYNC_FIELDS } from "../../plugins/seo-genius/scripts/ledger.mjs";
 
 const U = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
-const site = "bomannfencing.com";
+const site = "example.net";
 const env = {};
 
 // The synced base: an item the server holds with every field set.

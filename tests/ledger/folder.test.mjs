@@ -62,7 +62,7 @@ test("owner: a folder whose ledger.json and config.json cannot be read is neithe
         const r = cli(s, cmd, opts);
         assert.equal(r.code, 2, `${cmd} with config ${config}`);
         assert.equal(r.out.error, "owner_unknown", `${cmd}: ${JSON.stringify(r.out)}`);
-        assert.match(r.out.message, /claim --site bomannfencing\.com --confirm bomannfencing\.com/);
+        assert.match(r.out.message, /claim --site example\.net --confirm example\.net/);
         assert.deepEqual(snapshot(s.siteDir), frozen, `${cmd} changed nothing`);
       }
     } finally {
@@ -131,7 +131,7 @@ test("owner: only claim, naming the domain twice, takes the folder over; the unr
       assert.equal(r.out.error, "bad_input", JSON.stringify(r.out));
       assert.deepEqual(snapshot(s.siteDir), frozen);
     }
-    const c = cli(s, "claim", { args: ["--confirm", "www.bomannfencing.com"] });
+    const c = cli(s, "claim", { args: ["--confirm", "www.example.net"] });
     assert.equal(c.code, 0, JSON.stringify(c.out));
     assert.equal(c.out.claimed, true);
     assert.deepEqual(c.out.moved_aside.map((m) => m.file), ["ledger.json", "config.json"]);
@@ -187,17 +187,17 @@ test("save: every file a skill keeps goes in through the ledger, one commit per 
   const s = scratch();
   try {
     cli(s, "prepare");
-    writeDraft(s, "config.json", JSON.stringify({ site: "www.bomannfencing.com", terms: ["goat fencing bonifay"] }));
+    writeDraft(s, "config.json", JSON.stringify({ site: "www.example.net", terms: ["wood fencing springfield"] }));
     const c = cli(s, "save", { args: ["--file", "config.json"] });
     assert.equal(c.code, 0, JSON.stringify(c.out));
-    writeDraft(s, "keyword-lists/bomannfencing.com.json", JSON.stringify({ domain: "bomannfencing.com", rows: [] }));
+    writeDraft(s, "keyword-lists/example.net.json", JSON.stringify({ domain: "example.net", rows: [] }));
     writeDraft(s, "reports/2026-10-19.md", "# Report\n");
-    const r = cli(s, "save", { args: ["--file", "keyword-lists/bomannfencing.com.json,reports/2026-10-19.md"] });
-    assert.deepEqual(r.out.saved, ["keyword-lists/bomannfencing.com.json", "reports/2026-10-19.md"]);
+    const r = cli(s, "save", { args: ["--file", "keyword-lists/example.net.json,reports/2026-10-19.md"] });
+    assert.deepEqual(r.out.saved, ["keyword-lists/example.net.json", "reports/2026-10-19.md"]);
     assert.equal(readFileSync(join(s.siteDir, "reports", "2026-10-19.md"), "utf8"), "# Report\n");
     assert.deepEqual(readdirSync(join(s.siteDir, ".drafts"), { recursive: true }).filter((n) => /\.(md|json)$/.test(n)), []);
     assert.deepEqual(commits(s.siteDir), [
-      "ledger: save 2026-10-19 keyword-lists/bomannfencing.com.json, reports/2026-10-19.md",
+      "ledger: save 2026-10-19 keyword-lists/example.net.json, reports/2026-10-19.md",
       "ledger: save 2026-10-19 config.json",
       "ledger: set up the site folder 2026-10-19",
     ]);

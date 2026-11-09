@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 export const SCRIPT = fileURLToPath(new URL("../../plugins/seo-genius/scripts/ledger.mjs", import.meta.url));
-export const site = "bomannfencing.com";
+export const site = "example.net";
 export const U = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
 export function scratch() {
@@ -109,9 +109,9 @@ export function writeDraft(s, rel, text) {
 
 export const PLAN = {
   items: [
-    { action: "improve", target_page: "https://bomannfencing.com/blog/escape-proof-goat-fencing", change_kind: "content_depth", keyword: "escape proof goat fencing", what_to_do: "Expand the guide" },
-    { action: "improve", target_page: "https://bomannfencing.com/blog/how-many-strands-barbed-wire-cattle/", change_kind: "title", keyword: "how many feet of barbed wire on a roll", what_to_do: "Answer the roll-length question in the title" },
-    { action: "create", target_page: "/services/goat-fencing", keyword: "goat fencing", what_to_do: "Service page" },
+    { action: "improve", target_page: "https://example.net/blog/rot-resistant-wood-fencing", change_kind: "content_depth", keyword: "rot resistant wood fencing", what_to_do: "Expand the guide" },
+    { action: "improve", target_page: "https://example.net/blog/how-deep-to-set-fence-posts/", change_kind: "title", keyword: "how deep to set fence posts", what_to_do: "Answer the post-depth question in the title" },
+    { action: "create", target_page: "/services/wood-fencing", keyword: "wood fencing", what_to_do: "Service page" },
   ],
 };
 

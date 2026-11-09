@@ -32,16 +32,16 @@ function gitInit(dir) {
 
 const env = {}; // never read the developer's SEO_GENIUS_HOME or SEO_GENIUS_GIT
 const U = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
-const site = "bomannfencing.com";
+const site = "example.net";
 const base = (s) => ({ site, cwd: s.dir, home: join(s.dir, "home"), env });
 const dirOf = (s) => join(s.dir, "home", site);
 const ledgerOf = (s) => JSON.parse(readFileSync(join(dirOf(s), "ledger.json"), "utf8"));
 
 const PLAN = {
   items: [
-    { action: "improve", target_page: "https://bomannfencing.com/blog/escape-proof-goat-fencing", change_kind: "content_depth", keyword: "escape proof goat fencing", what_to_do: "Expand the guide" },
-    { action: "improve", target_page: "https://bomannfencing.com/blog/how-many-strands-barbed-wire-cattle/", change_kind: "title", keyword: "how many feet of barbed wire on a roll", what_to_do: "Answer the roll-length question in the title" },
-    { action: "create", target_page: "/services/goat-fencing", keyword: "goat fencing", what_to_do: "Service page" },
+    { action: "improve", target_page: "https://example.net/blog/rot-resistant-wood-fencing", change_kind: "content_depth", keyword: "rot resistant wood fencing", what_to_do: "Expand the guide" },
+    { action: "improve", target_page: "https://example.net/blog/how-deep-to-set-fence-posts/", change_kind: "title", keyword: "how deep to set fence posts", what_to_do: "Answer the post-depth question in the title" },
+    { action: "create", target_page: "/services/wood-fencing", keyword: "wood fencing", what_to_do: "Service page" },
   ],
 };
 
@@ -49,16 +49,16 @@ const PLAN = {
 
 test("domains: www and bare, scheme, port, trailing slash and dot, sc-domain: and case all name one folder", () => {
   for (const form of [
-    "bomannfencing.com",
-    "www.bomannfencing.com",
-    "https://www.BomannFencing.com/",
-    "http://bomannfencing.com:8080/blog?x=1#top",
-    "sc-domain:bomannfencing.com",
-    "SC-DOMAIN:www.bomannfencing.com",
-    "bomannfencing.com.",
-    "bomannfencing.com/",
+    "example.net",
+    "www.example.net",
+    "https://www.Example.net/",
+    "http://example.net:8080/blog?x=1#top",
+    "sc-domain:example.net",
+    "SC-DOMAIN:www.example.net",
+    "example.net.",
+    "example.net/",
   ]) {
-    assert.equal(normalizeDomain(form), "bomannfencing.com", form);
+    assert.equal(normalizeDomain(form), "example.net", form);
   }
   for (const bad of ["not a domain", "", "localhost", "a:b", "C:\\sites\\x", "..", "../etc"]) {
     assert.throws(() => normalizeDomain(bad), LedgerError, bad);
@@ -66,8 +66,8 @@ test("domains: www and bare, scheme, port, trailing slash and dot, sc-domain: an
   // A path after the host, with either separator, never reaches the folder name.
   assert.equal(normalizeDomain("x.com\\..\\y"), "x.com");
   assert.equal(normalizeDomain("x.com/../../y"), "x.com");
-  assert.equal(pageKey("https://bomannfencing.com/Blog/Fence/?a=1#b"), "/blog/fence");
-  assert.equal(pageKey("https://bomannfencing.com"), "/");
+  assert.equal(pageKey("https://example.net/Blog/Fence/?a=1#b"), "/blog/fence");
+  assert.equal(pageKey("https://example.net"), "/");
 });
 
 /** A fake file system for path tests: only the listed paths exist. */
@@ -77,23 +77,23 @@ function fakeIo(path, existing, home) {
 }
 
 test("paths: Windows layouts resolve with Windows rules", () => {
-  const io = fakeIo(win32, ["C:\\sites\\bomann\\.git"], "C:\\Users\\Pat");
-  const repo = resolveSiteDir({ site, cwd: "C:\\sites\\bomann\\wp-content\\themes", env, io });
+  const io = fakeIo(win32, ["C:\\sites\\acme\\.git"], "C:\\Users\\Pat");
+  const repo = resolveSiteDir({ site, cwd: "C:\\sites\\acme\\wp-content\\themes", env, io });
   assert.equal(repo.mode, "repo");
-  assert.equal(repo.dir, "C:\\sites\\bomann\\.seo-genius");
-  const ws = resolveSiteDir({ site: "sc-domain:www.bomannfencing.com", cwd: "D:\\work", env, io });
+  assert.equal(repo.dir, "C:\\sites\\acme\\.seo-genius");
+  const ws = resolveSiteDir({ site: "sc-domain:www.example.net", cwd: "D:\\work", env, io });
   assert.equal(ws.mode, "workspace");
-  assert.equal(ws.dir, "C:\\Users\\Pat\\seo-genius\\bomannfencing.com");
+  assert.equal(ws.dir, "C:\\Users\\Pat\\seo-genius\\example.net");
   const custom = resolveSiteDir({ site, cwd: "D:\\work", env: { SEO_GENIUS_HOME: "E:\\SEO Ledgers" }, io });
-  assert.equal(custom.dir, "E:\\SEO Ledgers\\bomannfencing.com");
+  assert.equal(custom.dir, "E:\\SEO Ledgers\\example.net");
 });
 
 test("paths: macOS layouts resolve with POSIX rules, spaces included", () => {
-  const io = fakeIo(posix, ["/Users/pat/Sites/Bomann Fencing/.git"], "/Users/pat");
-  const repo = resolveSiteDir({ site, cwd: "/Users/pat/Sites/Bomann Fencing/src/pages", env, io });
-  assert.equal(repo.dir, "/Users/pat/Sites/Bomann Fencing/.seo-genius");
+  const io = fakeIo(posix, ["/Users/pat/Sites/Acme Fencing/.git"], "/Users/pat");
+  const repo = resolveSiteDir({ site, cwd: "/Users/pat/Sites/Acme Fencing/src/pages", env, io });
+  assert.equal(repo.dir, "/Users/pat/Sites/Acme Fencing/.seo-genius");
   const ws = resolveSiteDir({ site, cwd: "/Users/pat/Desktop", env, io });
-  assert.equal(ws.dir, "/Users/pat/seo-genius/bomannfencing.com");
+  assert.equal(ws.dir, "/Users/pat/seo-genius/example.net");
 });
 
 test("resolver: inside a real repository the folder is .seo-genius at the root; outside, one folder per site from any working folder", () => {
@@ -151,12 +151,12 @@ test("ids: the same items keep the same ids across runs, in any order; a new ite
   try {
     const r1 = run("plan", { ...base(s), today: "2026-10-12", input: PLAN });
     assert.deepEqual(r1.created, ["P-001", "P-002", "P-003"]);
-    const reordered = { items: [PLAN.items[2], { ...PLAN.items[0], target_page: "HTTPS://bomannfencing.com/blog/escape-proof-goat-fencing/" }, PLAN.items[1], { action: "improve", target_page: "/fence-corners", change_kind: "h1" }] };
+    const reordered = { items: [PLAN.items[2], { ...PLAN.items[0], target_page: "HTTPS://example.net/blog/rot-resistant-wood-fencing/" }, PLAN.items[1], { action: "improve", target_page: "/fence-corners", change_kind: "h1" }] };
     const r2 = run("plan", { ...base(s), today: "2026-10-19", input: reordered });
     assert.deepEqual(r2.created, ["P-004"]);
     const byKw = Object.fromEntries(ledgerOf(s).items.map((i) => [i.keyword ?? i.target_page, i.id]));
-    assert.equal(byKw["escape proof goat fencing"], "P-001");
-    assert.equal(byKw["goat fencing"], "P-003");
+    assert.equal(byKw["rot resistant wood fencing"], "P-001");
+    assert.equal(byKw["wood fencing"], "P-003");
     assert.equal(byKw["/fence-corners"], "P-004");
   } finally {
     s.done();
@@ -177,7 +177,7 @@ test("update, not rebuild: history grows only on a status change; unproposed and
         as_of: "2026-10-19",
         issues: [],
         rankings: [],
-        changes: [{ source: "reported", id: U(1), page_url: "https://bomannfencing.com/blog/how-many-strands-barbed-wire-cattle", change_kind: "title", on: "2026-10-15", old_value: "a", new_value: "b", verification: "verified" }],
+        changes: [{ source: "reported", id: U(1), page_url: "https://example.net/blog/how-deep-to-set-fence-posts", change_kind: "title", on: "2026-10-15", old_value: "a", new_value: "b", verification: "verified" }],
         verdicts: { "P-001": { status: "waiting", until: "2026-11-02", reason: "frozen" } },
       },
     });
@@ -208,14 +208,14 @@ test("week: compared with the previous snapshot; the changelog holds both source
       { source: "reported", id: U(1), page_url: "/a", change_kind: "title", on: "2026-10-10", new_value: "x", verification: "claimed" },
       { source: "coach_applied_fix", id: U(2), page_url: "/b", change_kind: "meta_description", on: "2026-10-11", new_value: "y", status: "applied" },
     ];
-    const w1 = run("week", { ...base(s), today: "2026-10-12", input: { as_of: "2026-10-12", rankings: [{ keyword: "goat fencing", location: "Bonifay, FL", position: 18, change: 2 }], issues: [{ id: U(11), severity: "high" }, { id: U(12), severity: "low" }], changes } });
+    const w1 = run("week", { ...base(s), today: "2026-10-12", input: { as_of: "2026-10-12", rankings: [{ keyword: "wood fencing", location: "Springfield, IL", position: 18, change: 2 }], issues: [{ id: U(11), severity: "high" }, { id: U(12), severity: "low" }], changes } });
     assert.equal(w1.compare.previous_as_of, null);
     assert.deepEqual(w1.compare.ranking_moves.map((m) => [m.from, m.to, m.basis]), [[20, 18, "server change field"]]);
     assert.equal(w1.changes_added, 2);
     assert.deepEqual(w1.status_changes.map((c) => [c.id, c.to]), [["P-001", "done"]]);
     // The same rows next week, the fix now rolled back: no new row, its state follows.
     const rolled = [changes[0], { ...changes[1], status: "rolled_back" }];
-    const w2 = run("week", { ...base(s), today: "2026-10-19", input: { as_of: "2026-10-19", rankings: [{ keyword: "Goat  Fencing", location: "Bonifay, FL", position: 12 }], issues: [{ id: U(12), severity: "low" }, { id: U(13), severity: "critical" }], changes: rolled } });
+    const w2 = run("week", { ...base(s), today: "2026-10-19", input: { as_of: "2026-10-19", rankings: [{ keyword: "Wood  Fencing", location: "Springfield, IL", position: 12 }], issues: [{ id: U(12), severity: "low" }, { id: U(13), severity: "critical" }], changes: rolled } });
     assert.equal(w2.compare.previous_as_of, "2026-10-12");
     assert.deepEqual(w2.compare.ranking_moves.map((m) => [m.from, m.to, m.kind]), [[18, 12, "up"]]);
     assert.deepEqual(w2.compare.issues_opened, [U(13)]);
@@ -284,7 +284,7 @@ test("week: with issue_states an item closes only on its own issue answered as n
 
 // ---------------------------------------------------------------- server sync
 
-const serverRow = (over) => ({ item_key: "P-001", kind: "improve", target_page: "https://bomannfencing.com/blog/escape-proof-goat-fencing", change_kind: "content_depth", status: "open", status_reason: null, status_until: null, change_id: null, issue_id: null, first_seen: "2026-10-12", ...over });
+const serverRow = (over) => ({ item_key: "P-001", kind: "improve", target_page: "https://example.net/blog/rot-resistant-wood-fencing", change_kind: "content_depth", status: "open", status_reason: null, status_until: null, change_id: null, issue_id: null, first_seen: "2026-10-12", ...over });
 
 test("sync: push sends what the server has not seen; an ack marks it; nothing is sent twice", () => {
   const s = scratch();
@@ -354,8 +354,8 @@ test("pull: a status changed on the server is adopted; a change on both sides ke
         last_run: null,
         items: [
           serverRow({ status: "done", status_reason: "closed from another machine" }),
-          serverRow({ item_key: "P-002", target_page: "https://bomannfencing.com/blog/how-many-strands-barbed-wire-cattle/", change_kind: "title", status: "waiting", status_until: "2026-11-01" }),
-          serverRow({ item_key: "P-003", kind: "create", target_page: "/services/goat-fencing", change_kind: null }),
+          serverRow({ item_key: "P-002", target_page: "https://example.net/blog/how-deep-to-set-fence-posts/", change_kind: "title", status: "waiting", status_until: "2026-11-01" }),
+          serverRow({ item_key: "P-003", kind: "create", target_page: "/services/wood-fencing", change_kind: null }),
           serverRow({ item_key: "P-007", kind: "improve", target_page: "/fence-corners", change_kind: "h1" }),
         ],
       },
@@ -398,7 +398,7 @@ function serverHistory(nReported, nFixes) {
     source: "reported",
     origin: i % 7 === 0 ? "crawl" : "mcp_agent",
     id: U(1000 + i),
-    page_url: `https://bomannfencing.com/p/${i % 13}`,
+    page_url: `https://example.net/p/${i % 13}`,
     change_kind: ["title", "meta_description", "h1"][i % 3],
     old_value: `old ${i}`,
     new_value: `new ${i}`,
@@ -408,7 +408,7 @@ function serverHistory(nReported, nFixes) {
   const fixes = Array.from({ length: nFixes }, (_, i) => ({
     source: "coach_applied_fix",
     id: U(5000 + i),
-    page_url: `https://bomannfencing.com/f/${i % 11}`,
+    page_url: `https://example.net/f/${i % 11}`,
     change_kind: "meta_description",
     old_value: `was ${i}`,
     new_value: `now ${i}`,
@@ -496,7 +496,7 @@ test("corrupt ledger.json: every command refuses even with a valid config; claim
     assert.equal(readFileSync(join(dirOf(s), c.moved_aside[0].saved_as), "utf8"), half);
     assert.equal(existsSync(join(dirOf(s), "ledger.json")), false, "the claim leaves the ledger to be rebuilt");
     assert.deepEqual(JSON.parse(readFileSync(join(dirOf(s), "config.json"), "utf8")), { site }, "the readable config stays");
-    const r = run("pull", { ...base(s), today: "2026-10-19", input: { complete: true, last_run: null, items: [serverRow({}), serverRow({ item_key: "P-003", kind: "create", target_page: "/services/goat-fencing", change_kind: null, status: "in_progress" })] } });
+    const r = run("pull", { ...base(s), today: "2026-10-19", input: { complete: true, last_run: null, items: [serverRow({}), serverRow({ item_key: "P-003", kind: "create", target_page: "/services/wood-fencing", change_kind: null, status: "in_progress" })] } });
     assert.equal(r.restored_from_server, true);
     assert.equal(r.history_needed, true);
     const l = ledgerOf(s);

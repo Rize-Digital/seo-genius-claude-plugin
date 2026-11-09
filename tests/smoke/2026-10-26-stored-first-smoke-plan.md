@@ -1,11 +1,13 @@
-# Stored-first smoke plan, 1.5.0: Bomann Fencing and Test Tree Service
+# Stored-first smoke plan, 1.5.0: a repo site and a no-repo site
 
 A live smoke of the 1.5.0 changes against production on two kinds of site, at zero cost: no Data-for-SEO call, no crawl, no AI detection, no Anthropic-billed work on the server, and no edit to either live site. The only server write allowed is `save_plan_items`.
 
 | Site | Client | Kind | Mode |
 |---|---|---|---|
-| Bomann Fencing (bomannfencing.com) | `5d084767-14c1-42bd-b960-fd1d4cefb655` | Next.js site in a GitHub repository | Repo mode: a fresh local clone of `Rize-Digital/nextjs-bomann-fencing`; `.seo-genius/` at the clone root |
-| Test Tree Service (wordpress-1463515-5538871.cloudwaysapps.com) | `751a2a00-62ec-49c2-b636-f2d3f569740a` | WordPress test site | No-repo workspace mode: an empty folder outside any repository, with `SEO_GENIUS_HOME` set to an empty scratch folder |
+| Site A (`<SITE_A_DOMAIN>`) | `<SITE_A_CLIENT_ID>` | Next.js site in a GitHub repository | Repo mode: a fresh local clone of `<SITE_A_REPO>`; `.seo-genius/` at the clone root |
+| Site B (`<SITE_B_DOMAIN>`) | `<SITE_B_CLIENT_ID>` | WordPress test site | No-repo workspace mode: an empty folder outside any repository, with `SEO_GENIUS_HOME` set to an empty scratch folder |
+
+This repository is public. Fill the placeholders, and record the results, in a copy of this plan under `tests/smoke/local/`, which git ignores. Site names, domains, client ids, repositories, keywords and readings stay out of committed files.
 
 ## Preconditions
 
@@ -23,7 +25,7 @@ A live smoke of the 1.5.0 changes against production on two kinds of site, at ze
 
    A denied tool is removed from the session's tool list, so an attempt comes back as "No such tool available". Any such error in the transcript fails the smoke.
 4. Never push and never touch a remote. In repo mode, also deny `Bash(git push:*)`, `Bash(gh:*)` and the GitHub connector, and set the clone's push URL to an invalid one. Make no change to the clone's branches or tags. With no GitHub tool, `report` must say that pull requests were not checked, and `next` stays a proposal.
-5. Live site byte check (Test Tree Service): fetch the home page, `/sitemap.xml` and one service page twice before the first prompt (to show they are stable), then once after the last one. Compare the sha256 of each. Any difference fails the smoke.
+5. Live site byte check (site B): fetch the home page, `/sitemap.xml` and one service page twice before the first prompt (to show they are stable), then once after the last one. Compare the sha256 of each. Any difference fails the smoke.
 6. Record every MCP call from the stream-json log: tool, count, time from call to result (ms), and ok or error. Also record any ECONNRESET or retry, and how many plan items and ledger runs the smoke added on the server (`list_plan_items` before and after).
 7. Stop at once, and record the step, if any of these happens: a denied call is attempted, a skill asks to spend quota and the answer would have to be yes to go on, a write other than `save_plan_items` is proposed, or a crawl is offered (answer no).
 
@@ -132,9 +134,9 @@ After the last run on each site:
 - The not-set-up fallback of `get_serp_snapshots`: production has stored pages. It is pinned by `tests/check/stored-first.test.mjs`.
 - A term searched live: excluded by the zero-cost rule.
 
-## Results (fill in, per site)
+## Results (fill in, per site, in the local copy)
 
-| Step | Bomann Fencing | Test Tree Service | Notes (tool calls, numbers, dates) |
+| Step | Site A | Site B | Notes (tool calls, numbers, dates) |
 |---|---|---|---|
 | Preconditions | | | |
 | 0 | | | |
