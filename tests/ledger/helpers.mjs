@@ -109,9 +109,9 @@ export function writeDraft(s, rel, text) {
 
 export const PLAN = {
   items: [
-    { action: "improve", target_page: "https://example.net/blog/example-post-two", change_kind: "content_depth", keyword: "escape proof post fencing", what_to_do: "Expand the guide" },
-    { action: "improve", target_page: "https://example.net/blog/example-post-one/", change_kind: "title", keyword: "how many feet of woven wire on a roll", what_to_do: "Answer the roll-length question in the title" },
-    { action: "create", target_page: "/services/post-fencing", keyword: "post fencing", what_to_do: "Service page" },
+    { action: "improve", target_page: "https://example.net/blog/rot-resistant-wood-fencing", change_kind: "content_depth", keyword: "rot resistant wood fencing", what_to_do: "Expand the guide" },
+    { action: "improve", target_page: "https://example.net/blog/how-deep-to-set-fence-posts/", change_kind: "title", keyword: "how deep to set fence posts", what_to_do: "Answer the post-depth question in the title" },
+    { action: "create", target_page: "/services/wood-fencing", keyword: "wood fencing", what_to_do: "Service page" },
   ],
 };
 

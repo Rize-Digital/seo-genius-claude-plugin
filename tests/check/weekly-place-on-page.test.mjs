@@ -1,7 +1,7 @@
 // weekly shows the rank tracker's readings, and a tracker `position` counts every block on
 // the results page (the map pack, answer boxes), so it is the place on the page, not the
 // organic place. report already says so (stored-first, 1.5.0); weekly did not, and the
-// 1.6.0 smoke on 2026-10-29 (Example, attended weekly) headed its rankings table "Organic".
+// 1.6.0 smoke on 2026-10-29 (attended weekly) headed its rankings table "Organic".
 // Each test fails on main at 8903cb1 (1.6.0).
 // Run: node --test tests/check/weekly-place-on-page.test.mjs
 import { test } from "node:test";
