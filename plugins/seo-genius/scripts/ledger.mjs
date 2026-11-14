@@ -143,6 +143,12 @@
 // file list from the server (last_run's file_hashes, on a rebuild) is read only
 // for names that are plain paths inside the site folder.
 //
+// NO CLAIM TOKEN AT REST. A claim token (claim_item, the work queue) is a lease
+// credential that lives only in the run that claimed. `save` refuses a draft that
+// holds one (token_at_rest, a uuid next to the words claim token), so a proposal or
+// a report can never keep it. `show` lists the open items' ids in plan.md's order
+// as plan_order, which queue.mjs picks from.
+//
 // SET-STATUS. A reason or until left out keeps the item's own when the status
 // stays the same (only the other one changes). When the status changes, the old
 // reason explained the old status, so a left-out one is cleared, as is the old
@@ -205,6 +211,8 @@ export const DRAFTS_DIR = ".drafts";
 const GITIGNORE_LINES = [`${LOCK_PREFIX}*`, `${TXN_DIR}/`, `${DRAFTS_DIR}/`, "*.tmp"];
 const PUSH_MAX_ITEMS = 100;
 const PUSH_MAX_RUNS = 20;
+/** A claim_item token where a file would keep it: a uuid next to the words claim token. */
+export const CLAIM_TOKEN_AT_REST = /claim[\s_-]?token\W{0,8}[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/i;
 
 export class LedgerError extends Error {
   constructor(code, message) {
@@ -1784,9 +1792,14 @@ function itemRow(it) {
   return `| ${it.id} | ${cell(it.action)} | ${cell(it.target_page)} | ${cell(it.change_kind)} | ${cell(it.keyword)} | ${cell(it.what_to_do ?? it.title)} | ${cell(it.status)}${it.until ? ` until ${it.until}` : ""} | ${cell(it.status_reason)} |`;
 }
 
+/** The open items in the order plan.md lists them: This month (the first five), then Later. */
+export function openInPlanOrder(ledger) {
+  return ledger.items.filter((it) => it.status === "open").sort((a, b) => a.order - b.order || idNumber(a.id) - idNumber(b.id));
+}
+
 export function renderPlan(ledger, today) {
   const head = "| Id | Action | Page | Field | Keyword | What to do | Status | Why |\n|---|---|---|---|---|---|---|---|";
-  const live = ledger.items.filter((it) => it.status === "open").sort((a, b) => a.order - b.order || idNumber(a.id) - idNumber(b.id));
+  const live = openInPlanOrder(ledger);
   const groups = [
     ["This month", live.slice(0, THIS_MONTH)],
     ["Later", live.slice(THIS_MONTH)],
@@ -2043,6 +2056,10 @@ function saveWrites(dir, site, list) {
     const draft = insidePath(dir, `${DRAFTS_DIR}/${rel}`);
     if (!existsSync(draft)) throw new LedgerError("bad_input", `no draft for ${rel}: write it to ${draft} first, then run save`);
     const data = readFileSync(draft);
+    // A claim token is a lease credential for one run (claim_item); it is never kept.
+    if (CLAIM_TOKEN_AT_REST.test(data.toString("utf8"))) {
+      throw new LedgerError("token_at_rest", `${rel} holds a claim token (a uuid next to claim_token). A claim token lives only in the run that claimed; nothing was saved. Take it out and save again.`);
+    }
     if (rel.endsWith(".json")) {
       let parsed;
       try {
@@ -2259,6 +2276,8 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
         synced: sameState(it.synced, statusState(it)),
         ...(it.sync_error ? { sync_error: it.sync_error } : {}),
       })),
+      // The open items' ids in plan.md's order (This month, then Later), the order next picks from.
+      plan_order: openInPlanOrder(ledger).map((it) => it.id),
       runs: ledger.runs.length,
       items_not_synced: pending.items.length,
       runs_not_synced: pending.runs.length,

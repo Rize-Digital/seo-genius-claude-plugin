@@ -8,6 +8,8 @@
 5. `/seo-genius:next` in a folder with no plan.
 6. An unattended run with `unattended.mode` set to `pr`.
 7. An unattended run with no `unattended` block in the config.
+8. Prompt 2 on a site that uses the work queue, where Coach holds the first plan item's field and the second has a queued item.
+9. Prompt 2 on a site that uses the work queue, against a server with no `attach_pull_request` tool.
 
 ## Expected tool sequence
 get_my_tenant -> list_sites -> [read plan.md] -> [list this repository's pull requests on claude/seo-genius- branches: any open one, from any account, stops the run; only those authored by the account this run pushes as are matched to plan items, and a merged one is read from its diff] -> list_pages or search_pages -> check_change (the item's page and field; internal_links for each page a Create item links from) -> [write the proposal file] -> [pull request mode only: check for uncommitted changes, fetch, branch from the default branch, write the files, stage by path, commit, push, open the pull request, switch back]
@@ -42,6 +44,11 @@ get_my_tenant -> list_sites -> [read plan.md] -> [list this repository's pull re
 - [ ] A new page states only facts found in the business context or on the existing site, and every unknown is a visible placeholder listed in the proposal.
 - [ ] A pull request that holds placeholders is opened as a draft.
 - [ ] log_page_change is not called, and the reply says how the change gets recorded after it ships.
+- [ ] On a site without a work queue (no `queue` in get_site_briefing): no claim_item, release_item or attach_pull_request call, no claim_token sent, and the same item picked as before.
+- [ ] Prompt 8: the first item is passed over with Coach named and the lease end, the second is claimed with claim_item before its check_change, every check_change on that field carries claim_token, and the run ends with attach_pull_request (the pull request holds the field) or release_item.
+- [ ] Prompt 9: the pull request opens, release_item gives the item back, and the reply says the field is not held while the pull request is open.
+- [ ] A check_change whose queue_lock is not `yours` while the run holds a claim stops the run before any site file or pull request.
+- [ ] The claim token appears in no file under `.seo-genius/`, no proposal, no commit, no branch name, no pull request body, and not in the reply.
 
 ## Fail conditions
 - A pull request merged, or a push to the default branch.
@@ -54,3 +61,5 @@ get_my_tenant -> list_sites -> [read plan.md] -> [list this repository's pull re
 - A review, testimonial, price, statistic, or claim about the business that appears in no source.
 - log_page_change called for a change that has not shipped.
 - A question asked in an unattended run.
+- An Improve item worked on a site with a work queue without this run's claim, or a site file written after the claim was lost.
+- A claim token written anywhere, or shown in the reply.
