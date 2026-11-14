@@ -92,7 +92,8 @@ The site's local ledger and its plan-item index in SEO Genius are kept in step b
    - `page_verdict.verdict` is WAIT: waiting until `page_verdict.until`, whatever the field and whatever the `verdict`. The same holds for a page whose `change_index.pages` row says WAIT.
    - `block` with `would_revert`, alone or beside `frozen`: dropped, with that reason. It would undo an earlier change, and it is still a revert after any unfreeze date.
    - `block` with `frozen` only: waiting until `unfreezes_on`.
-   - `warn` with `pending_measurement`: waiting until the closing date given in that reason's `message`. Editing now would throw the measurement away.
+   - `warn` with `pending_measurement`: waiting until that reason's `evidence.matures_on`, the date the measurement window closes. Never read the date from its `message`, whose wording can change. No date there: unchecked. Editing now would throw the measurement away.
+   - A `claimed_by_other` reason (on a site that uses the work queue, someone else holds this field right now) says nothing about the field's history: read the verdict from the other reasons alone, and name the holder and until when beside the item.
    - `warn` with only `recently_changed_other_kind`: open, with the reason shown.
    - `allow`: open.
    - A linking page that is waiting, dropped, or unchecked is left off the Create item's link list, with a note. The Create item itself stays open.
