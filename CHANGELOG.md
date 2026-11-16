@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-Runs carry an id, `weekly` checks the rank tracker against Search Console, and `next` stops on an empty plan.
+Runs carry an id, `weekly` checks the rank tracker against Search Console, `next` stops on an empty plan, and a new `profile` skill sets up the business profile for the user.
+
+- New skill `profile`: reads the stored business profile, finds the missing name, phone, locations, service area, services and hours on the site's own crawled pages (read with the session's web fetch, on the site's own domain only) and in a saved Google Business Profile check, and preloads a draft of `business_context.bio`, a `services` list, and the default `goal_local_keyword_visibility` goal (25-mile radius, centered on the primary location). Every value is shown as stored, found with its source, or missing, and conflicts are shown with both sources. It writes with `update_business_context` only after the user confirms, sends only the changed keys out of `bio`, `services` and `goals` (each whole, stored values kept), never `kpis` or `competitors`, and reads the profile back. An unattended run saves the draft to `.seo-genius/profile-draft.json` and never writes. No Data-for-SEO call. Tests: `tests/check/profile.test.mjs`; acceptance checklist `tests/skills/profile.md`.
+- `start` points to `/seo-genius:profile` when the business profile is missing facts. It still does not write the profile.
 
 - Standing rule 11: each skill run makes one id and sends it as `run_id` on every SEO Genius tool call that offers the field, so the server can group a run's calls. `weekly` and `content-plan` pass the same id to the ledger, so the plan push joins them. Each skill in a chained run makes its own, because the ledger refuses an id it has already recorded.
 - `weekly` reads Search Console through `gsc_query` for the tracked terms, and the ledger script writes any disagreement to a new section of `weekly/<date>.md` and to the snapshot as `page_flags`: Search Console's top page differs from the tracker's page, or the tracker has no position for a term searchers see in the top 20, on terms with at least 10 impressions. A flag is a question to check. The read is free and is not a live call under rule 10. When any call fails, the week is written without the check and says so.
