@@ -197,10 +197,10 @@ test("the report is saved through the ledger, and to the server only on a yes", 
 });
 
 test("the skill counts and lists elsewhere include citations", () => {
-  has(read("README.md"), "nineteen skills");
-  has(read("plugins/seo-genius/README.md"), "The thirteen skills added since 1.0.0");
+  has(read("README.md"), "twenty skills");
+  has(read("plugins/seo-genius/README.md"), "The fourteen skills added since 1.0.0");
   has(read("codex/AGENTS.md"), "`keyword_gap`, and `citation_check` spend the account's search-data quota");
   has(read("codex/README.md"), "`schedule`, `citations`) have not had a real Codex run yet");
-  has(read("scripts/check.mjs"), `"weekly", "citations",`);
-  has(read("scripts/check.mjs"), `"report", "weekly", "citations"];`);
+  has(read("scripts/check.mjs"), `"weekly", "citations", "profile",`);
+  has(read("scripts/check.mjs"), `"report", "weekly", "citations", "profile"];`);
 });
