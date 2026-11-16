@@ -92,6 +92,25 @@ test("no paid call: no Data-for-SEO tool and no citation_check", () => {
   assert.match(step(5), /Do not call `citation_check` here; it spends quota\./);
 });
 
+test("smoke follow-ups: derived values, clock time, weekend hours, city-level center, generic stored center, text fields", () => {
+  const draft = section("The draft");
+  assert.match(draft, /the country from a found state or region name \("Texas" gives `"US"`\)/);
+  assert.match(draft, /shown as `derived from <value> \(<URL>\)`/);
+  assert.match(draft, /Nothing else is derived/);
+  assert.match(draft, /`extracted_at` is the moment of the write, read from the clock just before the call/);
+  assert.match(draft, /never typed or rounded/);
+  assert.match(draft, /profile summary shows a `null` day as closed/);
+  assert.match(draft, /A city with no street is a city-level center: use it, label it "city level"/);
+  assert.match(draft, /A county or a state with no city is no center/);
+  assert.match(draft, /when its `radius_center` names no address .* offer to add the confirmed primary location's address to it\. Only that field changes, only on a yes/);
+  const four = step(4);
+  assert.match(four, /the `tagline`, a slogan the site shows as one/);
+  assert.match(four, /the `description`, the opening sentences of the about page .* as written, cut at a sentence end to 320 characters at most/);
+  assert.match(four, /the `industry`, the trade the site names for itself/);
+  assert.match(step(8), /`derived from <value> \(<URL>\)`/);
+  assert.match(section("Done when"), /`extracted_at` came from the clock at the write, not typed\./);
+});
+
 test("start points to profile for missing facts and still does not write the profile", () => {
   const start = read("plugins/seo-genius/skills/start/SKILL.md");
   assert.match(start, /`\/seo-genius:profile` finds them on the site/);
