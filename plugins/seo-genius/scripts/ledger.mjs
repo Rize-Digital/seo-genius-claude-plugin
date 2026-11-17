@@ -1971,6 +1971,24 @@ export function nodeTooOld(version = process.versions.node) {
   return !(major >= NODE_MIN_MAJOR);
 }
 
+/**
+ * Shown by the skill, word for word, when `.seo-genius/` is first set up inside a site
+ * repository that does not ignore it: the folder holds the site's research, and a
+ * public repository publishes whatever is committed to it.
+ */
+export const PUBLIC_REPO_WARNING =
+  "`.seo-genius/` was just set up inside this git repository, and the repository does not ignore it. It will hold this site's SEO research: keywords, rankings, competitors, plans and reports. Do not commit it to a public repository. If this repository is public, or may become public, add `.seo-genius/` to its `.gitignore` before your next commit and keep the files on this machine.";
+
+/**
+ * True when the site repository ignores its `.seo-genius/` folder, by any of git's rules
+ * (its .gitignore files, .git/info/exclude, the user's global excludes). False when git
+ * cannot answer, so the warning is shown rather than left out.
+ */
+function repoIgnoresFolder(gitRoot, env) {
+  const r = spawnSync(gitBin(env), ["-C", gitRoot, "check-ignore", "-q", "--", ".seo-genius/"], { encoding: "utf8" });
+  return !r.error && r.status === 0;
+}
+
 /** The folder's .gitignore keeps the lock, the transactions and the drafts out of its history. */
 function ensureGitignore(dir) {
   const p = insidePath(dir, ".gitignore");
@@ -2279,10 +2297,13 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     ...(recovered.length ? { recovered } : {}),
   };
   const setUp = () => {
+    // The folder's first set-up: the ledger's own .gitignore is not there yet.
+    const first = !existsSync(join(dir, ".gitignore"));
     gitReady = mode === "workspace" ? ensureWorkspaceGit(dir, env) : false;
     ensureGitignore(dir);
     mkdirSync(drafts_dir, { recursive: true });
     base.history = historyLabel(mode, gitReady);
+    if (first && mode === "repo" && !repoIgnoresFolder(located.git_root, env)) base.public_repo_warning = PUBLIC_REPO_WARNING;
   };
   if (cmd === "prepare") {
     for (const rel of [".gitignore", DRAFTS_DIR]) insidePath(dir, rel);
