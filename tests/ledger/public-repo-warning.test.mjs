@@ -101,5 +101,5 @@ test("skills: the shared folder bullet tells every skill that uses .seo-genius/ 
     if (md.includes(".seo-genius/") && !md.includes(bullet)) without.push(n);
   }
   assert.deepEqual(without, []);
-  assert.match(read("CHANGELOG.md").split("\n## ")[1], /`public_repo_warning`/);
+  assert.match(read("CHANGELOG.md").split("\n## ").find((s) => s.startsWith("1.7.0 (")) ?? "", /`public_repo_warning`/);
 });

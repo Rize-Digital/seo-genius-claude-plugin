@@ -47,10 +47,10 @@ test("rule 12: every skill's Standing rules section carries it", () => {
   assert.deepEqual(missing, []);
 });
 
-test("rule 12: the CHANGELOG notes it under Unreleased", () => {
-  const unreleased = read("CHANGELOG.md").split("\n## ")[1];
-  assert.ok(unreleased.startsWith("Unreleased"));
-  assert.match(unreleased, /Standing rule 12/);
+test("rule 12: the CHANGELOG notes it in the 1.7.0 notes", () => {
+  const notes = read("CHANGELOG.md").split("\n## ").find((s) => s.startsWith("1.7.0 ("));
+  assert.ok(notes, "a 1.7.0 section");
+  assert.match(notes, /Standing rule 12/);
 });
 
 // ---------------------------------------------------------------- codex/AGENTS.md

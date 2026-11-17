@@ -57,7 +57,8 @@ test("competitors acceptance file fails a place on the page given as the organic
   assert.match(section(acc, "Fail conditions"), /`target_rank` \(or a result's `rank`\) reported as the organic position\./);
 });
 
-test("CHANGELOG notes the competitors fix under Unreleased", () => {
-  const unreleased = read("CHANGELOG.md").split("\n## ")[1];
-  assert.match(unreleased, /`competitors` reports the organic position from the order of `results`/);
+test("CHANGELOG notes the competitors fix in the 1.7.0 notes", () => {
+  const notes = read("CHANGELOG.md").split("\n## ").find((s) => s.startsWith("1.7.0 ("));
+  assert.ok(notes, "a 1.7.0 section");
+  assert.match(notes, /`competitors` reports the organic position from the order of `results`/);
 });
