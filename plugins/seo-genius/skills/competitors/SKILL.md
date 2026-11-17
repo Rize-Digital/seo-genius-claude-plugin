@@ -43,7 +43,7 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 
 - Baseline: one line with the counts from step 4, the country `location_name` used, and a note that the baseline is country-level.
 - Competitors: a table, Domain | Shared keywords (from the tool) | Note, with stored competitors added and labeled.
-- Named terms: a table, Keyword | Organic position | Ranking URL | Top three on the page | Location | Checked at.
+- Named terms: a table, Keyword | Organic position | Ranking URL | Top three on the page | Location | Checked at. A term whose search failed shows "search failed" in the Organic position column, with no URL and no top three.
 - Closing line per rule 9.
 
 ## If something is missing
@@ -51,7 +51,8 @@ The SEO Genius MCP server, connected and authorized. If `get_my_tenant` is not a
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above.
 - `ranked_keywords` returns nothing at country scope: say the domain has no ranking terms recorded. Do not retry with a city or state; those return nothing on this tool.
-- The site's domain is not in `results`: report "not in the organic results read" with the depth used, never a guessed number.
+- `serp_rank_check` comes back with an empty result set and no error: that is a failed search, not a sign that nothing ranks. Name the term as a search that failed, give no position for it, and do not send it again in the same run: the same empty answer can come back for several minutes, and each try counts against the quota.
+- `results` holds entries but none on the site's domain: report "not in the organic results read" with the depth used, never a guessed number.
 - `upstream_unavailable` on any live call: report it, skip that term, keep the rest.
 - Rate limited (429): stop, say so, suggest retrying in a minute.
 

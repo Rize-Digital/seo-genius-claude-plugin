@@ -5,7 +5,7 @@
 // Run: node --test tests/ledger/public-repo-warning.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -102,4 +102,69 @@ test("skills: the shared folder bullet tells every skill that uses .seo-genius/ 
   }
   assert.deepEqual(without, []);
   assert.match(read("CHANGELOG.md").split("\n## ").find((s) => s.startsWith("1.7.0 (")) ?? "", /`public_repo_warning`/);
+});
+
+// ---------------------------------------------------------------- edges (Codex review of #35)
+
+test("nested repository: the folder goes at the innermost repository's root, and only that repository's ignore rules count", () => {
+  for (const [outerIgnores, innerIgnores, warns] of [[true, false, true], [false, true, false]]) {
+    const s = scratch();
+    try {
+      const outer = join(s.dir, "outer");
+      const inner = join(outer, "packages", "site");
+      mkdirSync(join(inner, "src"), { recursive: true });
+      assert.equal(spawnSync("git", ["init", "-q", outer]).status, 0);
+      assert.equal(spawnSync("git", ["init", "-q", inner]).status, 0);
+      if (outerIgnores) writeFileSync(join(outer, ".gitignore"), ".seo-genius/\npackages/\n");
+      if (innerIgnores) writeFileSync(join(inner, ".gitignore"), ".seo-genius/\n");
+      const r = cli({ ...s, dir: join(inner, "src") }, "prepare");
+      assert.equal(r.code, 0, JSON.stringify(r.out));
+      assert.equal(r.out.mode, "repo");
+      assert.equal(r.out.dir, join(inner, ".seo-genius"));
+      assert.equal(existsSync(join(outer, ".seo-genius")), false, "nothing at the outer root");
+      assert.equal(typeof r.out.public_repo_warning === "string", warns, `outer ignores ${outerIgnores}, inner ignores ${innerIgnores}: ${JSON.stringify(r.out)}`);
+    } finally {
+      s.done();
+    }
+  }
+});
+
+test("an ignore rule added after the first set-up: later runs stay quiet, and a second set-up warns only while the repository does not ignore the folder", () => {
+  const s = repoScratch();
+  try {
+    assert.equal(typeof cli(s, "prepare").out.public_repo_warning, "string");
+    writeFileSync(join(s.dir, ".gitignore"), ".seo-genius/\n");
+    assert.equal(cli(s, "prepare").out.public_repo_warning, undefined);
+    // The ledger's own .gitignore gone: the next command sets the folder up again.
+    rmSync(join(s.dir, ".seo-genius", ".gitignore"));
+    const again = cli(s, "prepare");
+    assert.equal(again.code, 0, JSON.stringify(again.out));
+    assert.ok(existsSync(join(s.dir, ".seo-genius", ".gitignore")));
+    assert.equal(again.out.public_repo_warning, undefined, "set up again, and the repository now ignores it");
+    rmSync(join(s.dir, ".gitignore"));
+    rmSync(join(s.dir, ".seo-genius", ".gitignore"));
+    assert.equal(typeof cli(s, "prepare").out.public_repo_warning, "string", "set up again, and the rule is gone");
+  } finally {
+    s.done();
+  }
+});
+
+test("a Windows-style working folder (backslashes, the other drive-letter case) finds the same repository and its ignore rules", { skip: process.platform !== "win32" && "Windows paths only" }, () => {
+  const flip = (p) => p.replace(/\//g, "\\").replace(/^([a-zA-Z]):/, (_, d) => `${d === d.toUpperCase() ? d.toLowerCase() : d.toUpperCase()}:`);
+  for (const ignore of [undefined, ".seo-genius/"]) {
+    const s = repoScratch({ ignore });
+    try {
+      mkdirSync(join(s.dir, "src", "pages"), { recursive: true });
+      const first = cli({ ...s, dir: flip(join(s.dir, "src", "pages")) }, "prepare");
+      assert.equal(first.code, 0, JSON.stringify(first.out));
+      assert.equal(first.out.mode, "repo");
+      assert.ok(existsSync(join(s.dir, ".seo-genius", ".gitignore")), "the folder is at the repository root");
+      assert.equal(typeof first.out.public_repo_warning === "string", !ignore, `ignore ${ignore}: ${JSON.stringify(first.out)}`);
+      const second = cli({ ...s, dir: s.dir.split("\\").join("/") }, "prepare");
+      assert.equal(second.code, 0, JSON.stringify(second.out));
+      assert.equal(second.out.public_repo_warning, undefined, "the same folder, already set up");
+    } finally {
+      s.done();
+    }
+  }
 });
