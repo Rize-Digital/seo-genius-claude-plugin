@@ -1,0 +1,9 @@
+{
+  "markdown": "# Site briefing: example.net\n\nAcme Fencing, Springfield, IL. Last crawl 2026-11-10.\n\n## Recent changes\n\nNo change was logged in the last 30 days.\n",
+  "bytes": 142,
+  "sections": {
+    "site": { "domain": "example.net", "as_of": "2026-11-10" }
+  },
+  "sections_dropped": ["health", "recent_changes", "frozen", "status_board", "performance", "opportunities", "what_worked", "business_context"],
+  "coach_history_not_readable": []
+}

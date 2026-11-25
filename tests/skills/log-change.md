@@ -6,6 +6,8 @@
 3. `/seo-genius:log-change I added alt text to the hero image on the homepage` (no change kind covers alt text).
 4. Prompt 1 a second time on the same page with a different new title, while the first is still frozen.
 5. `/seo-genius:log-change I am about to change the homepage title to "<new>"` (the edit has not shipped).
+6. Prompt 1 on a site that uses the work queue, while Coach holds the homepage title.
+7. Prompt 1 on a site that uses the work queue, with the homepage title queued and nobody holding it.
 
 ## Expected tool sequence
 get_my_tenant -> list_sites -> search_pages (the site's name, match_count 50; take the site-root URL) -> [no site-root row: get_business_context, then search_pages once more with the tagline, match_count 50] -> get_page -> list_crawls -> check_change (page_id, change_kind, proposed_value) -> [confirm with user] -> log_page_change -> [optional, only on user confirmation] mark_issue_fixed
@@ -25,6 +27,9 @@ get_my_tenant -> list_sites -> search_pages (the site's name, match_count 50; ta
 - [ ] The reply distinguishes "logged" from "measured" in plain words.
 - [ ] On can_write false: no write, the change is returned as copyable text.
 - [ ] On a write error: the reply says it did not save and why.
+- [ ] On prompt 6: log_page_change is not called and the user is not asked to confirm; the reply names Coach and the lease end and says the change has to be reconciled first.
+- [ ] On prompt 7: claim_item runs after the yes, log_page_change carries claim_token, and release_item runs at the end.
+- [ ] On a site without a work queue: no claim_item or release_item call and no claim_token, as before.
 
 ## Fail conditions
 - change_kind missing, or a value outside the server's list.

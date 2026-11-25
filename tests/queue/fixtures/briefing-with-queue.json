@@ -1,0 +1,95 @@
+{
+  "markdown": "# Site briefing: example.net\n\nAcme Fencing, Springfield, IL. Last crawl 2026-11-10.\n\n## Recent changes\n\nNo change was logged in the last 30 days.\n",
+  "bytes": 142,
+  "sections": {
+    "site": { "domain": "example.net", "as_of": "2026-11-10" }
+  },
+  "sections_dropped": ["health", "recent_changes", "frozen", "status_board", "performance", "opportunities", "what_worked", "business_context"],
+  "coach_history_not_readable": [],
+  "queue": {
+    "as_of": "2026-11-14T09:00:00.000Z",
+    "open_count": 6,
+    "by_status": { "queued": 3, "claimed": 2, "review": 1, "applying": 0, "checking": 0, "awaiting_page_check": 0 },
+    "items": [
+      {
+        "item_id": "00000000-0000-4000-8000-000000000101",
+        "status": "claimed",
+        "source": "issue",
+        "title": "Title too long on the vinyl fencing page",
+        "page_url": "https://example.net/services/vinyl-fencing",
+        "field": "title",
+        "held_by": "coach",
+        "lease_expires_at": "2026-11-14T09:30:00.000Z",
+        "has_reviewed_draft": false,
+        "created_by_kind": "coach",
+        "created_by": null
+      },
+      {
+        "item_id": "00000000-0000-4000-8000-000000000102",
+        "status": "review",
+        "source": "ai_idea",
+        "title": "Meta description for the wood fencing page",
+        "page_url": "https://example.net/services/wood-fencing",
+        "field": "meta_description",
+        "held_by": "pull_request",
+        "lease_expires_at": null,
+        "has_reviewed_draft": false,
+        "created_by_kind": "claude_code",
+        "created_by": null
+      },
+      {
+        "item_id": "00000000-0000-4000-8000-000000000106",
+        "status": "claimed",
+        "source": "ai_idea",
+        "title": "Gate installation title",
+        "page_url": "https://example.net/services/gates",
+        "field": "title",
+        "held_by": null,
+        "lease_expires_at": null,
+        "has_reviewed_draft": false,
+        "created_by_kind": "claude_code",
+        "created_by": null
+      },
+      {
+        "item_id": "00000000-0000-4000-8000-000000000103",
+        "status": "queued",
+        "source": "ai_idea",
+        "title": "Homepage H1 names the service and the city",
+        "page_url": "https://example.net/",
+        "field": "h1",
+        "held_by": null,
+        "lease_expires_at": null,
+        "has_reviewed_draft": false,
+        "created_by_kind": "claude_code",
+        "created_by": null
+      },
+      {
+        "item_id": "00000000-0000-4000-8000-000000000104",
+        "status": "queued",
+        "source": "issue",
+        "title": "Thin content on the chain link page",
+        "page_url": "https://www.example.net/services/chain-link-fencing/",
+        "field": "content",
+        "held_by": null,
+        "lease_expires_at": null,
+        "has_reviewed_draft": false,
+        "created_by_kind": "unknown",
+        "created_by": null
+      },
+      {
+        "item_id": "00000000-0000-4000-8000-000000000105",
+        "status": "queued",
+        "source": "issue",
+        "title": "Missing title on the contact page",
+        "page_url": "https://example.net/contact",
+        "field": "title",
+        "held_by": null,
+        "lease_expires_at": null,
+        "has_reviewed_draft": false,
+        "created_by_kind": "unknown",
+        "created_by": null
+      }
+    ],
+    "truncated": false
+  }
+}

@@ -40,6 +40,7 @@ For "is it safe to change X on page Y" with no request for the full briefing, do
    - each section named in `sections_dropped`, as left out to fit the size limit;
    - each section whose `empty_reason` is set. Report the reason; never present a section that could not be read as a clean result. `no_scored_changes_yet` means no past change has finished measurement, so nothing is proven yet. `performance_not_available` means search performance data is not connected or not synced. `no_recent_changes` means nothing was logged in the window the section names; an edit nobody logged does not appear. `no_crawl_yet` means the site has not been crawled. `no_business_context` means no business profile is stored. `coach_history_not_readable` means part of the change history could not be read. `nothing_frozen`, `no_pages_need_attention`, `no_opportunities_found`, and `no_history` mean what they say;
    - if `coach_history_not_readable` lists anything, say that Recent changes, Frozen, and the Status board may be incomplete. Missing is not the same as empty.
+   - when the answer has `queue` (a site that uses the SEO Genius work queue), a short "Work queue" part: `open_count` by stage (`by_status`), then each item in flight with its page, field, stage, who holds it (`held_by`: Coach, another agent, a person in the dashboard, an open pull request, a change waiting for its live-page check, or a worker that stopped mid-way), and until when (`lease_expires_at`). Say when `truncated` is true that the list is cut. No `queue` in the answer: leave this part out. This skill claims nothing.
 4. Next moves, three at most. Take each from a line of the briefing and name that line. Order: Status board rows marked REVISE, CREATE, or ESCALATE, then Opportunities, then Health.
    - Check every candidate against `change_index` from the same response as well as the markdown. The Frozen section shows a capped number of lines and can be left out for size; `change_index` holds every one. Its `page_url` may be a full URL or a path, while the markdown shows paths, so match on the path.
    - Never propose a field whose `change_index.entries` row (same `page_url` and `change_kind`) has `frozen_until` in the future.
@@ -55,13 +56,14 @@ For "is it safe to change X on page Y" with no request for the full briefing, do
 6. Report the verdict. This skill only checks. It does not edit a page. When the user asked if an edit is safe, the answer is the whole job. When the check ran ahead of an edit the user asked for, the verdict decides what happens to that edit:
    - `allow`: say it is clear. A requested edit can go on.
    - `warn`: repeat each reason's `message`. `pending_measurement` means an earlier change to this field is still being measured, and editing now throws that measurement away. `recently_changed_other_kind` means another field on the page changed recently, so neither change can be measured cleanly. A requested edit goes on only if the user accepts that.
+   - `claimed_by_other`, in a `block`: another worker holds this field in the work queue (`queue_lock` names who, and until when). The edit waits for them, whatever the other reasons say.
    - `block`: say the edit should not be made now. Repeat each reason's `message`, give `unfreezes_on` when it is set (a `would_revert` block has no date, and when both reasons are present the edit is still a revert after the unfreeze date), and say what `page_verdict` recommends for the page instead. A requested edit stops here. It goes on only if the user, after hearing the reasons, gives an explicit yes.
 7. Checking records nothing. After an edit ships, log it with `/seo-genius:log-change` so the next briefing knows about it.
 
 ## Output
 
 - One line: site, domain, `can_write`.
-- The briefing markdown as returned, under its "Stored, as of <date>" stamp, then the notes on dropped and empty sections.
+- The briefing markdown as returned, under its "Stored, as of <date>" stamp, then the notes on dropped and empty sections, then the Work queue part when the briefing has a queue.
 - "Next moves": three at most, each with the page, the field, and the briefing line it came from, under the briefing's "Stored, as of <date>" stamp when a move shows a number.
 - For a single-edit check: the verdict first (allow, warn, or block), then the reasons, the date it changes, and the page verdict, stamped "Stored, as of <date>" with the date of the newest change it rests on, or the day of the check when it names none.
 - Closing line per rules 9 and 10: stored reads counted, live calls 0.
