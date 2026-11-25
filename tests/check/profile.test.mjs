@@ -76,6 +76,19 @@ test("the write waits for a yes, needs can_write, sends only changed keys, and n
   assert.match(step(10), /`get_business_context` again, and compare each key sent with what came back/);
 });
 
+test("before the final yes the profile is read again, and another writer's changes are kept in the draft", () => {
+  const eight = step(8);
+  const has = (text) => assert.ok(eight.includes(text), `step 8 is missing: ${text}`);
+  has("When they say it is right, and before the write, call `get_business_context` again and compare `bio`, `services`, and `goals` with what step 2 read.");
+  has("A value the other writer added or changed where the user changed nothing is kept as stored");
+  has("only a value both the other writer and the user changed, to different values, is asked about.");
+  has("so a key only the other writer changed is not sent.");
+  has("Show the merged draft and ask for the yes again.");
+  has("A small race remains: a write between this re-read and the call in step 9 is still replaced");
+  assert.ok(eight.indexOf("call `get_business_context` again") < eight.indexOf("ask for the yes again"), "the re-read comes before the yes");
+  assert.match(section("Done when"), /read again right before the final yes, and any change made since step 2 was shown and kept in the draft/);
+});
+
 test("an unattended run saves the draft and never writes the profile", () => {
   const u = section("Unattended profile runs");
   assert.match(u, /never writes the business profile\. No setting in the `unattended` block allows it/);
