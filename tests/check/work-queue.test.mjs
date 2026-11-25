@@ -41,7 +41,7 @@ test("next reads the queue from the briefing and picks through the script, in pl
 
 test("next with no queue: no claim call, no token, every step as before", () => {
   const wq = section(skill("next"), "Work queue");
-  has(wq, "`pick` answers `queue: \"off\"`. Then call no `claim_item`, `release_item`, or `attach_pull_request`, send no `claim_token`, and run every step as before.");
+  has(wq, "`pick` answers `queue: \"off\"`. Then call no `claim_item` or `release_item`, send no `claim_token`, and run every step as before.");
   has(section(skill("next"), "Done when"), "With no queue in the briefing, no claim call was made and every step ran as before.");
 });
 
@@ -74,14 +74,14 @@ test("a lost lease stops next before any site file and any pull request", () => 
   assert.ok(seven.indexOf("Anything but `route: \"go\"` with `lease: \"yours\"` stops the delivery") < seven.indexOf("2. Fetch, and create a branch"));
 });
 
-test("next hands the field to its pull request, and without the tool gives it back and says the field is not held", () => {
-  const seven = step(skill("next"), 7);
-  has(seven, "`attach_pull_request` with `item_id`, the token as `claim_token`, and the pull request's URL as `pr_url`");
-  has(seven, "a server that does not offer the tool is `{ \"answer\": { \"tool_missing\": true } }`");
-  has(seven, "`held_by_pr`: the pull request holds the field in the queue until it is merged or closed, so release nothing. `release`: call `release_item` now.");
-  has(seven, "the field is not held while the pull request is open.");
-  // Attached after the pull request opens, never before.
-  assert.ok(seven.indexOf("open the pull request. Open it as a draft") < seven.indexOf("`attach_pull_request`"));
+test("next gives the item back once its pull request is open, and says the field is not held", () => {
+  const md = skill("next");
+  const seven = step(md, 7);
+  has(seven, "7. With a claim, give the item back now with `release_item`.");
+  has(seven, "say in the reply that the field is not held in the work queue while the pull request is open");
+  has(section(md, "Work queue"), "opens its pull request, or the run stops), call `release_item` with `item_id` and the token before anything else.");
+  // Given back after the pull request opens, never before.
+  assert.ok(seven.indexOf("open the pull request. Open it as a draft") < seven.indexOf("give the item back now with `release_item`"));
 });
 
 test("log-change on a held field records nothing and names the holder, for every refusal the script holds on", () => {
@@ -106,9 +106,9 @@ test("report records a merged change under the queue's rules, through the script
   const md = skill("report");
   const wq = section(md, "Work queue");
   has(wq, `${SCRIPT.slice(0, -1)}\``);
-  has(wq, "run `queue.mjs match --input -` with `{ \"queue\": <it>, \"page_url\": <the page's URL>, \"change_kind\": <the kind>, \"pull_request_url\": <the merged pull request's URL> }`");
+  has(wq, "run `queue.mjs match --input -` with `{ \"queue\": <it>, \"page_url\": <the page's URL>, \"change_kind\": <the kind> }`");
   has(wq, "\"use\": \"record\"");
-  has(wq, "`hold`: someone else holds the field. Record nothing.");
+  has(wq, "`hold`: someone else holds the field (an open pull request included: `next` gives its claim back when it opens one, so a pull request that holds a field is never this pipeline's). Record nothing.");
   has(wq, "With null, make no claim call, send no `claim_token`, and record as before.");
   has(step(md, 2), "`change_index.pages`, and `queue` when the answer has one (Work queue)");
 });

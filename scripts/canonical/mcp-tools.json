@@ -1,9 +1,10 @@
 {
   "source": "The names in the tools/list answer of the SEO Genius MCP server at https://api.seogenius.ai/api/mcp/v1. scripts/check.mjs fails on a snake_case identifier in the docs that is neither here nor on non-tool-identifiers.json. When the server adds, renames or removes a tool, replace this list with the names its tools/list answers and update captured_on.",
-  "captured_on": "2026-11-17",
+  "captured_on": "2026-11-26",
   "tools": [
     "check_change",
     "citation_check",
+    "claim_item",
     "competitor_domains",
     "create_issue",
     "fetch",
@@ -35,6 +36,7 @@
     "mark_issue_fixed",
     "ranked_keywords",
     "reject_issue",
+    "release_item",
     "save_plan_items",
     "save_research",
     "search",

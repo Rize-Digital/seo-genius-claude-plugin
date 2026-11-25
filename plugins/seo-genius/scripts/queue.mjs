@@ -1,16 +1,14 @@
 #!/usr/bin/env node
 // The SEO Genius work queue, as the plugin's skills use it: which plan item a run
 // may work on, what a claim answer means, how to read check_change while a claim
-// is held, and what to do after a pull request opens. Node 18+, no dependencies,
-// no network calls, and it writes no file: the skill makes the MCP calls and
-// passes their answers in.
+// is held. Node 18+, no dependencies, no network calls, and it writes no file:
+// the skill makes the MCP calls and passes their answers in.
 //
 //   node queue.mjs pick  --site <domain> --input -   { queue, can_write }                    plan items in plan order, each with its work (next)
 //   node queue.mjs board --site <domain> --input -   { queue }                               each plan item beside its queue item (weekly)
-//   node queue.mjs match --input -                   { queue, page_url, change_kind, pull_request_url? }   one page field before a record (report)
+//   node queue.mjs match --input -                   { queue, page_url, change_kind }        one page field before a record (report)
 //   node queue.mjs claim --input -                   { answer, use, streak }                 a claim_item answer (use: work or record)
 //   node queue.mjs check --input -                   { answer, holding, role, streak }       a check_change answer (next)
-//   node queue.mjs pr    --input -                   { answer }                              an attach_pull_request answer (next)
 //
 // `pick` and `board` read the plan through the ledger (`ledger.mjs show`, the same
 // order plan.md lists: This month, then Later) and take the ledger's --cwd, --home
@@ -216,9 +214,11 @@ export function boardRows({ queue, planItems }) {
 
 /**
  * Before a change is recorded on one page field: log as before, claim first, or
- * hold. `pull_request_url` is the merged pull request a record comes from (report).
+ * hold. A field an open pull request holds is held like any other: the server's
+ * claim check refuses a record on it (claimed_by_other), with or without a
+ * source_ref naming that pull request.
  */
-export function matchRecord({ queue, page_url, change_kind, pull_request_url }) {
+export function matchRecord({ queue, page_url, change_kind }) {
   const q = checkQueue(queue);
   if (!q) return { queue: "off", action: "log" };
   if (!page_url || !change_kind) throw new QueueError("bad_input", "match needs page_url and change_kind");
@@ -227,14 +227,6 @@ export function matchRecord({ queue, page_url, change_kind, pull_request_url }) 
     return { queue: "on", action: "log", note: q.truncated ? "No queue item is listed for this page field (the briefing lists part of the queue); the server's own check still refuses a field someone else holds." : "No queue item on this page field." };
   }
   if (isFree(m)) return { queue: "on", action: "claim", item_id: m.item_id };
-  if (m.held_by === "pull_request" && pull_request_url) {
-    return {
-      queue: "on",
-      action: "log_as_pr",
-      ...heldEntry(m),
-      note: "A pull request holds this field. Record it with source_ref set to the merged pull request's URL and no token: the server takes it only when that pull request is the one holding the field, and refuses it (claimed_by_other) otherwise.",
-    };
-  }
   return { queue: "on", action: "hold", ...heldEntry(m) };
 }
 
@@ -381,32 +373,6 @@ export function readCheck({ answer, holding = false, role = "item", streak = 0, 
   return counted("pass", { why: `verdict not understood (${answer.verdict ?? "none"}: ${codes.join(", ") || "no reasons"})` });
 }
 
-/**
- * An attach_pull_request answer, after the run opened a pull request for the item
- * it holds. Attached: the pull request holds the field until it is merged or
- * closed, and nothing is released. Anything else falls back to giving the item back
- * (release_item), and the run says the field is not held while the pull request is
- * open. The answer is the tool's JSON, or { error } when the call failed, or
- * { tool_missing: true } when the server does not offer the tool.
- */
-export function readAttach({ answer }) {
-  if (!answer || typeof answer !== "object") throw new QueueError("bad_input", "pr needs the attach_pull_request answer as answer");
-  const notHeld = "The field is not held while the pull request is open: another worker (Coach, a person) could change it before the merge.";
-  if (answer.tool_missing === true) {
-    return { outcome: "release", release: true, say: `This server cannot hold a field for a pull request (attach_pull_request is not in the tool list), so the item goes back to the queue now. ${notHeld}` };
-  }
-  if (typeof answer.error === "string") {
-    return { outcome: "release", release: true, say: `The pull request could not be attached to the item (${answer.error}), so the item goes back to the queue now. ${notHeld}` };
-  }
-  if (answer.attached === true) {
-    return { outcome: "held_by_pr", release: false, say: "The pull request now holds this field in the work queue until it is merged or closed." };
-  }
-  if (answer.reason === "lost") {
-    return { outcome: "lost", release: false, say: `The claim ran out before the pull request could hold the field, so there is nothing to give back. ${notHeld}` };
-  }
-  return { outcome: "release", release: true, say: `The server did not attach the pull request (${answer.reason ?? "no reason given"}), so the item goes back to the queue now. ${notHeld}` };
-}
-
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
@@ -449,8 +415,6 @@ export function runQueue(cmd, input, opts = {}) {
       return readClaim(input);
     case "check":
       return readCheck(input);
-    case "pr":
-      return readAttach(input);
     default:
       throw new QueueError("bad_command", `unknown command ${cmd}`);
   }

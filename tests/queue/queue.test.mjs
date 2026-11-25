@@ -1,7 +1,7 @@
 // Tests for plugins/seo-genius/scripts/queue.mjs: the SEO Genius work queue as next,
 // weekly, log-change and report use it (claim before drafting, the token on every call on
-// the claimed field, a refusal is a skip, a lost lease stops, give the item back or hand it
-// to the pull request), and the end of a measurement window read from evidence (B6).
+// the claimed field, a refusal is a skip, a lost lease stops, give the item back, after a
+// pull request too), and the end of a measurement window read from evidence (B6).
 // The server side: seo-genius-workflows src/app/api/mcp/v1/tools/claim-item.ts,
 // release-item.ts, check-change.ts (queue_lock, claimed_by_other), get-site-briefing.ts
 // (queue) and src/lib/sync-core/queue-summary.ts. Every value here is a placeholder.
@@ -16,7 +16,6 @@ import { scratch, cli, site, U, snapshot, writeDraft } from "../ledger/helpers.m
 import {
   readClaim,
   readCheck,
-  readAttach,
   matchRecord,
   maturesOn,
   refuseToken,
@@ -281,11 +280,15 @@ test("a record on a held field logs nothing and says who holds it", () => {
   assert.equal(matchRecord({ queue: WITH.queue, page_url: "https://example.net/about", change_kind: "schema" }).action, "log");
 });
 
-test("report: a field held by a pull request is recorded as that pull request's own change, never with a token", () => {
-  const pr = "https://github.com/example-org/example-site/pull/7";
+test("report: a field held by a pull request is held like any other, so nothing is recorded on it", () => {
   const page = "https://example.net/services/wood-fencing";
-  assert.equal(matchRecord({ queue: WITH.queue, page_url: page, change_kind: "meta_description", pull_request_url: pr }).action, "log_as_pr");
-  assert.equal(matchRecord({ queue: WITH.queue, page_url: page, change_kind: "meta_description" }).action, "hold", "log-change has no pull request: it holds");
+  const m = matchRecord({ queue: WITH.queue, page_url: page, change_kind: "meta_description" });
+  assert.deepEqual([m.action, m.held_by], ["hold", "pull_request"]);
+  assert.match(m.say, /held by an open pull request/);
+  // The server's claim check refuses a record on it whatever source_ref says, so a merged
+  // pull request's URL in the input changes nothing.
+  const pr = "https://github.com/example-org/example-site/pull/7";
+  assert.equal(matchRecord({ queue: WITH.queue, page_url: page, change_kind: "meta_description", pull_request_url: pr }).action, "hold");
 });
 
 /** A server that holds one claim and answers check_change and log_page_change by the token sent. */
@@ -326,7 +329,7 @@ function fakeServer(claimed = { page: "https://example.net/", field: "h1", item:
 }
 
 /** next with a claim: steps 5 to 7, as the skill says. Returns what it did. */
-function nextWithClaim(server, { sendToken = true, expireBeforePr = false, attach = { tool_missing: true } } = {}) {
+function nextWithClaim(server, { sendToken = true, expireBeforePr = false } = {}) {
   const done = [];
   const c = server.claim(ITEM(103));
   const { claim_token: token } = c;
@@ -346,10 +349,10 @@ function nextWithClaim(server, { sendToken = true, expireBeforePr = false, attac
     return { done, stoppedAt: "7.1", route: gate.route, lease: gate.lease };
   }
   done.push("write site file", "open pull request");
-  const a = readAttach({ answer: attach });
-  if (a.release) server.release({ item_id: ITEM(103), claim_token: token });
-  done.push(a.outcome);
-  return { done, say: a.say };
+  // SEO Genius cannot hold a field for this pull request: the item goes back now.
+  const back = server.release({ item_id: ITEM(103), claim_token: token });
+  done.push(back.released ? "release" : "lost");
+  return { done };
 }
 
 test("the token rides on every check_change for the claimed field, and a call without it stops the run", () => {
@@ -384,7 +387,7 @@ test("a lost lease stops before any site file and before the pull request", () =
 
 test("the token rides on log_page_change for the claimed field: claim, record with it, give it back", () => {
   const server = fakeServer();
-  const m = matchRecord({ queue: WITH.queue, page_url: "https://example.net/", change_kind: "h1", pull_request_url: "https://github.com/example-org/example-site/pull/8" });
+  const m = matchRecord({ queue: WITH.queue, page_url: "https://example.net/", change_kind: "h1" });
   assert.equal(m.action, "claim");
   const { claim_token: token, ...answer } = server.claim(m.item_id);
   const c = readClaim({ answer, use: "record" });
@@ -445,27 +448,21 @@ test("B6: the end of a measurement window comes from evidence.matures_on, whatev
 
 // ---------------------------------------------------------------- the pull request
 
-test("attach_pull_request: the pull request holds the field; without the tool the item is given back and the run says so", () => {
-  const held = readAttach({ answer: { attached: true, item_id: ITEM(103), status: "review" } });
-  assert.deepEqual([held.outcome, held.release], ["held_by_pr", false]);
-  for (const a of [{ tool_missing: true }, { error: "Tool attach_pull_request not found" }, { attached: false, reason: "wrong_stage", status: "applying" }, { attached: false, reason: "bad_pr_url" }]) {
-    const r = readAttach({ answer: a });
-    assert.deepEqual([r.outcome, r.release], ["release", true], JSON.stringify(a));
-    assert.match(r.say, /the field is not held while the pull request is open/i, JSON.stringify(a));
-  }
-  const lost = readAttach({ answer: { attached: false, reason: "lost" } });
-  assert.deepEqual([lost.outcome, lost.release], ["lost", false]);
-  assert.match(lost.say, /not held while the pull request is open/);
-
-  // The fallback in a whole run: the pull request opens, then the item goes back to the queue.
+test("after its pull request opens, next gives the item back: the server cannot hold a field for it", () => {
   const server = fakeServer();
-  const r = nextWithClaim(server, { attach: { tool_missing: true } });
+  const r = nextWithClaim(server);
   assert.deepEqual(r.done, ["write site file", "open pull request", "release"]);
-  assert.match(r.say, /attach_pull_request is not in the tool list/);
-  assert.deepEqual(server.calls.at(-1)[0], "release_item");
-  const attached = fakeServer();
-  assert.deepEqual(nextWithClaim(attached, { attach: { attached: true } }).done, ["write site file", "open pull request", "held_by_pr"]);
-  assert.equal(attached.calls.some(([n]) => n === "release_item"), false, "the pull request is the lock: nothing given back");
+  assert.equal(server.calls.at(-1)[0], "release_item");
+  assert.equal(server.calls.filter(([n]) => n === "release_item").length, 1, "given back once");
+  // A lease that ran out after the last check: nothing to give back, and the run says so.
+  const late = fakeServer();
+  const orig = late.release;
+  late.release = (x) => (late.expire(), orig(x));
+  assert.deepEqual(nextWithClaim(late).done, ["write site file", "open pull request", "lost"]);
+  // The script has no command for a pull request any more.
+  const res = spawnSync(process.execPath, [QUEUE, "pr", "--input", "-"], { input: "{}", encoding: "utf8" });
+  assert.equal(res.status, 2);
+  assert.equal(JSON.parse(res.stdout).error, "bad_command");
 });
 
 // ---------------------------------------------------------------- no token at rest
@@ -499,7 +496,6 @@ test("no claim token at rest: a whole run leaves no token in any file, and save 
     const check = ok(q(null, "check", { answer: server.check({ page_url: "https://example.net/", change_kind: "h1", claim_token: token }), holding: true }));
     outputs.push(JSON.stringify(check));
     assert.equal(check.route, "go");
-    outputs.push(JSON.stringify(ok(q(null, "pr", { answer: { tool_missing: true } }))));
     for (const o of outputs) {
       assert.ok(!o.includes(TOKEN), "no script output holds the token");
       assert.ok(!TOKEN_NEAR_UUID.test(o));

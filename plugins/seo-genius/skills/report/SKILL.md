@@ -59,11 +59,10 @@ In an attended session none of this applies. Ask as the procedure says.
 On a site that uses the SEO Genius work queue, Coach, agents, and people each take one page field at a time, and a merged change is recorded under the claim of whoever holds its field. The rules are decided by `node "${CLAUDE_PLUGIN_ROOT}/scripts/queue.mjs"`: each command reads one JSON object on standard input (`--input -`) and prints one. Pipe it in; never stage it in a file.
 
 - The queue is the briefing's `queue` (step 2), or null when the answer has none (a site that does not use the queue, or an older server), or the briefing could not be read. With null, make no claim call, send no `claim_token`, and record as before.
-- Just before each `log_page_change` of step 3, run `queue.mjs match --input -` with `{ "queue": <it>, "page_url": <the page's URL>, "change_kind": <the kind>, "pull_request_url": <the merged pull request's URL> }`, and follow its `action`:
+- Just before each `log_page_change` of step 3, run `queue.mjs match --input -` with `{ "queue": <it>, "page_url": <the page's URL>, "change_kind": <the kind> }`, and follow its `action`:
   - `log`: record as before, with no token. The server's own check still refuses a field someone else holds.
   - `claim`: `claim_item` with its `item_id`. Pass the answer, without `claim_token`, to `queue.mjs claim --input -` as `{ "answer": <the answer>, "use": "record" }` (for a failed call the answer is `{ "error": "<its message>" }`, for a missing tool `{ "tool_missing": true }`). `claimed`: record with the token as `claim_token`, then give the item back with `release_item`. `log`: record with no token. `hold`: record nothing.
-  - `log_as_pr`: a pull request holds the field, most likely this pipeline's own, handed to it when `next` opened it. Record with no token and `source_ref` set to the merged pull request's URL, as step 3 does anyway. The server takes it only when that pull request is the one holding the field.
-  - `hold`: someone else holds the field. Record nothing.
+  - `hold`: someone else holds the field (an open pull request included: `next` gives its claim back when it opens one, so a pull request that holds a field is never this pipeline's). Record nothing.
 - A change not recorded for these reasons, or one `log_page_change` refused with `claimed_by_other`, goes under "Needs a decision" with who holds the field and until when (the `say`, or the refusal's message), to be reconciled with the holder.
 - The claim token lives only in this run. Never write it to the report or any file, never put it in `reason` or `source_ref`, and never show it in the reply.
 
