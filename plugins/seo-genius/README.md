@@ -6,9 +6,9 @@ SEO audit, keyword research, rankings, competitor analysis, and quick wins for y
 
 - An SEO Genius account on Pro or above. Connecting an LLM uses the `mcp` scope, which the Free plan does not include.
 - Claude Code with the `/plugin` command.
-- Context cost: about 642 tokens added to every session for the six skill descriptions in 1.0.0, plus roughly 1.1k to 1.4k tokens when a skill runs (measured with `claude plugin details` on 1.0.0). The thirteen skills added since 1.0.0 add thirteen more descriptions and have not been measured yet.
+- Context cost: about 642 tokens added to every session for the six skill descriptions in 1.0.0, plus roughly 1.1k to 1.4k tokens when a skill runs (measured with `claude plugin details` on 1.0.0). The fourteen skills added since 1.0.0 add fourteen more descriptions and have not been measured yet.
 - For the research pipeline: a folder Claude can write to, ideally your site's repository, and a web fetch tool in the session so competitor pages can be read.
-- Node.js 18 or later, for every command that keeps files (`start`, `competitor-dive`, `keyword-gap`, `content-plan`, `weekly`, `report`, `next`, `schedule`, `citations`). Claude Code itself does not provide it: the native installer, Homebrew, WinGet and the Linux packages install a standalone `claude` binary, and even the npm package runs that binary rather than Node. Those commands check Node first and stop, with nothing written, when it is missing or older than 18. The read-only commands (`audit`, `brief`, `page-check`, `keywords`, `quick-wins`, `competitors`, `log-change`, `history`, `issues`, `sites`) do not need it.
+- Node.js 18 or later, for every command that keeps files (`start`, `profile`, `competitor-dive`, `keyword-gap`, `content-plan`, `weekly`, `report`, `next`, `schedule`, `citations`). Claude Code itself does not provide it: the native installer, Homebrew, WinGet and the Linux packages install a standalone `claude` binary, and even the npm package runs that binary rather than Node. Those commands check Node first and stop, with nothing written, when it is missing or older than 18. The read-only commands (`audit`, `brief`, `page-check`, `keywords`, `quick-wins`, `competitors`, `log-change`, `history`, `issues`, `sites`) do not need it.
 
 ## Install
 
@@ -41,6 +41,7 @@ Choose `plugin:seo-genius:seo-genius`, then Authenticate. Your browser opens the
 | `/seo-genius:log-change <what you changed>` | Records a change you shipped, with the reason, so SEO Genius can measure it on the next crawl. |
 | `/seo-genius:citations` | Checks your Google Business Profile, then what search results show of you on the US business directories in the Yext and BrightLocal networks, and if the name, address and phone shown match. Opens no directory page; every directory comes with a link to check it yourself. Asks before it spends: up to 80 paid searches, with SEO Genius quota reserved up front (268 units on the server's usual engine, 2,000 on its fallback) and the unused part handed back. Saves the report in `research/`. |
 | `/seo-genius:history <page>` | Readable reported changes to a page or site, with dates, before and after, reasons, actors, and an explicit coverage limit. |
+| `/seo-genius:profile` | Fills in your business profile and your local keyword goal for you. Finds the name, phone, locations, service area, services and hours on your own site, shows each one with the page it came from (or as missing), and saves to SEO Genius only after you confirm or edit them. No live calls. |
 | `/seo-genius:sites` | Every site in the workspace in one table, ordered by what needs attention first. |
 | `/seo-genius:issues <what to record or dismiss>` | Files a finding as an issue, corrects one, or dismisses a false positive, each after you confirm. |
 
@@ -110,7 +111,7 @@ Two ways to schedule:
 - Every number comes from a tool result. Missing data is reported as missing, never guessed.
 - Lists are capped and paginated; the reply says what was capped.
 - Before an edit, `brief` checks the page's history. A field changed very recently is frozen for a short period, and the check blocks. After that, until the earlier change has finished being measured, the check warns that another edit throws the measurement away. A value the field held before is flagged as a revert. `brief` only checks. It never edits a page.
-- Three skills write to SEO Genius, each only on a yes: `log-change` records a change you shipped, `issues` files, corrects, or dismisses an issue, and `report` records a change whose pull request was merged once the live page shows it. A scheduled run records merged changes only if you allowed that when you set the schedule, and three at most per run. Logging records that a change happened. It does not claim the change worked. `audit` and `start` can start a crawl, and only when you say yes.
+- Four skills write to SEO Genius, each only on a yes: `profile` saves the business profile and goal you confirmed, `log-change` records a change you shipped, `issues` files, corrects, or dismisses an issue, and `report` records a change whose pull request was merged once the live page shows it. A scheduled run records merged changes only if you allowed that when you set the schedule, and three at most per run. Logging records that a change happened. It does not claim the change worked. `audit` and `start` can start a crawl, and only when you say yes.
 
 ## Data and privacy
 
