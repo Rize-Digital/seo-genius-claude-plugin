@@ -139,16 +139,21 @@ test("report fails closed when the claim could not be made, and gives a claim ba
   has(section(md, "If something is missing"), "Never claim it was recorded. With a claim, give it back with `release_item` all the same.");
 });
 
-test("next on a queue site edits no existing page for a Create item, and lists skipped frozen and held fields under Needs a decision", () => {
+test("next on a queue site changes nothing on an existing page for a Create item, links or any other field, and lists skipped frozen and held fields under Needs a decision", () => {
   const md = skill("next");
   const six = step(md, 6);
-  has(six, "On a site that uses the work queue (`pick` answered `queue: \"on\"`), add none: this run claims no field for a Create item");
-  has(six, "List each link it would add (the page, the anchor text, and the target, with its step 5 check) under \"Needs a decision\" for a person to add.");
-  has(step(md, 4), "On a site that uses the queue, a Create item adds no link on an existing page (step 6).");
+  has(six, "On a site that uses the work queue (`pick` answered `queue: \"on\"`), add none and change no other field on an existing page: this run claims no field for a Create item");
+  has(six, "List each change it would make there (the page, the field, and the exact value; for a link, its anchor text, target, and step 5 check) under \"Needs a decision\" for a person to make.");
+  // The exact-value check is the only other place that lets a Create item change an existing
+  // page, and it applies to a site without the queue only.
+  const anyOther = six.indexOf("any other field it changes there");
+  assert.ok(anyOther > 0, "the exact-value check names the other fields");
+  assert.ok(six.lastIndexOf("on a site without the work queue, for a Create item each link it adds on an existing page", anyOther) > six.lastIndexOf("\n", anyOther), "a Create item's other fields are changed only on a site without the queue");
+  has(step(md, 4), "On a site that uses the queue, a Create item changes nothing on an existing page (step 6).");
   has(step(md, 4), "Pass it over with its `say` (who holds it, and until when), and list it under \"Needs a decision\".");
   has(step(md, 5), "(a frozen field, with its `unfreezes_on`, and a field someone else holds, with who and until when, go under \"Needs a decision\")");
   has(section(md, "Output"), "- Needs a decision, when anything went there: the frozen fields and the fields someone else holds that were passed over");
-  has(section(md, "Done when"), "A Create item added no link on an existing page; its links were listed under \"Needs a decision\".");
+  has(section(md, "Done when"), "A Create item changed nothing on an existing page; every change it would make there was listed under \"Needs a decision\".");
 });
 
 test("weekly shows the queue beside the plan and claims nothing", () => {
