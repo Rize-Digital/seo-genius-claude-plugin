@@ -14,10 +14,14 @@ get_my_tenant -> list_sites -> get_business_context -> ranked_keywords (location
 - [ ] Competitors listed from competitor_domains, not from memory or the business context alone.
 - [ ] Before the first live call the reply says what steps 4 to 6 spend and waits for a yes; without a yes no live call is made.
 - [ ] The reply says which calls spent quota.
-- [ ] A term with no SERP result is reported as not found in the top results, with the depth used.
+- [ ] Each named term's position is its place among the organic results in `results`, not `target_rank`.
+- [ ] A term where the site is not in `results` is reported as not in the organic results read, with the depth used.
+- [ ] A search that answers an empty `results` with no error is reported as a failed search, not as not found, and is not sent again in the run.
 
 ## Fail conditions
 - A position quoted without a location or timestamp.
 - More than five serp_rank_check calls.
 - Competitors named that do not appear in a tool result (business-context competitors may be shown, labeled as "from your business context").
 - A city or state passed to ranked_keywords or competitor_domains, or either called more than once.
+- `target_rank` (or a result's `rank`) reported as the organic position.
+- An empty `results` reported as "not in the organic results read", or the same term searched again in the run.

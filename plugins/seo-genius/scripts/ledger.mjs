@@ -143,6 +143,12 @@
 // file list from the server (last_run's file_hashes, on a rebuild) is read only
 // for names that are plain paths inside the site folder.
 //
+// NO CLAIM TOKEN AT REST. A claim token (claim_item, the work queue) is a lease
+// credential that lives only in the run that claimed. `save` refuses a draft that
+// holds one (token_at_rest, a uuid next to the words claim token), so a proposal or
+// a report can never keep it. `show` lists the open items' ids in plan.md's order
+// as plan_order, which queue.mjs picks from.
+//
 // SET-STATUS. A reason or until left out keeps the item's own when the status
 // stays the same (only the other one changes). When the status changes, the old
 // reason explained the old status, so a left-out one is cleared, as is the old
@@ -205,6 +211,8 @@ export const DRAFTS_DIR = ".drafts";
 const GITIGNORE_LINES = [`${LOCK_PREFIX}*`, `${TXN_DIR}/`, `${DRAFTS_DIR}/`, "*.tmp"];
 const PUSH_MAX_ITEMS = 100;
 const PUSH_MAX_RUNS = 20;
+/** A claim_item token where a file would keep it: a uuid next to the words claim token. */
+export const CLAIM_TOKEN_AT_REST = /claim[\s_-]?token\W{0,8}[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/i;
 
 export class LedgerError extends Error {
   constructor(code, message) {
@@ -1784,9 +1792,14 @@ function itemRow(it) {
   return `| ${it.id} | ${cell(it.action)} | ${cell(it.target_page)} | ${cell(it.change_kind)} | ${cell(it.keyword)} | ${cell(it.what_to_do ?? it.title)} | ${cell(it.status)}${it.until ? ` until ${it.until}` : ""} | ${cell(it.status_reason)} |`;
 }
 
+/** The open items in the order plan.md lists them: This month (the first five), then Later. */
+export function openInPlanOrder(ledger) {
+  return ledger.items.filter((it) => it.status === "open").sort((a, b) => a.order - b.order || idNumber(a.id) - idNumber(b.id));
+}
+
 export function renderPlan(ledger, today) {
   const head = "| Id | Action | Page | Field | Keyword | What to do | Status | Why |\n|---|---|---|---|---|---|---|---|";
-  const live = ledger.items.filter((it) => it.status === "open").sort((a, b) => a.order - b.order || idNumber(a.id) - idNumber(b.id));
+  const live = openInPlanOrder(ledger);
   const groups = [
     ["This month", live.slice(0, THIS_MONTH)],
     ["Later", live.slice(THIS_MONTH)],
@@ -1971,6 +1984,24 @@ export function nodeTooOld(version = process.versions.node) {
   return !(major >= NODE_MIN_MAJOR);
 }
 
+/**
+ * Shown by the skill, word for word, when `.seo-genius/` is first set up inside a site
+ * repository that does not ignore it: the folder holds the site's research, and a
+ * public repository publishes whatever is committed to it.
+ */
+export const PUBLIC_REPO_WARNING =
+  "`.seo-genius/` was just set up inside this git repository, and the repository does not ignore it. It will hold this site's SEO research: keywords, rankings, competitors, plans and reports. Do not commit it to a public repository. If this repository is public, or may become public, add `.seo-genius/` to its `.gitignore` before your next commit and keep the files on this machine.";
+
+/**
+ * True when the site repository ignores its `.seo-genius/` folder, by any of git's rules
+ * (its .gitignore files, .git/info/exclude, the user's global excludes). False when git
+ * cannot answer, so the warning is shown rather than left out.
+ */
+function repoIgnoresFolder(gitRoot, env) {
+  const r = spawnSync(gitBin(env), ["-C", gitRoot, "check-ignore", "-q", "--", ".seo-genius/"], { encoding: "utf8" });
+  return !r.error && r.status === 0;
+}
+
 /** The folder's .gitignore keeps the lock, the transactions and the drafts out of its history. */
 function ensureGitignore(dir) {
   const p = insidePath(dir, ".gitignore");
@@ -2043,6 +2074,10 @@ function saveWrites(dir, site, list) {
     const draft = insidePath(dir, `${DRAFTS_DIR}/${rel}`);
     if (!existsSync(draft)) throw new LedgerError("bad_input", `no draft for ${rel}: write it to ${draft} first, then run save`);
     const data = readFileSync(draft);
+    // A claim token is a lease credential for one run (claim_item); it is never kept.
+    if (CLAIM_TOKEN_AT_REST.test(data.toString("utf8"))) {
+      throw new LedgerError("token_at_rest", `${rel} holds a claim token (a uuid next to claim_token). A claim token lives only in the run that claimed; nothing was saved. Take it out and save again.`);
+    }
     if (rel.endsWith(".json")) {
       let parsed;
       try {
@@ -2259,6 +2294,8 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
         synced: sameState(it.synced, statusState(it)),
         ...(it.sync_error ? { sync_error: it.sync_error } : {}),
       })),
+      // The open items' ids in plan.md's order (This month, then Later), the order next picks from.
+      plan_order: openInPlanOrder(ledger).map((it) => it.id),
       runs: ledger.runs.length,
       items_not_synced: pending.items.length,
       runs_not_synced: pending.runs.length,
@@ -2279,10 +2316,13 @@ function runLocked(cmd, opts, { located, lock, today, env, drafts_dir }) {
     ...(recovered.length ? { recovered } : {}),
   };
   const setUp = () => {
+    // The folder's first set-up: the ledger's own .gitignore is not there yet.
+    const first = !existsSync(join(dir, ".gitignore"));
     gitReady = mode === "workspace" ? ensureWorkspaceGit(dir, env) : false;
     ensureGitignore(dir);
     mkdirSync(drafts_dir, { recursive: true });
     base.history = historyLabel(mode, gitReady);
+    if (first && mode === "repo" && !repoIgnoresFolder(located.git_root, env)) base.public_repo_warning = PUBLIC_REPO_WARNING;
   };
   if (cmd === "prepare") {
     for (const rel of [".gitignore", DRAFTS_DIR]) insidePath(dir, rel);
