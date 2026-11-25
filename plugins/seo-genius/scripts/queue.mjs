@@ -234,6 +234,14 @@ export function matchRecord({ queue, page_url, change_kind }) {
 const HOLD_REASONS = new Set(["held", "target_busy", "awaiting_page_check", "not_queued"]);
 /** The claim refusals after which a record logs nothing (log-change and report). */
 export const RECORD_HOLD_REASONS = [...HOLD_REASONS];
+/**
+ * The claim refusals that are a clean answer that nothing can be claimed, so a record
+ * goes on as before with no token: the site does not use the queue (switch_off), the
+ * item is no longer in the queue (not_found), or it names no page field (no_target).
+ * Every other answer, a failed call and a missing tool included, logs nothing: the
+ * server's own check fails open when it cannot read the queue, so the plugin fails closed.
+ */
+export const RECORD_PROCEED_REASONS = ["no_target", "not_found", "switch_off"];
 
 function refusalSay(a) {
   switch (a.reason) {
@@ -263,37 +271,52 @@ function bump(streak) {
 
 /**
  * A claim_item answer. `use: "work"` (next): a refusal passes the item over and
- * counts toward three in a row. `use: "record"` (report): a holder means log
- * nothing; a queue that cannot hold the field means log as before, with no token.
+ * counts toward three in a row. `use: "record"` (log-change, report): only a clean
+ * refusal on RECORD_PROCEED_REASONS logs as before, with no token; a holder, a failed
+ * call, a missing tool, or an answer this script does not know logs nothing. A claim
+ * is always given back (`release: true`), after the record or the work, an error included.
  * The answer is the tool's JSON without its claim_token, or { error } when the call
  * failed, or { tool_missing: true }.
  */
 export function readClaim({ answer, use, streak = 0 }) {
   if (use !== "work" && use !== "record") throw new QueueError("bad_input", 'claim needs use: "work" or "record"');
   if (!answer || typeof answer !== "object") throw new QueueError("bad_input", "claim needs the claim_item answer as answer");
+  const unconfirmed = "Nothing was recorded: SEO Genius could not confirm that nobody else holds this field. Record it again once a claim goes through.";
   if (answer.tool_missing === true) {
-    if (use === "record") return { outcome: "log", say: "claim_item is not in the tool list, so nothing was claimed; the server's own check still refuses a field someone else holds." };
+    if (use === "record") return { outcome: "hold", held_by: null, until: null, say: `claim_item is not in the tool list, so the field could not be claimed. ${unconfirmed} Reconnect with /mcp first.` };
     return { outcome: "stop", streak, stop: true, say: "The briefing has a work queue, but claim_item is not in the tool list, so no item can be claimed. Nothing was prepared. Reconnect with /mcp so the tool list is current, and run again." };
   }
   if (typeof answer.error === "string") {
-    if (use === "record") return { outcome: "log", say: `The claim could not be made (${answer.error}); the server's own check still refuses a field someone else holds.` };
+    if (use === "record") return { outcome: "hold", held_by: null, until: null, say: `The claim could not be made (${answer.error}). ${unconfirmed}` };
     return { outcome: "skip", ...bump(streak), say: `The claim could not be made (${answer.error}). The item is passed over.` };
   }
   if (answer.claimed === true) {
-    return { outcome: "claimed", item_id: answer.item_id ?? null, lease_expires_at: answer.lease_expires_at ?? null, streak };
+    const after = use === "record" ? "record with it" : "work with it";
+    return {
+      outcome: "claimed",
+      item_id: answer.item_id ?? null,
+      lease_expires_at: answer.lease_expires_at ?? null,
+      streak,
+      release: true,
+      say: `Claimed. Keep the token in this run only, ${after}, then give the item back with release_item, whatever happens: an error or a refusal on the way included.`,
+    };
   }
   const say = refusalSay(answer);
   const holder = { reason: answer.reason ?? null, held_by: answer.heldBy ?? null, until: answer.leaseExpiresAt ?? null };
-  if (answer.reason === "switch_off") {
+  if (answer.reason === "switch_off" && (use === "work" || answer.claimed === false)) {
     return { outcome: use === "record" ? "log" : "plain", ...holder, streak, say: `${say} The item goes on as before, with no claim.` };
   }
   if (use === "record") {
-    // Only an item that left the queue, or one with no page field, cannot hold the
-    // field: any other refusal, an unknown one included, means someone may hold it.
-    if (answer.reason !== "not_found" && answer.reason !== "no_target") {
+    // Only the server's clean refusal for an item that left the queue, or one with no
+    // page field, cannot hold the field. Any other answer, an unknown one included,
+    // means someone may hold it.
+    if (answer.claimed === false && RECORD_PROCEED_REASONS.includes(answer.reason)) {
+      return { outcome: "log", ...holder, say: `${say} It is recorded with no claim; the server's own check still refuses a field someone else holds.` };
+    }
+    if (HOLD_REASONS.has(answer.reason)) {
       return { outcome: "hold", ...holder, say: `${say} Nothing was recorded. The change has to be reconciled with whoever holds the field.` };
     }
-    return { outcome: "log", ...holder, say: `${say} It is recorded with no claim; the server's own check still refuses a field someone else holds.` };
+    return { outcome: "hold", ...holder, say: `${say} ${unconfirmed}` };
   }
   return { outcome: "skip", ...holder, ...bump(streak), say: `${say} The item is passed over.` };
 }

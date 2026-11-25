@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { RECORD_HOLD_REASONS } from "../../plugins/seo-genius/scripts/queue.mjs";
+import * as Q from "../../plugins/seo-genius/scripts/queue.mjs";
 
 const read = (rel) => readFileSync(fileURLToPath(new URL(`../../${rel}`, import.meta.url)), "utf8").replace(/\r\n/g, "\n");
 const skill = (name) => read(`plugins/seo-genius/skills/${name}/SKILL.md`);
@@ -62,7 +63,7 @@ test("the token rides on every check_change for the claimed field in next, and o
   const lc = skill("log-change");
   has(step(lc, 8), "   - `claim_token`: the token of the claim this run holds on this page and field, when Work queue says to record with one");
   has(step(lc, 6), "and `claim_token` when this session holds a claim on this page and field");
-  has(section(skill("report"), "Work queue"), "`claimed`: record with the token as `claim_token`, then give the item back with `release_item`.");
+  has(section(skill("report"), "Work queue"), "`claimed`: record with the token as `claim_token`, then give the item back with `release_item`, whatever `log_page_change` answered");
 });
 
 test("a lost lease stops next before any site file and any pull request", () => {
@@ -93,7 +94,7 @@ test("log-change on a held field records nothing and names the holder, for every
   assert.ok(refusals, "the hold refusals are listed");
   for (const reason of RECORD_HOLD_REASONS) has(refusals[1], `\`${reason}\``, `log-change does not hold on ${reason}`);
   has(refusals[1], "a reason not named here");
-  has(wq, "Refused with `not_found`, `no_target`, or `switch_off`, a failed call, or no `claim_item` in the tool list: record with no token, as before.");
+  has(wq, "SEO Genius answered that nothing can be claimed, so record with no token, as before.");
   has(wq, "there is no queue: make no claim call, send no `claim_token`, and record as before.");
   // The held check comes before the user is asked to confirm.
   has(wq, "Read the queue once, before step 6");
@@ -111,6 +112,43 @@ test("report records a merged change under the queue's rules, through the script
   has(wq, "`hold`: someone else holds the field (an open pull request included: `next` gives its claim back when it opens one, so a pull request that holds a field is never this pipeline's). Record nothing.");
   has(wq, "With null, make no claim call, send no `claim_token`, and record as before.");
   has(step(md, 2), "`change_index.pages`, and `queue` when the answer has one (Work queue)");
+});
+
+/** The clean "nothing to claim" refusals, as the skills name them: `a`, `b`, or `c`. */
+const proceedList = () => {
+  const names = Q.RECORD_PROCEED_REASONS.map((r) => `\`${r}\``);
+  return `${names.slice(0, -1).join(", ")}, or ${names.at(-1)}`;
+};
+
+test("log-change fails closed when the claim could not be made, and gives a claim back whatever the record answered", () => {
+  const md = skill("log-change");
+  const wq = section(md, "Work queue");
+  has(wq, `Refused (\`claimed: false\`) with ${proceedList()}: SEO Genius answered that nothing can be claimed, so record with no token, as before.`);
+  has(wq, "A failed call (a network error, a server error, a timeout), any other answer, or no `claim_item` in the tool list: record nothing, because SEO Genius could not confirm that nobody else holds the field, and put the change under \"Needs a decision\" (Output). Stop.");
+  has(wq, "then give the item back with `release_item`, whatever `log_page_change` answered: after an error or a `claimed_by_other` refusal too.");
+  has(section(md, "Output"), "When the claim could not be made (Work queue): \"Needs a decision: <change kind> on <URL> was not recorded.");
+  has(section(md, "If something is missing"), "Never claim success. With a claim, give it back with `release_item` all the same.");
+});
+
+test("report fails closed when the claim could not be made, and gives a claim back whatever the record answered", () => {
+  const md = skill("report");
+  const wq = section(md, "Work queue");
+  has(wq, "then give the item back with `release_item`, whatever `log_page_change` answered: after an error or a `claimed_by_other` refusal too.");
+  has(wq, `\`log\` (SEO Genius answered that nothing can be claimed: ${proceedList()}): record with no token.`);
+  has(wq, "A failed claim call, a missing `claim_item`, or an answer the script does not know is `hold` too: SEO Genius could not confirm that nobody else holds the field.");
+  has(section(md, "If something is missing"), "Never claim it was recorded. With a claim, give it back with `release_item` all the same.");
+});
+
+test("next on a queue site edits no existing page for a Create item, and lists skipped frozen and held fields under Needs a decision", () => {
+  const md = skill("next");
+  const six = step(md, 6);
+  has(six, "On a site that uses the work queue (`pick` answered `queue: \"on\"`), add none: this run claims no field for a Create item");
+  has(six, "List each link it would add (the page, the anchor text, and the target, with its step 5 check) under \"Needs a decision\" for a person to add.");
+  has(step(md, 4), "On a site that uses the queue, a Create item adds no link on an existing page (step 6).");
+  has(step(md, 4), "Pass it over with its `say` (who holds it, and until when), and list it under \"Needs a decision\".");
+  has(step(md, 5), "(a frozen field, with its `unfreezes_on`, and a field someone else holds, with who and until when, go under \"Needs a decision\")");
+  has(section(md, "Output"), "- Needs a decision, when anything went there: the frozen fields and the fields someone else holds that were passed over");
+  has(section(md, "Done when"), "A Create item added no link on an existing page; its links were listed under \"Needs a decision\".");
 });
 
 test("weekly shows the queue beside the plan and claims nothing", () => {

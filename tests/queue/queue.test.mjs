@@ -23,6 +23,7 @@ import {
   STREAK_LIMIT,
   TOKEN_NEAR_UUID,
 } from "../../plugins/seo-genius/scripts/queue.mjs";
+import * as Q from "../../plugins/seo-genius/scripts/queue.mjs";
 
 const QUEUE = fileURLToPath(new URL("../../plugins/seo-genius/scripts/queue.mjs", import.meta.url));
 const fixture = (name) => JSON.parse(readFileSync(fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url)), "utf8"));
@@ -270,7 +271,7 @@ test("a record on a held field logs nothing and says who holds it", () => {
   }
   assert.equal(readClaim({ answer: refused("some_new_reason"), use: "record" }).outcome, "hold", "an unknown refusal holds");
   for (const reason of ["not_found", "no_target", "switch_off"]) assert.equal(readClaim({ answer: refused(reason), use: "record" }).outcome, "log", reason);
-  assert.equal(readClaim({ answer: { tool_missing: true }, use: "record" }).outcome, "log");
+  assert.equal(readClaim({ answer: { tool_missing: true }, use: "record" }).outcome, "hold", "no claim_item: nothing confirms the field is free");
 
   const held = matchRecord({ queue: WITH.queue, page_url: "https://example.net/services/vinyl-fencing", change_kind: "title" });
   assert.equal(held.action, "hold");
@@ -327,6 +328,112 @@ function fakeServer(claimed = { page: "https://example.net/", field: "h1", item:
     },
   };
 }
+
+/**
+ * One record of a merged change (report), as the skill says, by the script's answers:
+ * match, then claim_item, then log_page_change with or without the token, then
+ * release_item whenever the claim answer says to give it back. `claimAnswer` stands in
+ * for claim_item's answer (an error, a missing tool, a refusal); `logAnswer` for
+ * log_page_change's. A server whose claim gate refuses nothing is the case the plugin
+ * guards against: the gate fails open when it cannot read the queue.
+ */
+function recordWithClaim(server, { page_url = "https://example.net/", change_kind = "h1", claimAnswer = null, logAnswer = null } = {}) {
+  const m = matchRecord({ queue: WITH.queue, page_url, change_kind });
+  let token = null;
+  let c = { outcome: m.action };
+  if (m.action === "claim") {
+    let got;
+    if (claimAnswer) {
+      if (claimAnswer.tool_missing !== true) server.calls.push(["claim_item", { item_id: m.item_id }]);
+      got = claimAnswer;
+    } else {
+      got = server.claim(m.item_id);
+    }
+    const { claim_token, ...answer } = got;
+    token = claim_token ?? null;
+    c = readClaim({ answer, use: "record" });
+  }
+  let logged = null;
+  if (c.outcome === "claimed" || c.outcome === "log") {
+    const args = { page_url, change_kind, new_value: "Fence Company in Springfield, IL", ...(c.outcome === "claimed" ? { claim_token: token } : {}) };
+    if (logAnswer) {
+      server.calls.push(["log_page_change", args]);
+      logged = logAnswer;
+    } else {
+      logged = server.log(args);
+    }
+  }
+  if (c.release === true) server.release({ item_id: m.item_id, claim_token: token });
+  return { outcome: c.outcome, say: c.say, logged, calls: server.calls.map(([n]) => n) };
+}
+
+/** A server whose claim gate refuses nothing: it holds no claim on the field recorded. */
+const openGate = () => fakeServer({ page: "https://example.net/elsewhere", field: "title", item: ITEM(103) });
+
+test("record: a claim that fails records nothing (fail closed)", () => {
+  const failures = [
+    { error: "fetch failed" },
+    { error: "The work queue is not set up on this server yet. Nothing was claimed or released. (code: index_not_ready)" },
+    { error: "An unexpected error occurred (code: internal_error)" },
+    { error: "The request timed out" },
+    { tool_missing: true },
+    { claimed: false },
+    { claimed: false, reason: "some_new_reason" },
+    { reason: "switch_off" },
+    { reason: "not_found" },
+    { status: "queued" },
+  ];
+  for (const answer of failures) {
+    const r = readClaim({ answer, use: "record" });
+    assert.equal(r.outcome, "hold", JSON.stringify(answer));
+    assert.match(r.say, /Nothing was recorded/, JSON.stringify(answer));
+  }
+  // A whole record against a server that would take it: nothing goes in, nothing to give back.
+  for (const claimAnswer of [{ error: "fetch failed" }, { error: "The request timed out" }, { tool_missing: true }, { claimed: false }]) {
+    const r = recordWithClaim(openGate(), { claimAnswer });
+    assert.equal(r.outcome, "hold", JSON.stringify(claimAnswer));
+    assert.ok(!r.calls.includes("log_page_change"), `no record after ${JSON.stringify(claimAnswer)}`);
+    assert.ok(!r.calls.includes("release_item"), "nothing was claimed, so nothing is given back");
+  }
+});
+
+test("record: a clean answer that nothing can be claimed records as before, with no token", () => {
+  // The server's claim_item refusals that mean no queue item can hold the field
+  // (seo-genius-workflows src/lib/sync-core/claims.ts, Refusal): the site does not use
+  // the queue, the item left the queue, or it names no page field.
+  assert.deepEqual(Q.RECORD_PROCEED_REASONS, ["no_target", "not_found", "switch_off"]);
+  for (const reason of Q.RECORD_PROCEED_REASONS) {
+    assert.equal(readClaim({ answer: refused(reason), use: "record" }).outcome, "log", reason);
+    assert.ok(!RECORD_HOLD_REASONS.includes(reason), reason);
+    const server = openGate();
+    const r = recordWithClaim(server, { claimAnswer: refused(reason) });
+    assert.deepEqual(r.calls, ["claim_item", "log_page_change"], reason);
+    assert.equal(server.calls[1][1].claim_token, undefined, "recorded with no token");
+    assert.equal(r.logged.id, U(500));
+  }
+  // No queue item on the field, or no queue at all: recorded as before, with no claim call.
+  assert.equal(matchRecord({ queue: WITH.queue, page_url: "https://example.net/about", change_kind: "schema" }).action, "log");
+  assert.equal(matchRecord({ queue: null, page_url: "https://example.net/", change_kind: "h1" }).action, "log");
+});
+
+test("record: a claimed item is given back after the record, when the record fails too", () => {
+  const c = readClaim({ answer: { claimed: true, item_id: ITEM(103), lease_expires_at: "2026-11-14T11:00:00.000Z" }, use: "record" });
+  assert.equal(c.release, true);
+  assert.match(c.say, /release_item, whatever happens/);
+  for (const logAnswer of [
+    { error: "An unexpected error occurred (code: internal_error)" },
+    { error: "Not recorded. h1 on this page is held by another agent. (code: claimed_by_other)" },
+    { id: U(500) },
+  ]) {
+    const server = fakeServer();
+    const r = recordWithClaim(server, { logAnswer });
+    assert.equal(r.outcome, "claimed");
+    assert.deepEqual(r.calls, ["claim_item", "log_page_change", "release_item"], JSON.stringify(logAnswer));
+    assert.equal(server.calls[2][1].claim_token, TOKEN, "given back with the run's own token");
+  }
+  // next too: a claim made for work is always given back.
+  assert.equal(readClaim({ answer: { claimed: true, item_id: ITEM(103) }, use: "work" }).release, true);
+});
 
 /** next with a claim: steps 5 to 7, as the skill says. Returns what it did. */
 function nextWithClaim(server, { sendToken = true, expireBeforePr = false } = {}) {

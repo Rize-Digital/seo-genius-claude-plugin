@@ -37,8 +37,8 @@ On a site that uses the SEO Genius work queue, Coach, agents, and people each ta
 - Read the queue once, before step 6: `get_site_briefing` with `max_bytes: 2000` and `change_index: "none"`, keeping only its `queue`. When the answer has no `queue` (a site that does not use the queue, or an older server), the call fails, or the tool is not in the tool list, there is no queue: make no claim call, send no `claim_token`, and record as before.
 - The field's item is the queue item whose `page_url` is this page (compared as a path, without host, query, or trailing slash) and whose `field` is the change kind; a `content_depth` or `readability` change also matches an item on `content`. It is free when its `status` is `queued`, or `claimed` with no `held_by`.
 - Held by someone else (step 6's `queue_lock.state` is `held`, its verdict carries `claimed_by_other`, or the field's item is not free): record nothing. Tell the user who holds the field (`held_by`: Coach, another agent, a person in the dashboard, an open pull request, a change waiting for its live-page check, or a worker that stopped mid-way) and until when (`lease_expires_at`), and that their change has to be reconciled with the holder before it is recorded. Stop.
-- Held by this session (`queue_lock.state` is `yours`, from the token step 6 sent): record with that token, then give the item back with `release_item`.
-- A free item: after the yes of step 7, `claim_item` with its `item_id`. Claimed: record with its token, mark the issue fixed if step 9 confirms it, then give the item back with `release_item`. Refused with `held`, `target_busy`, `awaiting_page_check`, `not_queued`, or a reason not named here: record nothing, as above, naming the holder from `heldBy` and `leaseExpiresAt` when the answer gives them. Refused with `not_found`, `no_target`, or `switch_off`, a failed call, or no `claim_item` in the tool list: record with no token, as before.
+- Held by this session (`queue_lock.state` is `yours`, from the token step 6 sent): record with that token, then give the item back with `release_item`, whatever `log_page_change` answered.
+- A free item: after the yes of step 7, `claim_item` with its `item_id`. Claimed (`claimed: true`): record with its token, mark the issue fixed if step 9 confirms it, then give the item back with `release_item`, whatever `log_page_change` answered: after an error or a `claimed_by_other` refusal too. Refused with `held`, `target_busy`, `awaiting_page_check`, `not_queued`, or a reason not named here: record nothing, as above, naming the holder from `heldBy` and `leaseExpiresAt` when the answer gives them. Refused (`claimed: false`) with `no_target`, `not_found`, or `switch_off`: SEO Genius answered that nothing can be claimed, so record with no token, as before. A failed call (a network error, a server error, a timeout), any other answer, or no `claim_item` in the tool list: record nothing, because SEO Genius could not confirm that nobody else holds the field, and put the change under "Needs a decision" (Output). Stop.
 - No item listed for the field: record with no token, as before. The server's own check still refuses a field someone else holds.
 - `log_page_change` refused with `claimed_by_other`: nothing was recorded. Repeat its message, which names the holder and until when. When this run sent a token, its claim had run out: say so.
 - The claim token lives only in this run. Never write it to a file, never put it in `reason` or `source_ref`, and never show it in the reply.
@@ -78,12 +78,14 @@ On a site that uses the SEO Genius work queue, Coach, agents, and people each ta
 
 On a field someone else holds in the work queue: "Not recorded: <change kind> on <URL> is held by <holder> until <date>. Reconcile your change with them first, then record it." Then the closing line per rule 9.
 
+When the claim could not be made (Work queue): "Needs a decision: <change kind> on <URL> was not recorded. The claim failed (<the error>), so SEO Genius could not confirm that nobody else holds the field. Record it again once a claim goes through, or reconcile it with the site's operator." Then the closing line per rule 9.
+
 ## If something is missing
 
 - Tools not available: run `/mcp`, choose `plugin:seo-genius:seo-genius`, authorize in the browser.
 - 403 with "MCP scope required" or `feature_locked`: connecting Claude needs Pro or above.
 - 403 on the write itself: the account's role cannot write. Return the entry as text.
-- The write returns an error: say "this did not save" and repeat the error text. Never claim success.
+- The write returns an error: say "this did not save" and repeat the error text. Never claim success. With a claim, give it back with `release_item` all the same.
 - No finished crawl: say a crawl is needed before a change can be logged against it.
 - Rate limited (429): stop, say so, suggest retrying in a minute.
 
@@ -96,5 +98,5 @@ On a field someone else holds in the work queue: "Not recorded: <change kind> on
 - `log_page_change` went in with `page_id`, `crawl_id`, `change_kind`, and `reason`, plus `old_value` and `new_value` for a field edit or `added_links` for internal links. No `changes_made`.
 - The reply separates logged from measured.
 - No write happened on a read-only account.
-- On a site that uses the work queue, nothing was recorded on a field someone else holds, and the reply named the holder and until when. A claim this run made was given back. With no queue, no claim call was made.
+- On a site that uses the work queue, nothing was recorded on a field someone else holds, and the reply named the holder and until when. A claim this run made was given back, after a failed or refused record too. A failed claim call, or an answer that was not a clean refusal, recorded nothing. With no queue, no claim call was made.
 - No claim token was written to a file or shown in the reply.
